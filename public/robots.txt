@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://topaquete.com/sitemap.xml

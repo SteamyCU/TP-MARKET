@@ -1,0 +1,15 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-tp-blue: #00314F;
+  --color-tp-red: #EE293B;
+  --color-tp-blue-light: #E8F1F8;
+  --color-tp-gray-soft: #D6E2EC;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  @apply bg-gray-50 text-tp-blue font-sans antialiased;
+}

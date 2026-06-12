@@ -1,0 +1,390 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: uid
+    // Fields:
+    //   - email: string (required)
+    //   - name: string (optional)
+    //   - role: string (required, 'admin', 'agente', or 'cliente')
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (optional)
+    //   - telefono: string (optional)
+    //   - direccion: string (optional)
+    //   - dni: string (optional)
+    //   - oficina: string (optional)
+    //
+    // Collection: pagos
+    // Document ID: auto-generated
+    // Fields:
+    //   - paqueteId: string (required)
+    //   - monto: number (required)
+    //   - metodo: string (required)
+    //   - fecha: timestamp (required)
+    //   - agenteId: string (required)
+    //
+    // Collection: paquetes
+    // Document ID: auto-generated
+    // Fields:
+    //   - tracking: string (required)
+    //   - clienteNombre: string (optional)
+    //   - clienteTelefono: string (optional)
+    //   - peso: number (required)
+    //   - origen: string (required)
+    //   - destino: string (required)
+    //   - contenido: string (optional)
+    //   - estado: string (required)
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp (required)
+    //   - operadorId: string (optional)
+    //   - clienteId: string (optional)
+    //
+    // Collection: eventos
+    // Document ID: auto-generated
+    // Fields:
+    //   - paqueteId: string (required)
+    //   - estado: string (required)
+    //   - notas: string (optional)
+    //   - timestamp: timestamp (required)
+    //   - operadorId: string (optional)
+    //
+    // Collection: clientes
+    // Document ID: auto-generated
+    // Fields:
+    //   - nombre: string (required)
+    //   - telefono: string (required)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // Collection: b2b_invoices
+    // Document ID: auto-generated
+    // Fields:
+    //   - partnerId: string (required)
+    //   - monto: number (required)
+    //   - estado: string (required)
+    //   - fechaEmision: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : { "role": "none" };
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        (getUserData().role == 'admin') ||
+        (request.auth.token.email == "gaosvbc@gmail.com")
+      );
+    }
+
+    function isAgente() {
+      return isAuthenticated() && (
+        (request.auth.token.email in ["gaosvbc@gmail.com", "wondercuban@gmail.com"]) ||
+        (getUserData().role in ['admin', 'agente', 'partner'])
+      );
+    }
+
+    function isCliente() {
+      return isAuthenticated() && (
+        (request.auth.token.email in ["gaosvbc@gmail.com", "topaquete01@gmail.com", "wondercuban@gmail.com", "mpsteamy@gmail.com", "raulenamorado91@gmail.com"]) ||
+        (getUserData().role in ['admin', 'agente', 'partner', 'influencer', 'cliente'])
+      );
+    }
+
+    function isInfluencer() {
+      return isAuthenticated() && (
+        getUserData().role == 'influencer' ||
+        request.auth.token.email == "raulenamorado91@gmail.com"
+      );
+    }
+
+    function isPartner() {
+      return isAuthenticated() && (
+        getUserData().role == 'partner' ||
+        request.auth.token.email == "topaquete01@gmail.com"
+      );
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['email', 'name', 'role', 'createdAt', 'updatedAt', 'telefono', 'direccion', 'dni', 'oficina', 'socialHandle', 'businessName', 'precioPorKilo', 'notas', 'balance', 'tipoColaborador', 'codigoReferido', 'tasaComision', 'balanceComisiones', 'apiKey', 'tier', 'capacityPackages', 'contractUrl', 'payoutMethod', 'payoutDetails', 'tipoInfluencer', 'redesSociales', 'metodoCobro', 'datosCobro', 'status', 'referidoPor']) &&
+             hasRequiredFields(['email', 'role']) &&
+             data.email is string &&
+             data.role in ['admin', 'agente', 'influencer', 'partner', 'cliente'] &&
+             (!('status' in data) || (data.status is string && data.status in ['active', 'suspended'])) &&
+             (!('telefono' in data) || (data.telefono is string && data.telefono.size() <= 50)) &&
+             (!('direccion' in data) || (data.direccion is string && data.direccion.size() <= 200)) &&
+             (!('dni' in data) || (data.dni is string && data.dni.size() <= 20)) &&
+             (!('oficina' in data) || (data.oficina is string && data.oficina.size() <= 100)) &&
+             (!('socialHandle' in data) || (data.socialHandle is string && data.socialHandle.size() <= 100)) &&
+             (!('businessName' in data) || (data.businessName is string && data.businessName.size() <= 100)) &&
+             (!('precioPorKilo' in data) || (data.precioPorKilo is number)) &&
+             (!('notas' in data) || (data.notas is string)) &&
+             (!('balance' in data) || (data.balance is number)) &&
+             (!('tipoColaborador' in data) || (data.tipoColaborador is string && data.tipoColaborador in ['agente_freelance', 'influencer', 'empresa_b2b', 'punto_pack', 'none'])) &&
+             (!('codigoReferido' in data) || (data.codigoReferido is string)) &&
+             (!('tasaComision' in data) || (data.tasaComision is number)) &&
+             (!('balanceComisiones' in data) || (data.balanceComisiones is number)) &&
+             (!('apiKey' in data) || (data.apiKey is string)) &&
+             (!('tier' in data) || (data.tier is string)) &&
+             (!('capacityPackages' in data) || (data.capacityPackages is number)) &&
+             (!('contractUrl' in data) || (data.contractUrl is string)) &&
+             (!('payoutMethod' in data) || (data.payoutMethod is string)) &&
+             (!('payoutDetails' in data) || (data.payoutDetails is string)) &&
+             (!('tipoInfluencer' in data) || (data.tipoInfluencer is string)) &&
+             (!('redesSociales' in data) || (data.redesSociales is string)) &&
+             (!('metodoCobro' in data) || (data.metodoCobro is string)) &&
+             (!('datosCobro' in data) || (data.datosCobro is string)) &&
+             (!('referidoPor' in data) || (data.referidoPor is string));
+    }
+
+    function isValidPaquete(data) {
+      return hasOnlyAllowedFields(['tracking', 'clienteNombre', 'clienteTelefono', 'peso', 'origen', 'destino', 'contenido', 'estado', 'createdAt', 'updatedAt', 'operadorId', 'clienteId', 'destinatarioId', 'destinatarioNombre', 'referidoPor', 'montoComision', 'partnerId', 'precioAplicado', 'esB2B']) &&
+             hasRequiredFields(['tracking', 'peso', 'origen', 'destino', 'estado', 'createdAt', 'updatedAt']) &&
+             data.tracking is string && data.tracking.size() > 0 && data.tracking.size() <= 50 &&
+             data.peso is number && data.peso >= 0 &&
+             data.origen is string && data.origen.size() > 0 && data.origen.size() <= 100 &&
+             data.destino is string && data.destino.size() > 0 && data.destino.size() <= 100 &&
+             data.estado in ['Recepción', 'Validación', 'Consolidado', 'Despacho', 'Incidencia', 'Entregado', 'Pendiente', 'En Punto Pack'] &&
+             (!('clienteNombre' in data) || (data.clienteNombre is string && data.clienteNombre.size() <= 100)) &&
+             (!('clienteTelefono' in data) || (data.clienteTelefono is string && data.clienteTelefono.size() <= 50)) &&
+             (!('contenido' in data) || (data.contenido is string && data.contenido.size() <= 1000)) &&
+             (!('operadorId' in data) || (data.operadorId is string && data.operadorId.size() <= 100)) &&
+             (!('clienteId' in data) || (data.clienteId is string && data.clienteId.size() <= 100)) &&
+             (!('destinatarioId' in data) || (data.destinatarioId is string && data.destinatarioId.size() <= 100)) &&
+             (!('destinatarioNombre' in data) || (data.destinatarioNombre is string && data.destinatarioNombre.size() <= 100)) &&
+             (!('referidoPor' in data) || (data.referidoPor is string)) &&
+             (!('montoComision' in data) || (data.montoComision is number)) &&
+             (!('partnerId' in data) || (data.partnerId is string)) &&
+             (!('precioAplicado' in data) || (data.precioAplicado is number)) &&
+             (!('esB2B' in data) || (data.esB2B is bool));
+    }
+
+    function isValidNoticia(data) {
+      return hasOnlyAllowedFields(['titulo', 'contenido', 'imagenUrl', 'fuente', 'fuenteUrl', 'categoria', 'createdAt']) &&
+             hasRequiredFields(['titulo', 'contenido', 'createdAt']) &&
+             data.titulo is string && data.titulo.size() > 0 &&
+             data.contenido is string && data.contenido.size() > 0;
+    }
+
+    function isValidPago(data) {
+      return hasOnlyAllowedFields(['paqueteId', 'monto', 'metodo', 'fecha', 'agenteId', 'estado', 'confirmadoPor', 'fechaConfirmacion']) &&
+             hasRequiredFields(['paqueteId', 'monto', 'metodo', 'fecha', 'agenteId']) &&
+             data.paqueteId is string &&
+             data.monto is number &&
+             data.metodo in ['Efectivo', 'Transferencia', 'Tarjeta'] &&
+             data.agenteId is string &&
+             (!('estado' in data) || (data.estado is string && data.estado in ['Pagado', 'Pendiente', 'Confirmado']));
+    }
+
+    function isValidEvento(data) {
+      return hasOnlyAllowedFields(['paqueteId', 'estado', 'notas', 'timestamp', 'operadorId']) &&
+             hasRequiredFields(['paqueteId', 'estado', 'timestamp']) &&
+             data.paqueteId is string && data.paqueteId.size() > 0 && data.paqueteId.size() <= 100 &&
+             data.estado is string && data.estado.size() > 0 && data.estado.size() <= 50 &&
+             (!('notas' in data) || (data.notas is string && data.notas.size() <= 1000)) &&
+             (!('operadorId' in data) || (data.operadorId is string && data.operadorId.size() <= 100));
+    }
+
+    function isValidCliente(data) {
+      return hasOnlyAllowedFields(['nombre', 'documentoIdentidad', 'telefonoEspana', 'email', 'codigoPostal', 'localidad', 'direccion', 'agenteId', 'createdAt', 'updatedAt']) &&
+             hasRequiredFields(['nombre', 'documentoIdentidad', 'email', 'direccion', 'createdAt']) &&
+             data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 100 &&
+             data.documentoIdentidad is string && data.documentoIdentidad.size() > 0 && data.documentoIdentidad.size() <= 50 &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 100 &&
+             data.direccion is string && data.direccion.size() > 0 && data.direccion.size() <= 200 &&
+             (!('telefonoEspana' in data) || (data.telefonoEspana is string && data.telefonoEspana.size() <= 50)) &&
+             (!('codigoPostal' in data) || (data.codigoPostal is string && data.codigoPostal.size() <= 20)) &&
+             (!('localidad' in data) || (data.localidad is string && data.localidad.size() <= 100)) &&
+             (!('agenteId' in data) || (data.agenteId is string && data.agenteId.size() <= 100));
+    }
+
+    function isValidDestinatario(data) {
+      return hasOnlyAllowedFields(['clienteId', 'nombre', 'carnetPasaporte', 'telefonoCuba', 'email', 'direccion', 'provincia', 'municipio', 'codigoPostal', 'createdAt']) &&
+             hasRequiredFields(['clienteId', 'nombre', 'carnetPasaporte', 'telefonoCuba', 'direccion', 'provincia', 'municipio', 'createdAt']) &&
+             data.clienteId is string && data.clienteId.size() > 0 && data.clienteId.size() <= 100 &&
+             data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 100 &&
+             data.carnetPasaporte is string && data.carnetPasaporte.size() > 0 && data.carnetPasaporte.size() <= 50 &&
+             data.telefonoCuba is string && data.telefonoCuba.size() > 0 && data.telefonoCuba.size() <= 50 &&
+             data.direccion is string && data.direccion.size() > 0 && data.direccion.size() <= 200 &&
+             data.provincia is string && data.provincia.size() > 0 && data.provincia.size() <= 100 &&
+             data.municipio is string && data.municipio.size() > 0 && data.municipio.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 100)) &&
+             (!('codigoPostal' in data) || (data.codigoPostal is string && data.codigoPostal.size() <= 20));
+    }
+
+    function isValidInvoice(data) {
+      return hasOnlyAllowedFields(['partnerId', 'partnerName', 'month', 'items', 'totalPeso', 'totalAmount', 'status', 'createdAt', 'updatedAt', 'pdfUrl']) &&
+             hasRequiredFields(['partnerId', 'month', 'items', 'totalAmount', 'status', 'createdAt']) &&
+             data.partnerId is string &&
+             data.month is string &&
+             data.items is list &&
+             data.totalAmount is number &&
+             data.status in ['pending', 'paid', 'overdue'];
+    }
+
+    function isValidReferral(data) {
+      return hasOnlyAllowedFields(['influencerId', 'visitorId', 'source', 'converted', 'convertedUserId', 'timestamp']) &&
+             hasRequiredFields(['influencerId', 'timestamp']) &&
+             data.influencerId is string &&
+             data.timestamp is timestamp;
+    }
+
+    function isValidSolicitudAfiliado(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'role', 'nombre', 'telefono', 'ciudad', 'zonaCobertura', 'experiencia', 'redesSociales', 'seguidores', 'enfoqueComunidad', 'referidor', 'status', 'createdAt', 'updatedAt']) &&
+             hasRequiredFields(['uid', 'email', 'role', 'nombre', 'telefono', 'status', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.email is string &&
+             data.role in ['agente', 'influencer'] &&
+             data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 100 &&
+             data.telefono is string && data.telefono.size() > 0 && data.telefono.size() <= 50 &&
+             data.status in ['pendiente', 'aprobado', 'rechazado'] &&
+             (!('ciudad' in data) || (data.ciudad is string && data.ciudad.size() <= 100)) &&
+             (!('zonaCobertura' in data) || (data.zonaCobertura is string && data.zonaCobertura.size() <= 200)) &&
+             (!('experiencia' in data) || (data.experiencia is string && data.experiencia.size() <= 1000)) &&
+             (!('redesSociales' in data) || (data.redesSociales is string && data.redesSociales.size() <= 500)) &&
+             (!('seguidores' in data) || (data.seguidores is string && data.seguidores.size() <= 50)) &&
+             (!('enfoqueComunidad' in data) || (data.enfoqueComunidad is string && data.enfoqueComunidad.size() <= 500)) &&
+             (!('referidor' in data) || (data.referidor is string && data.referidor.size() <= 100));
+    }
+
+    function isValidSetting(data) {
+      return true; // Settings can have various structures depending on the setting document
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (
+        (request.auth.uid == userId && request.resource.data.role in ['cliente', 'influencer', 'partner']) || 
+        (request.auth.uid == userId && request.resource.data.role == 'agente' && isAgente()) ||
+        isAdmin()
+      );
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && areImmutableFieldsUnchanged(['createdAt']) && (
+        isAdmin() || 
+        (request.auth.uid == userId && (
+          request.resource.data.role == resource.data.role ||
+          request.auth.token.email in ["gaosvbc@gmail.com", "topaquete01@gmail.com", "wondercuban@gmail.com", "mpsteamy@gmail.com", "raulenamorado91@gmail.com"]
+        ))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /paquetes/{paqueteId} {
+      allow read: if isAuthenticated() && (
+        isAgente() ||
+        isInfluencer() ||
+        isPartner() ||
+        isCliente() ||
+        (resource != null && (resource.data.clienteId == request.auth.uid || resource.data.referidoPor == request.auth.uid || resource.data.partnerId == request.auth.uid))
+      );
+      allow create: if isAgente() && isValidPaquete(request.resource.data);
+      allow update: if isAgente() && isValidPaquete(request.resource.data) && areImmutableFieldsUnchanged(['tracking', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    match /pagos/{pagoId} {
+      allow read: if isAgente();
+      allow create: if isAgente() && isValidPago(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /eventos/{eventoId} {
+      allow read: if isCliente() || isAgente();
+      allow create: if isAgente() && isValidEvento(request.resource.data);
+      allow update: if isAdmin() && isValidEvento(request.resource.data) && areImmutableFieldsUnchanged(['paqueteId', 'timestamp']);
+      allow delete: if isAdmin();
+    }
+
+    match /clientes/{clienteId} {
+      allow read: if isAgente() || isCliente();
+      allow create: if isAgente() || (isCliente() && isValidCliente(request.resource.data));
+      allow update: if isAgente() || (isCliente() && isValidCliente(request.resource.data) && areImmutableFieldsUnchanged(['createdAt']));
+      allow delete: if isAdmin();
+    }
+
+    match /destinatarios/{destinatarioId} {
+      allow read: if isAgente() || isCliente();
+      allow create: if isAgente() || (isCliente() && isValidDestinatario(request.resource.data));
+      allow update: if isAgente() || (isCliente() && isValidDestinatario(request.resource.data) && areImmutableFieldsUnchanged(['createdAt', 'clienteId']));
+      allow delete: if isAgente() || isCliente();
+    }
+
+    match /b2b_invoices/{invoiceId} {
+      allow read: if isAgente() || (isAuthenticated() && resource.data.partnerId == request.auth.uid);
+      allow create: if isAdmin() && isValidInvoice(request.resource.data);
+      allow update: if isAdmin() && isValidInvoice(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && isValidSetting(request.resource.data);
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isAgente() || isInfluencer();
+      allow create: if true; // Publicly accessible for tracking
+      allow update, delete: if isAdmin();
+    }
+
+    match /ofertas/{ofertaId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() || isAgente();
+    }
+
+    match /salidas/{salidaId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin() || isAgente();
+    }
+
+    match /noticias/{noticiaId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidNoticia(request.resource.data);
+      allow update: if isAdmin() && isValidNoticia(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /solicitudesAfiliado/{solicitudId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+      allow create: if isAuthenticated() && isValidSolicitudAfiliado(request.resource.data) && request.resource.data.uid == request.auth.uid && request.resource.data.status == 'pendiente';
+      allow update: if isAdmin() && isValidSolicitudAfiliado(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
