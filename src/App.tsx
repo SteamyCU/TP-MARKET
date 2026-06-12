@@ -35,9 +35,9 @@ import { ComisionesAgente } from './pages/ComisionesAgente';
 import { ProgramaAfiliados } from './pages/ProgramaAfiliados';
 import { Unirse } from './pages/Unirse';
 import { ScrollToTop } from './components/ScrollToTop';
-import { loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './firebase';
+import { db, auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './firebase';
 import { cn } from './lib/utils';
-import { AlertCircle, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight } from 'lucide-react';
 
 function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
   const { profile, updateProfile } = useAuth();
@@ -124,7 +124,7 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
 
       // If there's a valid referral, update influencer stats
       if (referralInfo.valid && formData.referido_por) {
-        const { collection, query, where, getDocs, doc, updateDoc, increment, addDoc } = await import('firebase/firestore');
+        const { collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } = await import('firebase/firestore');
         const influencersRef = collection(db, 'influencers');
         const q = query(influencersRef, where('codigo', '==', formData.referido_por));
         const querySnapshot = await getDocs(q);

@@ -1,118 +1,93 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, FileText, Scale, Printer, Search, Plus, AlertCircle, Wallet, CheckCircle2, X, Upload, Trash2, UserPlus, Package } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import {
+  Camera, FileText, Scale, Printer, Plus, AlertCircle, Wallet, CheckCircle2, X,
+  Upload, Trash2, UserPlus, Package, Users, Search, MapPin, Calculator, Truck, ClipboardList
+} from 'lucide-react';
 import { ChipEstado } from '../components/ChipEstado';
+import { ClienteFormModal } from '../components/ClienteFormModal';
+import { DestinatarioFormModal } from '../components/DestinatarioFormModal';
+import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
 import { useAuth } from '../AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { cn } from '../lib/utils';
 import { db, auth } from '../firebase';
-import { collection, addDoc, serverTimestamp, query, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, where } from 'firebase/firestore';
+import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
+import { generarTracking, cargarConfigNegocio, crearPaquete } from '../services/paquetes';
+import { ESTADOS_INICIALES, ESTADOS_PAGO, METODOS_PAGO, TIPOS_ENVIO, PROVINCIAS_CUBA, type EstadoPago } from '../constants/estados';
+import type { Cliente, Destinatario } from '../types/models';
 
-interface Cliente {
-  id: string;
-  nombre: string;
-  documentoIdentidad: string;
-  telefonoEspana: string;
-  email: string;
-}
+type AccionRegistro = 'normal' | 'otro' | 'etiqueta';
 
-interface Destinatario {
-  id: string;
-  clienteId: string;
-  nombre: string;
-  provincia: string;
-  municipio: string;
-  telefonoCuba: string;
-  direccion?: string;
-  carnetPasaporte?: string;
-}
-
-const PROVINCIAS_CUBA = [
-  "Pinar del Río", "Artemisa", "La Habana", "Mayabeque", "Matanzas", 
-  "Villa Clara", "Cienfuegos", "Sancti Spíritus", "Ciego de Ávila", 
-  "Camagüey", "Las Tunas", "Holguín", "Granma", "Santiago de Cuba", 
-  "Guantánamo", "Isla de la Juventud"
-];
+const FORM_INICIAL = {
+  origen: 'Madrid, España',
+  tipoEnvio: 'Miscelánea',
+  contenido: '',
+  descripcion: '',
+  peso: '',
+  medidasAncho: '',
+  medidasLargo: '',
+  medidasAlto: '',
+  valorDeclarado: '',
+  estado: 'Recepción',
+  detallesIncidencia: '',
+  precioFinal: '',
+  estadoPago: 'Pagado' as EstadoPago,
+  importePagado: '',
+  metodoPago: 'Efectivo',
+  precioAplicado: '',
+  entregaModo: 'destinatario' as 'destinatario' | 'manual',
+  entregaDireccion: '',
+  entregaProvincia: '',
+  entregaMunicipio: '',
+  direccionConfirmada: true,
+};
 
 export function Recepcion() {
   const { role, profile } = useAuth();
   const navigate = useNavigate();
-  
-  const generateTracking = () => {
-    const date = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `TP-ES-${date}-${random}`;
-  };
 
-  const [tracking, setTracking] = useState(generateTracking());
+  const [tracking, setTracking] = useState(generarTracking());
   const [paquetesHoy, setPaquetesHoy] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    cliente: '',
-    telefono: '',
-    peso: '',
-    origen: 'Madrid, España',
-    destino: '',
-    contenido: '',
-    medidasAlto: '',
-    medidasAncho: '',
-    medidasLargo: '',
-    estado: 'Recepción',
-    detallesIncidencia: '',
-    monto: '',
-    metodoPago: 'Efectivo',
-    estadoPago: 'Pagado',
-    precioAplicado: '',
-    fechaRegistro: new Date().toISOString().slice(0, 16)
+    ...FORM_INICIAL,
+    fechaRegistro: new Date().toISOString().slice(0, 16),
   });
+  const [config, setConfig] = useState<ConfigNegocio>(CONFIG_NEGOCIO_DEFAULT);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<{ name: string; size: string; type: string }[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  if (role === 'cliente') {
-    return <Navigate to="/" />;
-  }
-
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [partners, setPartners] = useState<any[]>([]);
-  const [selectedClienteId, setSelectedClienteId] = useState<string>('');
-  const [selectedDestinatarioId, setSelectedDestinatarioId] = useState<string>('');
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+  const [selectedClienteId, setSelectedClienteId] = useState('');
+  const [selectedDestinatarioId, setSelectedDestinatarioId] = useState('');
+  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+  const [mostrarResultados, setMostrarResultados] = useState(false);
   const [isNewClienteModalOpen, setIsNewClienteModalOpen] = useState(false);
-  const [newClienteForm, setNewClienteForm] = useState({
-    nombre: '',
-    documentoIdentidad: '',
-    telefonoEspana: '',
-    email: '',
-    codigoPostal: '',
-    localidad: '',
-    direccion: ''
-  });
   const [isNewDestinatarioModalOpen, setIsNewDestinatarioModalOpen] = useState(false);
-  const [newDestinatarioForm, setNewDestinatarioForm] = useState({
-    nombre: '',
-    carnetPasaporte: '',
-    telefonoCuba: '',
-    email: '',
-    direccion: '',
-    provincia: '',
-    municipio: '',
-    codigoPostal: ''
-  });
+
+  // Etiqueta imprimible del último paquete registrado
+  const [etiquetaData, setEtiquetaData] = useState<any>(null);
+  const [pendingPrint, setPendingPrint] = useState(false);
+  const etiquetaRef = useRef<HTMLDivElement>(null);
+  const handlePrintEtiqueta = useReactToPrint({ contentRef: etiquetaRef });
 
   useEffect(() => {
-    // Fetch packages received today
+    cargarConfigNegocio().then(setConfig);
+  }, []);
+
+  useEffect(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const q = query(
-      collection(db, 'paquetes'),
-      where('createdAt', '>=', today)
-    );
-
+    const q = query(collection(db, 'paquetes'), where('createdAt', '>=', today));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const pkgs = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -124,12 +99,11 @@ export function Recepcion() {
           peso: data.peso ? `${data.peso} kg` : '---',
           destino: data.destino,
           estado: data.estado,
-          hora: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          hora: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
       });
       setPaquetesHoy(pkgs.sort((a, b) => b.id.localeCompare(a.id)));
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -149,8 +123,7 @@ export function Recepcion() {
     if (role === 'admin') {
       const q = query(collection(db, 'users'), where('role', '==', 'partner'));
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const partnersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setPartners(partnersData);
+        setPartners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });
       return () => unsubscribe();
     } else if (role === 'partner' && profile?.tipoColaborador === 'punto_pack') {
@@ -186,163 +159,182 @@ export function Recepcion() {
     }
   }, [selectedClienteId]);
 
-  const handleSaveNewCliente = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const docRef = await addDoc(collection(db, 'clientes'), {
-        ...newClienteForm,
-        agenteId: auth.currentUser?.uid || 'unknown',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      setSelectedClienteId(docRef.id);
-      setIsNewClienteModalOpen(false);
-      setNewClienteForm({
-        nombre: '',
-        documentoIdentidad: '',
-        telefonoEspana: '',
-        email: '',
-        codigoPostal: '',
-        localidad: '',
-        direccion: ''
-      });
-    } catch (error) {
-      console.error("Error saving cliente:", error);
-    } finally {
-      setIsSubmitting(false);
+  // Imprimir etiqueta justo después de registrar (acción "Registrar e Imprimir")
+  useEffect(() => {
+    if (pendingPrint && etiquetaData) {
+      handlePrintEtiqueta();
+      setPendingPrint(false);
     }
-  };
+  }, [pendingPrint, etiquetaData]);
 
-  const handleSaveNewDestinatario = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedClienteId) return;
-    setIsSubmitting(true);
-    try {
-      const docRef = await addDoc(collection(db, 'destinatarios'), {
-        ...newDestinatarioForm,
-        clienteId: selectedClienteId,
-        createdAt: serverTimestamp()
-      });
-      setSelectedDestinatarioId(docRef.id);
-      setIsNewDestinatarioModalOpen(false);
-      setNewDestinatarioForm({
-        nombre: '',
-        carnetPasaporte: '',
-        telefonoCuba: '',
-        email: '',
-        direccion: '',
-        provincia: '',
-        municipio: '',
-        codigoPostal: ''
-      });
-    } catch (error) {
-      console.error("Error saving destinatario:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const clientesFiltradosMemo = useMemo(() => {
+    const term = busquedaCliente.trim().toLowerCase();
+    if (!term) return clientes.slice(0, 8);
+    return clientes.filter(c =>
+      (c.nombre || '').toLowerCase().includes(term) ||
+      (c.documentoIdentidad || '').toLowerCase().includes(term) ||
+      (c.email || '').toLowerCase().includes(term) ||
+      (c.telefonoEspana || '').replace(/\s/g, '').includes(term.replace(/\s/g, ''))
+    ).slice(0, 8);
+  }, [clientes, busquedaCliente]);
 
+  // Guardia de rol: después de todos los hooks para no romper su orden
+  if (role === 'cliente') {
+    return <Navigate to="/" />;
+  }
+
+  const selectedCliente = clientes.find(c => c.id === selectedClienteId);
+  const selectedDestinatario = destinatarios.find(d => d.id === selectedDestinatarioId);
+  const clientesFiltrados = clientesFiltradosMemo;
+
+  // ── Cálculos en vivo ──────────────────────────────────────────────
+  const pesoReal = parseFloat(formData.peso) || null;
+  const volumenCm3 = calcularVolumenCm3(
+    parseFloat(formData.medidasAncho) || null,
+    parseFloat(formData.medidasLargo) || null,
+    parseFloat(formData.medidasAlto) || null
+  );
+  const pesoVolumetrico = calcularPesoVolumetrico(volumenCm3, config.factorVolumetrico);
+  const pesoTasable = calcularPesoTasable(pesoReal, pesoVolumetrico);
+
+  const tarifaEspecifica = formData.precioAplicado ? parseFloat(formData.precioAplicado) : (profile?.precioPorKilo || null);
+  const origenTarifa = selectedPartnerId ? 'del partner' : profile?.precioPorKilo ? 'de tu oficina' : undefined;
+  const sugerido = calcularPrecioSugerido({
+    pesoTasable,
+    tipoEnvio: formData.tipoEnvio,
+    tarifaEspecifica,
+    origenTarifa,
+    config,
+  });
+
+  const precioFinalNum = formData.precioFinal !== ''
+    ? parseFloat(formData.precioFinal) || 0
+    : sugerido?.precio ?? null;
+  const importePagadoNum = formData.estadoPago === 'Pagado'
+    ? (precioFinalNum ?? 0)
+    : formData.estadoPago === 'Parcial' ? (parseFloat(formData.importePagado) || 0) : 0;
+  const importePendiente = precioFinalNum !== null
+    ? Math.max(Math.round((precioFinalNum - importePagadoNum) * 100) / 100, 0)
+    : 0;
+
+  const puedeEditarPrecio = role === 'admin' || role === 'agente';
+
+  const entregaDireccion = formData.entregaModo === 'destinatario' ? (selectedDestinatario?.direccion || '') : formData.entregaDireccion;
+  const entregaProvincia = formData.entregaModo === 'destinatario' ? (selectedDestinatario?.provincia || '') : formData.entregaProvincia;
+  const entregaMunicipio = formData.entregaModo === 'destinatario' ? (selectedDestinatario?.municipio || '') : formData.entregaMunicipio;
+
+  // ── Validación ────────────────────────────────────────────────────
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!selectedClienteId) newErrors.cliente = 'Debe seleccionar un cliente';
+    if (!selectedClienteId) newErrors.cliente = 'Debe seleccionar un cliente remitente';
     if (!selectedDestinatarioId) newErrors.destinatario = 'Debe seleccionar un destinatario';
-    if (!formData.peso || parseFloat(formData.peso) <= 0) newErrors.peso = 'El peso debe ser mayor a 0';
+    if (!pesoReal || pesoReal <= 0) newErrors.peso = 'El peso debe ser mayor a 0';
     if (!formData.origen.trim()) newErrors.origen = 'El origen es obligatorio';
     if (!formData.contenido.trim()) newErrors.contenido = 'El contenido es obligatorio';
-    
+    if (formData.entregaModo === 'manual') {
+      if (!formData.entregaDireccion.trim()) newErrors.entregaDireccion = 'Indica la dirección de entrega';
+      if (!formData.entregaProvincia) newErrors.entregaProvincia = 'Selecciona la provincia de entrega';
+    } else if (selectedDestinatario && !selectedDestinatario.direccion) {
+      newErrors.entregaDireccion = 'El destinatario no tiene dirección registrada. Usa dirección manual o complétala.';
+    }
+    if (formData.estadoPago !== 'Pendiente' && (!precioFinalNum || precioFinalNum <= 0)) {
+      newErrors.precioFinal = 'Indica el precio final (o peso y medidas para calcular el sugerido)';
+    }
+    if (formData.estadoPago === 'Parcial') {
+      if (importePagadoNum <= 0) newErrors.importePagado = 'Indica el importe pagado';
+      else if (precioFinalNum !== null && importePagadoNum >= precioFinalNum) {
+        newErrors.importePagado = 'En pago parcial el importe debe ser menor que el precio final';
+      }
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
+  const resetFormulario = () => {
+    setFormData({ ...FORM_INICIAL, fechaRegistro: new Date().toISOString().slice(0, 16) });
+    setSelectedClienteId('');
+    setSelectedDestinatarioId('');
+    setBusquedaCliente('');
+    setErrors({});
+    setTracking(generarTracking());
+  };
 
+  const handleSubmit = async (accion: AccionRegistro) => {
+    if (!validate()) return;
     setIsSubmitting(true);
     try {
-      const selectedCliente = clientes.find(c => c.id === selectedClienteId);
-      const selectedDestinatario = destinatarios.find(d => d.id === selectedDestinatarioId);
-
-      const paqueteData: any = {
+      await crearPaquete({
         tracking,
         clienteId: selectedClienteId,
         clienteNombre: selectedCliente?.nombre || '',
         clienteTelefono: selectedCliente?.telefonoEspana || '',
         destinatarioId: selectedDestinatarioId,
         destinatarioNombre: selectedDestinatario?.nombre || '',
-        destinatarioDireccion: selectedDestinatario?.direccion || '',
+        destinatarioDireccion: entregaDireccion,
         destinatarioTelefono: selectedDestinatario?.telefonoCuba || '',
         destinatarioDocumento: selectedDestinatario?.carnetPasaporte || '',
-        peso: parseFloat(formData.peso),
+        peso: pesoReal!,
         origen: formData.origen,
-        destino: selectedDestinatario?.provincia || '',
+        destino: entregaProvincia || selectedDestinatario?.provincia || '',
         contenido: formData.contenido,
         medidas: {
-          alto: formData.medidasAlto ? parseFloat(formData.medidasAlto) : null,
-          ancho: formData.medidasAncho ? parseFloat(formData.medidasAncho) : null,
-          largo: formData.medidasLargo ? parseFloat(formData.medidasLargo) : null,
+          alto: parseFloat(formData.medidasAlto) || null,
+          ancho: parseFloat(formData.medidasAncho) || null,
+          largo: parseFloat(formData.medidasLargo) || null,
         },
         estado: formData.estado,
-        detallesIncidencia: formData.estado === 'Incidencia' ? formData.detallesIncidencia : null,
-        createdAt: new Date(formData.fechaRegistro),
-        updatedAt: new Date(formData.fechaRegistro),
-        operadorId: auth.currentUser?.uid || 'unknown',
-        referidoPor: auth.currentUser?.uid || null,
+        detallesIncidencia: formData.detallesIncidencia || null,
+        fechaRegistro: new Date(formData.fechaRegistro),
         partnerId: selectedPartnerId || null,
         precioAplicado: formData.precioAplicado ? parseFloat(formData.precioAplicado) : null,
-        esB2B: !!selectedPartnerId
-      };
+        tipoEnvio: formData.tipoEnvio,
+        descripcion: formData.descripcion,
+        volumenCm3,
+        pesoVolumetrico,
+        pesoTasable,
+        valorDeclarado: formData.valorDeclarado ? parseFloat(formData.valorDeclarado) : null,
+        precioSugerido: sugerido?.precio ?? null,
+        precioFinal: precioFinalNum,
+        estadoPago: formData.estadoPago,
+        importePagado: importePagadoNum,
+        metodoPago: formData.metodoPago,
+        entrega: {
+          modo: formData.entregaModo,
+          direccion: entregaDireccion,
+          provincia: entregaProvincia,
+          municipio: entregaMunicipio,
+          confirmada: formData.direccionConfirmada,
+        },
+      });
 
-      await addDoc(collection(db, 'paquetes'), paqueteData);
+      setEtiquetaData({
+        tracking,
+        remitente: selectedCliente?.nombre || '',
+        consignatario: selectedDestinatario?.nombre || '',
+        direccion: `${entregaDireccion}${entregaMunicipio ? ', ' + entregaMunicipio : ''}${entregaProvincia ? ', ' + entregaProvincia : ''}`,
+        telefono: selectedDestinatario?.telefonoCuba || '',
+        idDestinatario: selectedDestinatario?.carnetPasaporte || '',
+        peso: pesoReal!,
+        piezas: 1,
+        guiaMaster: '—',
+        trackingInterno: tracking,
+      });
 
-      // También registrar el pago si hay monto
-      if (formData.monto && parseFloat(formData.monto) > 0) {
-        await addDoc(collection(db, 'pagos'), {
-          paqueteId: tracking, // Usamos el tracking como referencia o el ID del doc recién creado
-          monto: parseFloat(formData.monto),
-          metodo: formData.metodoPago,
-          estado: formData.estadoPago,
-          fecha: new Date(formData.fechaRegistro),
-          agenteId: auth.currentUser?.uid || 'unknown'
-        });
+      setSuccess(`¡Paquete registrado con éxito! Tracking: ${tracking}`);
+      if (accion === 'etiqueta') setPendingPrint(true);
+
+      resetFormulario();
+
+      if (accion === 'normal') {
+        setTimeout(() => {
+          setSuccess(null);
+          navigate('/dashboard');
+        }, 2000);
+      } else {
+        setTimeout(() => setSuccess(null), 5000);
       }
-
-      // Registrar evento inicial
-      await addDoc(collection(db, 'eventos'), {
-        paqueteId: tracking,
-        estado: 'Recepción',
-        notas: 'Paquete recibido en oficina',
-        timestamp: new Date(formData.fechaRegistro),
-        operadorId: auth.currentUser?.uid || 'unknown'
-      });
-
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
-        navigate('/dashboard');
-      }, 2000);
-      setFormData({
-        cliente: '',
-        telefono: '',
-        peso: '',
-        origen: 'Madrid, España',
-        destino: '',
-        contenido: '',
-        medidasAlto: '',
-        medidasAncho: '',
-        medidasLargo: '',
-        estado: 'Recepción',
-        detallesIncidencia: '',
-        monto: '',
-        metodoPago: 'Efectivo',
-        estadoPago: 'Pagado',
-        precioAplicado: ''
-      });
-      setSelectedClienteId('');
-      setSelectedDestinatarioId('');
     } catch (error) {
-      console.error("Error saving package:", error);
+      console.error('Error saving package:', error);
       setErrors({ submit: 'Error al guardar el paquete. Por favor, verifica tu conexión y permisos.' });
     } finally {
       setIsSubmitting(false);
@@ -364,14 +356,12 @@ export function Recepcion() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
     setIsUploading(true);
-    // Simular subida
     setTimeout(() => {
       const newFiles = Array.from(files).map(file => ({
         name: file.name,
         size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-        type: file.type
+        type: file.type,
       }));
       setUploadedFiles(prev => [...prev, ...newFiles]);
       setIsUploading(false);
@@ -387,54 +377,60 @@ export function Recepcion() {
     setTimeout(() => {
       setIsSubmitting(false);
       setIsModalOpen(false);
-      // Aquí se asociarían los documentos al paquete
       console.log('Documentos asociados al paquete:', tracking, uploadedFiles);
       setUploadedFiles([]);
     }, 1000);
   };
 
+  const inputClass = (hasError?: boolean) => cn(
+    "w-full px-4 py-2.5 bg-white border rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20",
+    hasError ? "border-red-500" : "border-tp-gray-soft"
+  );
+
+  const SectionTitle = ({ icon: Icon, children }: { icon: any; children: React.ReactNode }) => (
+    <h3 className="text-sm font-bold text-tp-blue uppercase tracking-wider mb-4 flex items-center gap-2">
+      <Icon className="w-4 h-4" />
+      {children}
+    </h3>
+  );
+
   return (
     <div className="space-y-6">
-      {/* Alertas y Mensajes de Éxito */}
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
           <CheckCircle2 className="w-5 h-5 text-green-600" />
-          <p className="text-sm font-medium text-green-800">
-            ¡Paquete registrado con éxito! Tracking: {tracking}
-          </p>
+          <p className="text-sm font-medium text-green-800">{success}</p>
         </div>
       )}
-      
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
-        <AlertCircle className="w-5 h-5 text-tp-red" />
-        <p className="text-sm font-medium text-tp-red">
-          3 paquetes requieren validación urgente: TP-ES-24070, TP-ES-24065, TP-ES-24062
-        </p>
-      </div>
+
+      {errors.submit && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-tp-red" />
+          <p className="text-sm font-medium text-tp-red">{errors.submit}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Formulario Recepción */}
         <div className="xl:col-span-2 bg-white rounded-2xl border border-tp-gray-soft p-6">
-          <h2 className="text-xl font-bold text-tp-blue mb-6">Nuevo Paquete</h2>
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Tracking Generado</label>
-                <input 
-                  type="text" 
-                  value={tracking}
-                  readOnly
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl text-tp-blue font-mono font-bold focus:outline-none"
-                />
-              </div>
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+            <h2 className="text-xl font-bold text-tp-blue">Nuevo Paquete</h2>
+            <span className="px-4 py-1.5 bg-gray-50 border border-tp-gray-soft rounded-xl text-tp-blue font-mono font-bold text-sm">{tracking}</span>
+          </div>
+
+          <form onSubmit={(e) => { e.preventDefault(); handleSubmit('normal'); }} className="space-y-6">
+
+            {/* ── 1. PARTICIPANTES ── */}
+            <div className="bg-gray-50 p-6 rounded-2xl border border-tp-gray-soft">
+              <SectionTitle icon={Users}>1. Participantes</SectionTitle>
+
               {role === 'admin' && (
-                <div>
+                <div className="mb-4">
                   <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Asociar a Partner B2B / Punto Pack</label>
-                  <select 
+                  <select
                     value={selectedPartnerId}
                     onChange={(e) => setSelectedPartnerId(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none"
+                    className={cn(inputClass(), "appearance-none")}
                   >
                     <option value="">Ninguno (Envío Directo)</option>
                     {partners.map(p => (
@@ -443,287 +439,555 @@ export function Recepcion() {
                   </select>
                 </div>
               )}
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="relative">
-                <label className="block text-sm font-medium text-tp-blue/70 mb-1.5 flex justify-between items-center">
-                  Cliente Remitente
-                  <button 
-                    type="button"
-                    onClick={() => setIsNewClienteModalOpen(true)}
-                    className="text-xs text-tp-red font-bold hover:underline flex items-center gap-1"
-                  >
-                    <UserPlus className="w-3 h-3" /> Nuevo
-                  </button>
-                </label>
-                <select 
-                  value={selectedClienteId}
-                  onChange={(e) => {
-                    setSelectedClienteId(e.target.value);
-                    setSelectedDestinatarioId('');
-                  }}
-                  className={cn(
-                    "w-full px-4 py-2.5 bg-white border rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none",
-                    errors.cliente ? "border-red-500" : "border-tp-gray-soft"
-                  )}
-                >
-                  <option value="">Seleccionar cliente...</option>
-                  {clientes.map(c => (
-                    <option key={c.id} value={c.id}>{c.nombre} ({c.documentoIdentidad})</option>
-                  ))}
-                </select>
-                {errors.cliente && <p className="text-xs text-red-500 mt-1">{errors.cliente}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-tp-blue/70 mb-1.5 flex justify-between items-center">
-                  Destinatario (Cuba)
-                  {selectedClienteId && (
-                    <button 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Cliente / Remitente */}
+                <div className="relative">
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5 flex justify-between items-center">
+                    Cliente Remitente
+                    <button
                       type="button"
-                      onClick={() => setIsNewDestinatarioModalOpen(true)}
+                      onClick={() => setIsNewClienteModalOpen(true)}
                       className="text-xs text-tp-red font-bold hover:underline flex items-center gap-1"
                     >
                       <UserPlus className="w-3 h-3" /> Nuevo
                     </button>
+                  </label>
+
+                  {selectedCliente ? (
+                    <div className="p-3 bg-white border border-tp-blue/20 rounded-xl">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-tp-blue text-sm">{selectedCliente.nombre}</p>
+                          <p className="text-xs text-tp-blue/60">{selectedCliente.documentoIdentidad} · {selectedCliente.telefonoEspana || 'sin teléfono'}</p>
+                          <p className="text-xs text-tp-blue/60 truncate">{selectedCliente.email}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedClienteId(''); setSelectedDestinatarioId(''); setBusquedaCliente(''); }}
+                          className="text-xs text-tp-red font-bold hover:underline shrink-0"
+                        >
+                          Cambiar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
+                        <input
+                          type="text"
+                          value={busquedaCliente}
+                          onChange={(e) => { setBusquedaCliente(e.target.value); setMostrarResultados(true); }}
+                          onFocus={() => setMostrarResultados(true)}
+                          onBlur={() => setTimeout(() => setMostrarResultados(false), 150)}
+                          placeholder="Buscar por nombre, documento, teléfono o email..."
+                          className={cn(inputClass(!!errors.cliente), "pl-10")}
+                        />
+                      </div>
+                      {mostrarResultados && (
+                        <div className="absolute z-20 mt-1 w-full bg-white border border-tp-gray-soft rounded-xl shadow-xl max-h-64 overflow-y-auto">
+                          {clientesFiltrados.length === 0 ? (
+                            <div className="p-3 text-sm text-tp-blue/50">
+                              Sin resultados.{' '}
+                              <button type="button" onMouseDown={() => setIsNewClienteModalOpen(true)} className="text-tp-red font-bold hover:underline">Crear cliente nuevo</button>
+                            </div>
+                          ) : clientesFiltrados.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onMouseDown={() => {
+                                setSelectedClienteId(c.id);
+                                setSelectedDestinatarioId('');
+                                setErrors(prev => { const n = { ...prev }; delete n.cliente; return n; });
+                              }}
+                              className="w-full text-left p-3 hover:bg-tp-blue-light/40 transition-colors border-b border-tp-gray-soft last:border-0"
+                            >
+                              <p className="font-bold text-tp-blue text-sm">{c.nombre}</p>
+                              <p className="text-xs text-tp-blue/60">{c.documentoIdentidad} · {c.telefonoEspana || c.email}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
-                </label>
-                <select 
-                  value={selectedDestinatarioId}
-                  onChange={(e) => setSelectedDestinatarioId(e.target.value)}
-                  disabled={!selectedClienteId || destinatarios.length === 0}
-                  className={cn(
-                    "w-full px-4 py-2.5 bg-white border rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none disabled:bg-gray-100 disabled:text-tp-blue/40",
-                    errors.destinatario ? "border-red-500" : "border-tp-gray-soft"
+                  {errors.cliente && <p className="text-xs text-red-500 mt-1">{errors.cliente}</p>}
+                </div>
+
+                {/* Destinatario */}
+                <div>
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5 flex justify-between items-center">
+                    Destinatario (Cuba)
+                    {selectedClienteId && (
+                      <button
+                        type="button"
+                        onClick={() => setIsNewDestinatarioModalOpen(true)}
+                        className="text-xs text-tp-red font-bold hover:underline flex items-center gap-1"
+                      >
+                        <UserPlus className="w-3 h-3" /> Nuevo
+                      </button>
+                    )}
+                  </label>
+                  <select
+                    value={selectedDestinatarioId}
+                    onChange={(e) => {
+                      setSelectedDestinatarioId(e.target.value);
+                      setErrors(prev => { const n = { ...prev }; delete n.destinatario; return n; });
+                    }}
+                    disabled={!selectedClienteId}
+                    className={cn(inputClass(!!errors.destinatario), "appearance-none disabled:bg-gray-100 disabled:text-tp-blue/40")}
+                  >
+                    <option value="">
+                      {!selectedClienteId ? 'Selecciona un cliente primero' :
+                        destinatarios.length === 0 ? 'No hay destinatarios — crea uno nuevo' :
+                          'Seleccionar destinatario...'}
+                    </option>
+                    {destinatarios.map(d => (
+                      <option key={d.id} value={d.id}>{d.nombre} - {d.provincia}</option>
+                    ))}
+                  </select>
+                  {errors.destinatario && <p className="text-xs text-red-500 mt-1">{errors.destinatario}</p>}
+
+                  {selectedDestinatario && (
+                    <div className="mt-2 p-3 bg-white border border-tp-blue/20 rounded-xl text-xs text-tp-blue/70 space-y-0.5">
+                      <p><span className="font-bold text-tp-blue">{selectedDestinatario.nombre}</span> · {selectedDestinatario.carnetPasaporte || 'sin documento'}</p>
+                      <p>{selectedDestinatario.telefonoCuba}</p>
+                      <p>{selectedDestinatario.direccion || 'Sin dirección registrada'}{selectedDestinatario.municipio ? `, ${selectedDestinatario.municipio}` : ''}, {selectedDestinatario.provincia}</p>
+                    </div>
                   )}
-                >
-                  <option value="">
-                    {!selectedClienteId ? 'Selecciona un cliente primero' : 
-                     destinatarios.length === 0 ? 'No hay destinatarios registrados' : 
-                     'Seleccionar destinatario...'}
-                  </option>
-                  {destinatarios.map(d => (
-                    <option key={d.id} value={d.id}>{d.nombre} - {d.provincia}</option>
-                  ))}
-                </select>
-                {errors.destinatario && <p className="text-xs text-red-500 mt-1">{errors.destinatario}</p>}
+                </div>
               </div>
             </div>
 
+            {/* ── 2. DETALLES DEL PAQUETE ── */}
             <div className="bg-gray-50 p-6 rounded-2xl border border-tp-gray-soft">
-              <h3 className="text-sm font-bold text-tp-blue uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Detalles del Paquete
-              </h3>
-              
+              <SectionTitle icon={Package}>2. Valores y Características</SectionTitle>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Fecha de Registro</label>
-                  <input 
-                    type="datetime-local" 
+                  <input
+                    type="datetime-local"
                     name="fechaRegistro"
                     value={formData.fechaRegistro}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                    className={inputClass()}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Origen</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     name="origen"
                     value={formData.origen}
                     onChange={handleChange}
-                    className={cn(
-                      "w-full px-4 py-2.5 bg-white border rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20",
-                      errors.origen ? "border-red-500" : "border-tp-gray-soft"
-                    )}
+                    className={inputClass(!!errors.origen)}
                   />
                   {errors.origen && <p className="text-xs text-red-500 mt-1">{errors.origen}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Destino Final</label>
-                  <input 
-                    type="text" 
-                    value={selectedDestinatarioId ? destinatarios.find(d => d.id === selectedDestinatarioId)?.provincia || '' : ''}
-                    readOnly
-                    className="w-full px-4 py-2.5 bg-gray-100 border border-tp-gray-soft rounded-xl text-tp-blue/60 font-medium focus:outline-none"
-                    placeholder="Se autocompleta con el destinatario"
-                  />
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Tipo de Envío</label>
+                  <select
+                    name="tipoEnvio"
+                    value={formData.tipoEnvio}
+                    onChange={handleChange}
+                    className={cn(inputClass(), "appearance-none")}
+                  >
+                    {TIPOS_ENVIO.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Peso (kg)</label>
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Contenido Declarado *</label>
+                  <textarea
+                    name="contenido"
+                    rows={2}
+                    value={formData.contenido}
+                    onChange={handleChange}
+                    placeholder="Ropa, medicinas, miscelánea..."
+                    className={cn(inputClass(!!errors.contenido), "resize-none")}
+                  ></textarea>
+                  {errors.contenido && <p className="text-xs text-red-500 mt-1">{errors.contenido}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Descripción / Notas Internas</label>
+                  <textarea
+                    name="descripcion"
+                    rows={2}
+                    value={formData.descripcion}
+                    onChange={handleChange}
+                    placeholder="Detalles adicionales para el equipo..."
+                    className={cn(inputClass(), "resize-none")}
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Peso Real (kg) *</label>
                   <div className="relative">
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       name="peso"
                       step="0.1"
+                      min="0"
                       value={formData.peso}
                       onChange={handleChange}
                       placeholder="0.00"
-                      className={cn(
-                        "w-full px-4 py-2.5 bg-white border rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20",
-                        errors.peso ? "border-red-500" : "border-tp-gray-soft"
-                      )}
+                      className={inputClass(!!errors.peso)}
                     />
-                    <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-tp-blue-light text-tp-blue rounded-lg hover:bg-tp-gray-soft transition-colors">
-                      <Scale className="w-4 h-4" />
-                    </button>
+                    <Scale className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
                   </div>
                   {errors.peso && <p className="text-xs text-red-500 mt-1">{errors.peso}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Medidas (cm) - Alto x Ancho x Largo</label>
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Medidas (cm) — Ancho × Largo × Alto</label>
                   <div className="flex gap-2">
-                    <input 
-                      type="number" 
-                      name="medidasAlto"
-                      value={formData.medidasAlto}
-                      onChange={handleChange}
-                      placeholder="Alto"
-                      className="w-1/3 px-3 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
-                    />
-                    <input 
-                      type="number" 
-                      name="medidasAncho"
-                      value={formData.medidasAncho}
-                      onChange={handleChange}
-                      placeholder="Ancho"
-                      className="w-1/3 px-3 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
-                    />
-                    <input 
-                      type="number" 
-                      name="medidasLargo"
-                      value={formData.medidasLargo}
-                      onChange={handleChange}
-                      placeholder="Largo"
-                      className="w-1/3 px-3 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
-                    />
+                    <input type="number" name="medidasAncho" min="0" value={formData.medidasAncho} onChange={handleChange} placeholder="Ancho" className="w-1/3 px-3 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20" />
+                    <input type="number" name="medidasLargo" min="0" value={formData.medidasLargo} onChange={handleChange} placeholder="Largo" className="w-1/3 px-3 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20" />
+                    <input type="number" name="medidasAlto" min="0" value={formData.medidasAlto} onChange={handleChange} placeholder="Alto" className="w-1/3 px-3 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20" />
                   </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Valor Declarado (€)</label>
+                  <input
+                    type="number"
+                    name="valorDeclarado"
+                    step="0.01"
+                    min="0"
+                    value={formData.valorDeclarado}
+                    onChange={handleChange}
+                    placeholder="0.00"
+                    className={inputClass()}
+                  />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Contenido Declarado</label>
-                <textarea 
-                  name="contenido"
-                  rows={3}
-                  value={formData.contenido}
-                  onChange={handleChange}
-                  placeholder="Ropa, medicinas, miscelánea..."
-                  className={cn(
-                    "w-full px-4 py-2.5 bg-white border rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 resize-none",
-                    errors.contenido ? "border-red-500" : "border-tp-gray-soft"
-                  )}
-                ></textarea>
-                {errors.contenido && <p className="text-xs text-red-500 mt-1">{errors.contenido}</p>}
+              {/* Cálculos automáticos */}
+              <div className="grid grid-cols-3 gap-3 p-4 bg-tp-blue-light/30 rounded-xl border border-tp-blue/10">
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-tp-blue/50 uppercase tracking-wider">Volumen</p>
+                  <p className="font-black text-tp-blue">{volumenCm3 ? `${(volumenCm3 / 1000).toFixed(1)} L` : '—'}</p>
+                </div>
+                <div className="text-center border-x border-tp-blue/10">
+                  <p className="text-[10px] font-bold text-tp-blue/50 uppercase tracking-wider">Peso Volumétrico</p>
+                  <p className="font-black text-tp-blue">{pesoVolumetrico ? `${pesoVolumetrico.toFixed(2)} kg` : '—'}</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-tp-blue/50 uppercase tracking-wider">Peso Tasable</p>
+                  <p className="font-black text-tp-red">{pesoTasable ? `${pesoTasable.toFixed(2)} kg` : '—'}</p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                 <div>
-                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Estado</label>
-                  <select 
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Estado Inicial</label>
+                  <select
                     name="estado"
                     value={formData.estado}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none"
+                    className={cn(inputClass(), "appearance-none")}
                   >
-                    <option value="Recepción">Recepción</option>
-                    <option value="Validación">Validación</option>
-                    <option value="Incidencia">Incidencia</option>
+                    {ESTADOS_INICIALES.map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
                 {formData.estado === 'Incidencia' && (
                   <div>
                     <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Detalles de la Incidencia</label>
-                    <textarea 
+                    <textarea
                       name="detallesIncidencia"
                       rows={2}
                       value={formData.detallesIncidencia}
                       onChange={handleChange}
                       placeholder="Describa el problema..."
-                      className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 resize-none"
+                      className={cn(inputClass(), "resize-none")}
                     ></textarea>
                   </div>
                 )}
               </div>
             </div>
 
+            {/* ── 3. ENTREGA ── */}
+            <div className="bg-gray-50 p-6 rounded-2xl border border-tp-gray-soft">
+              <SectionTitle icon={Truck}>3. Entrega en Destino</SectionTitle>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, entregaModo: 'destinatario' }))}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-xs font-bold transition-all",
+                    formData.entregaModo === 'destinatario'
+                      ? "border-tp-blue bg-tp-blue text-white shadow-md"
+                      : "border-tp-gray-soft bg-white text-tp-blue/60 hover:border-tp-blue/30"
+                  )}
+                >
+                  DIRECCIÓN DEL DESTINATARIO
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, entregaModo: 'manual' }))}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-xs font-bold transition-all",
+                    formData.entregaModo === 'manual'
+                      ? "border-tp-red bg-tp-red text-white shadow-md"
+                      : "border-tp-gray-soft bg-white text-tp-blue/60 hover:border-tp-red/30"
+                  )}
+                >
+                  DIRECCIÓN MANUAL / PUNTO DE RECOGIDA
+                </button>
+              </div>
+
+              {formData.entregaModo === 'destinatario' ? (
+                <div className="p-4 bg-white border border-tp-gray-soft rounded-xl flex items-start gap-3">
+                  <MapPin className="w-4 h-4 text-tp-blue/40 mt-0.5 shrink-0" />
+                  {selectedDestinatario ? (
+                    <p className="text-sm text-tp-blue/80">
+                      {selectedDestinatario.direccion || <span className="text-tp-red font-bold">Sin dirección registrada</span>}
+                      {selectedDestinatario.municipio ? `, ${selectedDestinatario.municipio}` : ''}{selectedDestinatario.provincia ? `, ${selectedDestinatario.provincia}` : ''}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-tp-blue/40 italic">Selecciona un destinatario para ver su dirección</p>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Dirección de Entrega *</label>
+                    <input
+                      type="text"
+                      name="entregaDireccion"
+                      value={formData.entregaDireccion}
+                      onChange={handleChange}
+                      placeholder="Calle, número, punto de recogida..."
+                      className={inputClass(!!errors.entregaDireccion)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Provincia *</label>
+                    <select
+                      name="entregaProvincia"
+                      value={formData.entregaProvincia}
+                      onChange={handleChange}
+                      className={cn(inputClass(!!errors.entregaProvincia), "appearance-none")}
+                    >
+                      <option value="">Seleccionar...</option>
+                      {PROVINCIAS_CUBA.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Municipio</label>
+                    <input type="text" name="entregaMunicipio" value={formData.entregaMunicipio} onChange={handleChange} className={inputClass()} />
+                  </div>
+                </div>
+              )}
+              {errors.entregaDireccion && <p className="text-xs text-red-500 mt-2">{errors.entregaDireccion}</p>}
+              {errors.entregaProvincia && <p className="text-xs text-red-500 mt-1">{errors.entregaProvincia}</p>}
+
+              <label className="flex items-center gap-2 mt-4 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={formData.direccionConfirmada}
+                  onChange={(e) => setFormData(prev => ({ ...prev, direccionConfirmada: e.target.checked }))}
+                  className="w-4 h-4 accent-tp-blue"
+                />
+                <span className="text-sm font-medium text-tp-blue/70">Dirección confirmada con el cliente</span>
+                {!formData.direccionConfirmada && (
+                  <span className="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Pendiente de confirmar</span>
+                )}
+              </label>
+            </div>
+
+            {/* ── 4. PRECIO Y COBRO ── */}
             <div className="bg-tp-blue-light/30 p-6 rounded-2xl border border-tp-gray-soft">
-              <h3 className="text-sm font-bold text-tp-blue uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Wallet className="w-4 h-4" />
-                Detalles de Cobro
-              </h3>
+              <SectionTitle icon={Wallet}>4. Precio y Cobro</SectionTitle>
+
+              {/* Sugerencia de precio */}
+              <div className="p-4 bg-white rounded-xl border border-tp-blue/10 mb-6">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 text-tp-blue">
+                    <Calculator className="w-4 h-4" />
+                    <span className="text-sm font-bold">Precio Sugerido</span>
+                  </div>
+                  <span className="text-2xl font-black text-tp-blue">{sugerido ? `${sugerido.precio.toFixed(2)} €` : '—'}</span>
+                </div>
+                {sugerido ? (
+                  <ul className="mt-2 text-xs text-tp-blue/60 space-y-0.5">
+                    {sugerido.explicacion.map((linea, i) => <li key={i}>· {linea}</li>)}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-tp-blue/40 italic">Introduce el peso (y medidas si aplica) para calcular el precio sugerido.</p>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Monto Total (€)</label>
-                  <input 
-                    type="number" 
-                    name="monto"
-                    value={formData.monto}
+                  <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Precio Final (€)</label>
+                  <input
+                    type="number"
+                    name="precioFinal"
+                    step="0.01"
+                    min="0"
+                    value={formData.precioFinal}
                     onChange={handleChange}
-                    placeholder="0.00"
-                    className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                    disabled={!puedeEditarPrecio}
+                    placeholder={sugerido ? sugerido.precio.toFixed(2) : '0.00'}
+                    className={cn(inputClass(!!errors.precioFinal), !puedeEditarPrecio && "bg-gray-100 text-tp-blue/50")}
                   />
+                  {!puedeEditarPrecio && <p className="text-[10px] text-tp-blue/40 mt-1">Solo administración o agentes pueden modificar el precio sugerido.</p>}
+                  {errors.precioFinal && <p className="text-xs text-red-500 mt-1">{errors.precioFinal}</p>}
                 </div>
                 {selectedPartnerId && (
                   <div>
                     <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Precio Aplicado (€/Kg)</label>
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       name="precioAplicado"
                       step="0.01"
+                      min="0"
                       value={formData.precioAplicado}
                       onChange={handleChange}
                       placeholder="0.00"
-                      className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                      className={inputClass()}
                     />
                   </div>
                 )}
                 <div>
                   <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Método de Pago</label>
-                  <select 
+                  <select
                     name="metodoPago"
                     value={formData.metodoPago}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none"
+                    className={cn(inputClass(), "appearance-none")}
                   >
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Tarjeta">Tarjeta</option>
+                    {METODOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Estado de Pago</label>
-                  <select 
+                  <select
                     name="estadoPago"
                     value={formData.estadoPago}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 bg-white border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none"
+                    className={cn(inputClass(), "appearance-none")}
                   >
-                    <option value="Pagado">Pagado</option>
-                    <option value="Pendiente">Pendiente</option>
+                    {ESTADOS_PAGO.map(e => <option key={e} value={e}>{e}</option>)}
                   </select>
                 </div>
+                {formData.estadoPago === 'Parcial' && (
+                  <div>
+                    <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Importe Pagado (€)</label>
+                    <input
+                      type="number"
+                      name="importePagado"
+                      step="0.01"
+                      min="0"
+                      value={formData.importePagado}
+                      onChange={handleChange}
+                      placeholder="0.00"
+                      className={inputClass(!!errors.importePagado)}
+                    />
+                    {errors.importePagado && <p className="text-xs text-red-500 mt-1">{errors.importePagado}</p>}
+                  </div>
+                )}
+                {formData.estadoPago !== 'Pagado' && precioFinalNum !== null && precioFinalNum > 0 && (
+                  <div className="flex items-end">
+                    <div className="w-full p-3 bg-red-50 border border-red-100 rounded-xl text-center">
+                      <p className="text-[10px] font-bold text-tp-red/60 uppercase tracking-wider">Pendiente de Cobro</p>
+                      <p className="font-black text-tp-red text-lg">{importePendiente.toFixed(2)} €</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="pt-4 flex justify-end">
-              <button 
-                type="submit" 
-                disabled={isSubmitting}
-                className="bg-tp-red hover:bg-[#D91F33] text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Plus className="w-5 h-5" />
-                )}
-                {isSubmitting ? 'Registrando...' : 'Registrar Paquete'}
-              </button>
+            {/* ── 5. RESUMEN Y ACCIONES ── */}
+            <div className="bg-white p-6 rounded-2xl border-2 border-tp-blue/10">
+              <SectionTitle icon={ClipboardList}>5. Resumen Final</SectionTitle>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-6">
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Remitente</p>
+                  <p className="font-bold text-tp-blue truncate">{selectedCliente?.nombre || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Destinatario</p>
+                  <p className="font-bold text-tp-blue truncate">{selectedDestinatario?.nombre || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Destino</p>
+                  <p className="font-bold text-tp-blue truncate">{entregaProvincia || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Peso Tasable</p>
+                  <p className="font-bold text-tp-blue">{pesoTasable ? `${pesoTasable.toFixed(2)} kg` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Precio Final</p>
+                  <p className="font-black text-tp-red">{precioFinalNum !== null && precioFinalNum > 0 ? `${precioFinalNum.toFixed(2)} €` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Pagado</p>
+                  <p className="font-bold text-tp-blue">{importePagadoNum.toFixed(2)} €</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Pendiente</p>
+                  <p className={cn("font-bold", importePendiente > 0 ? "text-tp-red" : "text-tp-blue")}>{importePendiente.toFixed(2)} €</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Estado de Pago</p>
+                  <ChipEstado estado={formData.estadoPago} />
+                </div>
+              </div>
+
+              {Object.keys(errors).filter(k => k !== 'submit').length > 0 && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-tp-red text-sm font-medium">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  Revisa los campos marcados en rojo antes de registrar el paquete.
+                </div>
+              )}
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={resetFormulario}
+                  disabled={isSubmitting}
+                  className="px-5 py-3 border border-tp-gray-soft text-tp-blue font-bold rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancelar / Limpiar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubmit('otro')}
+                  disabled={isSubmitting}
+                  className="px-5 py-3 bg-tp-blue text-white font-bold rounded-xl hover:bg-[#004a78] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Registrar y Agregar Otro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubmit('etiqueta')}
+                  disabled={isSubmitting}
+                  className="px-5 py-3 bg-tp-blue text-white font-bold rounded-xl hover:bg-[#004a78] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  Registrar e Imprimir Etiqueta
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="bg-tp-red hover:bg-[#D91F33] text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Plus className="w-5 h-5" />
+                  )}
+                  {isSubmitting ? 'Registrando...' : 'Registrar Paquete'}
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -731,8 +995,8 @@ export function Recepcion() {
         {/* Acciones Rápidas */}
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-tp-blue uppercase tracking-wider mb-2">Acciones Rápidas</h3>
-          
-          <button className="w-full bg-white border border-tp-gray-soft hover:border-tp-blue/30 p-4 rounded-xl flex items-center gap-4 transition-all group">
+
+          <button type="button" className="w-full bg-white border border-tp-gray-soft hover:border-tp-blue/30 p-4 rounded-xl flex items-center gap-4 transition-all group">
             <div className="w-12 h-12 rounded-full bg-tp-blue-light flex items-center justify-center text-tp-blue group-hover:bg-tp-blue group-hover:text-white transition-colors">
               <Camera className="w-5 h-5" />
             </div>
@@ -742,7 +1006,8 @@ export function Recepcion() {
             </div>
           </button>
 
-          <button 
+          <button
+            type="button"
             onClick={() => setIsModalOpen(true)}
             className="w-full bg-white border border-tp-gray-soft hover:border-tp-blue/30 p-4 rounded-xl flex items-center gap-4 transition-all group"
           >
@@ -755,13 +1020,20 @@ export function Recepcion() {
             </div>
           </button>
 
-          <button className="w-full bg-white border border-tp-gray-soft hover:border-tp-blue/30 p-4 rounded-xl flex items-center gap-4 transition-all group">
+          <button
+            type="button"
+            onClick={() => etiquetaData && handlePrintEtiqueta()}
+            disabled={!etiquetaData}
+            className="w-full bg-white border border-tp-gray-soft hover:border-tp-blue/30 p-4 rounded-xl flex items-center gap-4 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <div className="w-12 h-12 rounded-full bg-tp-blue-light flex items-center justify-center text-tp-blue group-hover:bg-tp-blue group-hover:text-white transition-colors">
               <Printer className="w-5 h-5" />
             </div>
             <div className="text-left">
               <div className="font-bold text-tp-blue">Imprimir etiqueta</div>
-              <div className="text-xs text-tp-blue/60">Generar código de barras</div>
+              <div className="text-xs text-tp-blue/60">
+                {etiquetaData ? `Último: ${etiquetaData.tracking}` : 'Registra un paquete primero'}
+              </div>
             </div>
           </button>
         </div>
@@ -776,7 +1048,7 @@ export function Recepcion() {
                 <h3 className="text-xl font-bold">Validación de Documentos</h3>
                 <p className="text-white/70 text-xs mt-1">Asociando a: <span className="font-mono font-bold">{tracking}</span></p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
               >
@@ -785,11 +1057,10 @@ export function Recepcion() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Dropzone */}
               <div className="relative border-2 border-dashed border-tp-gray-soft rounded-2xl p-8 text-center hover:border-tp-blue/30 transition-colors group">
-                <input 
-                  type="file" 
-                  multiple 
+                <input
+                  type="file"
+                  multiple
                   accept="image/*,.pdf"
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -803,7 +1074,6 @@ export function Recepcion() {
                 </div>
               </div>
 
-              {/* Lista de Archivos */}
               {uploadedFiles.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-sm font-bold text-tp-blue uppercase tracking-wider">Archivos Seleccionados</h4>
@@ -816,10 +1086,10 @@ export function Recepcion() {
                           </div>
                           <div>
                             <p className="text-sm font-bold text-tp-blue truncate max-w-[180px]">{file.name}</p>
-                            <p className="text-[10px] text-tp-blue/50">{file.size} • {file.type.split('/')[1].toUpperCase()}</p>
+                            <p className="text-[10px] text-tp-blue/50">{file.size} • {file.type.split('/')[1]?.toUpperCase()}</p>
                           </div>
                         </div>
-                        <button 
+                        <button
                           onClick={() => removeFile(index)}
                           className="p-2 text-tp-blue/40 hover:text-tp-red transition-colors"
                         >
@@ -840,13 +1110,13 @@ export function Recepcion() {
             </div>
 
             <div className="p-6 bg-gray-50 border-t border-tp-gray-soft flex gap-3">
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="flex-1 px-6 py-3 border border-tp-gray-soft text-tp-blue font-bold rounded-xl hover:bg-white transition-colors"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 onClick={saveDocuments}
                 disabled={uploadedFiles.length === 0 || isUploading || isSubmitting}
                 className="flex-1 px-6 py-3 bg-tp-red text-white font-bold rounded-xl hover:bg-[#D91F33] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
@@ -863,110 +1133,20 @@ export function Recepcion() {
         </div>
       )}
 
-      {/* Modal Nuevo Cliente Rápido */}
-      {isNewClienteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-tp-blue/40 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden my-8">
-            <div className="p-4 border-b border-tp-gray-soft flex justify-between items-center bg-tp-blue text-white">
-              <h3 className="font-bold">Nuevo Cliente</h3>
-              <button onClick={() => setIsNewClienteModalOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveNewCliente} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Nombre *</label>
-                  <input type="text" required value={newClienteForm.nombre} onChange={e => setNewClienteForm({...newClienteForm, nombre: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">DNI / NIE / Pasaporte *</label>
-                  <input type="text" required value={newClienteForm.documentoIdentidad} onChange={e => setNewClienteForm({...newClienteForm, documentoIdentidad: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Teléfono España</label>
-                  <input type="tel" value={newClienteForm.telefonoEspana} onChange={e => setNewClienteForm({...newClienteForm, telefonoEspana: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Correo Electrónico *</label>
-                  <input type="email" required value={newClienteForm.email} onChange={e => setNewClienteForm({...newClienteForm, email: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Dirección *</label>
-                <textarea required rows={2} value={newClienteForm.direccion} onChange={e => setNewClienteForm({...newClienteForm, direccion: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none resize-none"></textarea>
-              </div>
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsNewClienteModalOpen(false)} className="px-4 py-2 text-tp-blue font-bold hover:bg-tp-blue/5 rounded-lg transition-colors">Cancelar</button>
-                <button type="submit" disabled={isSubmitting} className="bg-tp-red text-white px-6 py-2 rounded-lg font-bold hover:bg-[#D91F33] transition-colors disabled:opacity-50">Guardar Cliente</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Nuevo Destinatario Rápido */}
-      {isNewDestinatarioModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-tp-blue/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
-            <div className="p-4 border-b border-tp-gray-soft flex justify-between items-center bg-tp-blue text-white">
-              <h3 className="font-bold">Nuevo Destinatario</h3>
-              <button onClick={() => setIsNewDestinatarioModalOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSaveNewDestinatario} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Nombre *</label>
-                <input type="text" required value={newDestinatarioForm.nombre} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, nombre: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Carnet o Pasaporte *</label>
-                  <input type="text" required value={newDestinatarioForm.carnetPasaporte} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, carnetPasaporte: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Teléfono en Cuba *</label>
-                  <input type="tel" required value={newDestinatarioForm.telefonoCuba} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, telefonoCuba: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Correo Electrónico</label>
-                  <input type="email" value={newDestinatarioForm.email} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, email: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Calle, número, piso, etc. *</label>
-                <textarea required rows={2} value={newDestinatarioForm.direccion} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, direccion: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none resize-none"></textarea>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia *</label>
-                  <select required value={newDestinatarioForm.provincia} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, provincia: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none bg-white">
-                    <option value="">Seleccionar...</option>
-                    {PROVINCIAS_CUBA.map(p => (
-                      <option key={p} value={p}>{p}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Municipio *</label>
-                  <input type="text" required value={newDestinatarioForm.municipio} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, municipio: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Código Postal</label>
-                  <input type="text" value={newDestinatarioForm.codigoPostal} onChange={e => setNewDestinatarioForm({...newDestinatarioForm, codigoPostal: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
-                </div>
-              </div>
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsNewDestinatarioModalOpen(false)} className="px-4 py-2 text-tp-blue font-bold hover:bg-tp-blue/5 rounded-lg transition-colors">Cancelar</button>
-                <button type="submit" disabled={isSubmitting} className="bg-tp-blue text-white px-6 py-2 rounded-lg font-bold hover:bg-[#004a78] transition-colors disabled:opacity-50">Guardar</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modales reutilizables de Cliente y Destinatario */}
+      <ClienteFormModal
+        open={isNewClienteModalOpen}
+        onClose={() => setIsNewClienteModalOpen(false)}
+        onCreated={(id) => { setSelectedClienteId(id); setSelectedDestinatarioId(''); }}
+        clientesExistentes={clientes}
+      />
+      <DestinatarioFormModal
+        open={isNewDestinatarioModalOpen}
+        onClose={() => setIsNewDestinatarioModalOpen(false)}
+        onCreated={(id) => setSelectedDestinatarioId(id)}
+        clienteId={selectedClienteId}
+        destinatariosExistentes={destinatarios}
+      />
 
       {/* Tabla Paquetes del Día */}
       <div className="bg-white rounded-2xl border border-tp-gray-soft overflow-hidden">
@@ -990,6 +1170,11 @@ export function Recepcion() {
               </tr>
             </thead>
             <tbody className="divide-y divide-tp-gray-soft">
+              {paquetesHoy.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-5 py-8 text-center text-tp-blue/40 italic">Aún no se han registrado paquetes hoy.</td>
+                </tr>
+              )}
               {paquetesHoy.map((paquete, i) => (
                 <tr key={i} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-5 py-4 font-semibold text-tp-blue">{paquete.tracking}</td>
@@ -1009,6 +1194,13 @@ export function Recepcion() {
           </table>
         </div>
       </div>
+
+      {/* Etiqueta oculta para impresión */}
+      {etiquetaData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <EtiquetaPaquete ref={etiquetaRef} paquete={etiquetaData} />
+        </div>
+      )}
     </div>
   );
 }
