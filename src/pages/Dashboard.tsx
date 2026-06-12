@@ -16,6 +16,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const [paquetes, setPaquetes] = useState<any[]>([]);
   const [totalKilos, setTotalKilos] = useState(0);
+  const [lotes, setLotes] = useState<any[]>([]);
   const [trackingInput, setTrackingInput] = useState('');
   const [userData, setUserData] = useState<any>(null);
   const [comisionesRecientes, setComisionesRecientes] = useState<any[]>([]);
@@ -46,8 +47,12 @@ export function Dashboard() {
     let isMounted = true;
     let unsubscribePaquetes: (() => void) | undefined;
     let unsubscribeUsers: (() => void) | undefined;
+    let unsubscribeLotes: (() => void) | undefined;
 
     if (role === 'admin') {
+      unsubscribeLotes = onSnapshot(query(collection(db, 'lotes')), (snap) => {
+        if (isMounted) setLotes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
       // Fetch all users for stats
       const qUsers = query(collection(db, 'users'));
       unsubscribeUsers = onSnapshot(qUsers, (snap) => {
@@ -201,15 +206,47 @@ export function Dashboard() {
       if (unsubscribeUsers) {
         unsubscribeUsers();
       }
+      if (unsubscribeLotes) {
+        unsubscribeLotes();
+      }
     };
   }, [role, user]);
 
   if (role === 'admin') {
+    const inicioHoy = new Date(); inicioHoy.setHours(0, 0, 0, 0);
+    const registradosHoy = paquetes.filter(p => (p.createdAt?.toDate?.()?.getTime() || 0) >= inicioHoy.getTime()).length;
+    const pendientesPago = paquetes.filter(p => (p.importePendiente || 0) > 0).length;
+    const incidenciasAbiertas = paquetes.filter(p => p.estado === 'Incidencia').length;
+    const lotesActivos = lotes.filter(l => ['Abierto', 'Cerrado', 'En Tránsito'].includes(l.estado)).length;
+    const entregasPendientes = paquetes.filter(p => ['En Reparto', 'Disponible para recogida'].includes(p.estado)).length;
+    const conteoEstados: Record<string, number> = {};
+    for (const p of paquetes) {
+      const e = p.estado || 'Sin estado';
+      conteoEstados[e] = (conteoEstados[e] || 0) + 1;
+    }
+    const porEstado = Object.entries(conteoEstados).sort((a, b) => b[1] - a[1]);
+
     return (
       <div className="space-y-6">
         <div className="bg-tp-blue rounded-2xl p-8 text-white">
           <h1 className="text-2xl font-bold mb-2">Panel de Administración Global</h1>
           <p className="text-white/70">Bienvenido, {user?.displayName}. Aquí tienes el resumen de toda la red logística.</p>
+        </div>
+
+        {/* Operativa de hoy */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {[
+            { label: 'Registrados Hoy', value: registradosHoy, color: 'text-tp-blue', path: '/dashboard/recepcion' },
+            { label: 'Pendientes de Pago', value: pendientesPago, color: 'text-amber-600', path: '/dashboard/pagos' },
+            { label: 'Incidencias Abiertas', value: incidenciasAbiertas, color: 'text-tp-red', path: '/dashboard/logistica' },
+            { label: 'Lotes Activos', value: lotesActivos, color: 'text-purple-600', path: '/dashboard/logistica' },
+            { label: 'Entregas Pendientes', value: entregasPendientes, color: 'text-teal-600', path: '/dashboard/logistica' },
+          ].map(kpi => (
+            <Link key={kpi.label} to={kpi.path} className="bg-white p-4 rounded-2xl border border-tp-gray-soft hover:shadow-md hover:border-tp-blue/20 transition-all">
+              <div className={cn("text-2xl font-black", kpi.color)}>{kpi.value}</div>
+              <div className="text-[10px] text-tp-blue/50 font-bold uppercase tracking-wider mt-1">{kpi.label}</div>
+            </Link>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
@@ -234,6 +271,21 @@ export function Dashboard() {
             </Link>
           ))}
         </div>
+
+        {/* Paquetes por estado */}
+        {porEstado.length > 0 && (
+          <div className="bg-white p-5 rounded-2xl border border-tp-gray-soft">
+            <h2 className="text-sm font-bold text-tp-blue uppercase tracking-wider mb-3">Paquetes por Estado</h2>
+            <div className="flex flex-wrap gap-2">
+              {porEstado.map(([estado, count]) => (
+                <Link key={estado} to="/dashboard/logistica" className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-tp-gray-soft rounded-xl hover:border-tp-blue/30 transition-colors">
+                  <ChipEstado estado={estado} />
+                  <span className="font-black text-tp-blue text-sm">{count}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Detailed Stats Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
