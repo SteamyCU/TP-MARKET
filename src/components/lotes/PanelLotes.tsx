@@ -12,6 +12,7 @@ import { ChipEstado } from '../ChipEstado';
 import { CambioEstadoModal } from '../CambioEstadoModal';
 import { LoteFormModal } from './LoteFormModal';
 import { ManifiestoLote } from './ManifiestoLote';
+import { HojaEntrega } from '../documentos/HojaEntrega';
 import {
   agregarPaquetesALote, quitarPaqueteDeLote, cambiarEstadoLote,
   guardarTotalesLote, calcularTotalesLote, type PaqueteEnLote,
@@ -46,6 +47,8 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
 
   const manifiestoRef = useRef<HTMLDivElement>(null);
   const imprimirManifiesto = useReactToPrint({ contentRef: manifiestoRef });
+  const hojaEntregaRef = useRef<HTMLDivElement>(null);
+  const imprimirHojaEntrega = useReactToPrint({ contentRef: hojaEntregaRef });
 
   useEffect(() => {
     const q = query(collection(db, 'lotes'), orderBy('createdAt', 'desc'));
@@ -259,6 +262,9 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
                     <button onClick={() => imprimirManifiesto()} disabled={paquetesDelLote.length === 0} className="px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl font-bold text-xs inline-flex items-center gap-1.5 hover:bg-tp-gray-soft transition-colors disabled:opacity-50">
                       <Printer className="w-4 h-4" /> Manifiesto
                     </button>
+                    <button onClick={() => imprimirHojaEntrega()} disabled={paquetesDelLote.length === 0} className="px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl font-bold text-xs inline-flex items-center gap-1.5 hover:bg-tp-gray-soft transition-colors disabled:opacity-50">
+                      <Printer className="w-4 h-4" /> Hoja de Entrega
+                    </button>
                     <button onClick={handleExportar} disabled={paquetesDelLote.length === 0} className="px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl font-bold text-xs inline-flex items-center gap-1.5 hover:bg-tp-gray-soft transition-colors disabled:opacity-50">
                       <Download className="w-4 h-4" /> Exportar CSV
                     </button>
@@ -470,10 +476,11 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
         </div>
       )}
 
-      {/* Manifiesto oculto para impresión */}
+      {/* Documentos ocultos para impresión */}
       {lote && paquetesDelLote.length > 0 && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
           <ManifiestoLote ref={manifiestoRef} lote={lote} paquetes={paquetesDelLote} />
+          <HojaEntrega ref={hojaEntregaRef} lote={lote} paquetes={paquetesDelLote} />
         </div>
       )}
     </div>

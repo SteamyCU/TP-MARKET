@@ -7,6 +7,7 @@ import { ChipEstado } from '../components/ChipEstado';
 import { ClienteFormModal } from '../components/ClienteFormModal';
 import { DestinatarioFormModal } from '../components/DestinatarioFormModal';
 import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
+import { ReciboPaquete, type DatosRecibo } from '../components/documentos/ReciboPaquete';
 import { useAuth } from '../AuthContext';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
@@ -79,11 +80,14 @@ export function Recepcion() {
   // Solicitud del portal cliente que se está convirtiendo en paquete (Fase 5)
   const [solicitudOrigen, setSolicitudOrigen] = useState<any>(null);
 
-  // Etiqueta imprimible del último paquete registrado
+  // Etiqueta y recibo imprimibles del último paquete registrado
   const [etiquetaData, setEtiquetaData] = useState<any>(null);
+  const [reciboData, setReciboData] = useState<DatosRecibo | null>(null);
   const [pendingPrint, setPendingPrint] = useState(false);
   const etiquetaRef = useRef<HTMLDivElement>(null);
+  const reciboRef = useRef<HTMLDivElement>(null);
   const handlePrintEtiqueta = useReactToPrint({ contentRef: etiquetaRef });
+  const handlePrintRecibo = useReactToPrint({ contentRef: reciboRef });
 
   useEffect(() => {
     cargarConfigNegocio().then(setConfig);
@@ -327,6 +331,28 @@ export function Recepcion() {
           municipio: entregaMunicipio,
           confirmada: formData.direccionConfirmada,
         },
+      });
+
+      setReciboData({
+        tracking,
+        fecha: new Date(formData.fechaRegistro),
+        estado: formData.estado,
+        clienteNombre: selectedCliente?.nombre || '',
+        clienteTelefono: selectedCliente?.telefonoEspana || '',
+        destinatarioNombre: selectedDestinatario?.nombre || '',
+        destinatarioDocumento: selectedDestinatario?.carnetPasaporte || '',
+        destinatarioTelefono: selectedDestinatario?.telefonoCuba || '',
+        destinatarioDireccion: entregaDireccion,
+        destino: entregaProvincia,
+        contenido: formData.contenido,
+        tipoEnvio: formData.tipoEnvio,
+        peso: pesoReal!,
+        pesoTasable,
+        precioFinal: precioFinalNum,
+        importePagado: importePagadoNum,
+        importePendiente,
+        metodoPago: formData.metodoPago,
+        estadoPago: formData.estadoPago,
       });
 
       setEtiquetaData({
@@ -1082,6 +1108,23 @@ export function Recepcion() {
               </div>
             </div>
           </button>
+
+          <button
+            type="button"
+            onClick={() => reciboData && handlePrintRecibo()}
+            disabled={!reciboData}
+            className="w-full bg-white border border-tp-gray-soft hover:border-tp-blue/30 p-4 rounded-xl flex items-center gap-4 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="w-12 h-12 rounded-full bg-tp-blue-light flex items-center justify-center text-tp-blue group-hover:bg-tp-blue group-hover:text-white transition-colors">
+              <FileText className="w-5 h-5" />
+            </div>
+            <div className="text-left">
+              <div className="font-bold text-tp-blue">Imprimir recibo</div>
+              <div className="text-xs text-tp-blue/60">
+                {reciboData ? `Último: ${reciboData.tracking}` : 'Registra un paquete primero'}
+              </div>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -1254,10 +1297,15 @@ export function Recepcion() {
         </div>
       </div>
 
-      {/* Etiqueta oculta para impresión */}
+      {/* Etiqueta y recibo ocultos para impresión */}
       {etiquetaData && (
         <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
           <EtiquetaPaquete ref={etiquetaRef} paquete={etiquetaData} />
+        </div>
+      )}
+      {reciboData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <ReciboPaquete ref={reciboRef} recibo={reciboData} />
         </div>
       )}
     </div>

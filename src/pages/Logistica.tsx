@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Package, Truck, Layers, AlertCircle, CheckCircle2, Box, Printer, RefreshCw } from 'lucide-react';
+import { Package, Truck, Layers, AlertCircle, CheckCircle2, Box, Printer, RefreshCw, Receipt } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { ChipEstado } from '../components/ChipEstado';
@@ -8,6 +8,7 @@ import { DataTable, type ColumnaDef } from '../components/DataTable';
 import { cn } from '../lib/utils';
 import { useReactToPrint } from 'react-to-print';
 import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
+import { ReciboPaquete, type DatosRecibo } from '../components/documentos/ReciboPaquete';
 import { ESTADOS_PAQUETE, GRUPOS_ESTADO } from '../constants/estados';
 import type { PaqueteParaCambio } from '../services/estados';
 import { PanelLotes } from '../components/lotes/PanelLotes';
@@ -54,6 +55,40 @@ export function Logistica() {
 
   const [paquetesParaImprimir, setPaquetesParaImprimir] = useState<any[]>([]);
   const componentRef = useRef<HTMLDivElement>(null);
+  const [reciboData, setReciboData] = useState<DatosRecibo | null>(null);
+  const [pendingPrintRecibo, setPendingPrintRecibo] = useState(false);
+  const reciboRef = useRef<HTMLDivElement>(null);
+  const handlePrintRecibo = useReactToPrint({ contentRef: reciboRef });
+
+  useEffect(() => {
+    if (pendingPrintRecibo && reciboData) {
+      handlePrintRecibo();
+      setPendingPrintRecibo(false);
+    }
+  }, [pendingPrintRecibo, reciboData]);
+
+  const imprimirRecibo = (p: Paquete) => {
+    setReciboData({
+      tracking: p.tracking,
+      fecha: p.createdAt?.toDate ? p.createdAt.toDate() : undefined,
+      estado: p.estado,
+      clienteNombre: p.clienteNombre || '',
+      clienteTelefono: p.clienteTelefono || '',
+      destinatarioNombre: p.destinatarioNombre || '',
+      destinatarioDocumento: p.destinatarioDocumento || '',
+      destinatarioTelefono: p.destinatarioTelefono || '',
+      destinatarioDireccion: p.destinatarioDireccion || '',
+      destino: p.destino || '',
+      contenido: p.contenido || '',
+      peso: p.peso || 0,
+      pesoTasable: p.pesoTasable,
+      precioFinal: p.precioFinal,
+      importePagado: p.importePagado || 0,
+      importePendiente: p.importePendiente || 0,
+      estadoPago: p.estadoPago,
+    });
+    setPendingPrintRecibo(true);
+  };
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
@@ -365,6 +400,13 @@ export function Logistica() {
                       <Printer className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => imprimirRecibo(p)}
+                      className="p-2 text-tp-blue hover:bg-tp-blue-light rounded-lg transition-colors"
+                      title="Imprimir Recibo"
+                    >
+                      <Receipt className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => abrirCambioIndividual(p)}
                       className="text-tp-blue hover:text-tp-red font-bold transition-colors text-xs"
                     >
@@ -404,6 +446,13 @@ export function Logistica() {
           ))}
         </div>
       </div>
+
+      {/* Recibo oculto para impresión */}
+      {reciboData && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <ReciboPaquete ref={reciboRef} recibo={reciboData} />
+        </div>
+      )}
     </div>
   );
 }

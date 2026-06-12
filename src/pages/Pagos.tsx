@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import { Wallet, CreditCard, Banknote, Download, CheckCircle2, Clock } from 'lucide-react';
+import { Wallet, CreditCard, Banknote, Download, CheckCircle2, Clock, Printer } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { Navigate } from 'react-router-dom';
+import { useReactToPrint } from 'react-to-print';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
 import { NuevoCobroModal } from '../components/NuevoCobroModal';
+import { ComprobantePago, type DatosComprobante } from '../components/documentos/ComprobantePago';
 import { exportarExcel } from '../lib/excel';
 import { METODOS_PAGO } from '../constants/estados';
 
@@ -33,6 +35,30 @@ export function Pagos() {
   const [filtroEstado, setFiltroEstado] = useState('');
   const [isCobroModalOpen, setIsCobroModalOpen] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [comprobante, setComprobante] = useState<DatosComprobante | null>(null);
+  const [pendingPrint, setPendingPrint] = useState(false);
+  const comprobanteRef = useRef<HTMLDivElement>(null);
+  const imprimirComprobante = useReactToPrint({ contentRef: comprobanteRef });
+
+  useEffect(() => {
+    if (pendingPrint && comprobante) {
+      imprimirComprobante();
+      setPendingPrint(false);
+    }
+  }, [pendingPrint, comprobante]);
+
+  const verComprobante = (pago: Pago & { nota?: string }) => {
+    setComprobante({
+      referencia: pago.id,
+      tracking: pago.paqueteId,
+      fecha: pago.fecha?.toDate ? pago.fecha.toDate() : undefined,
+      monto: pago.monto || 0,
+      metodo: pago.metodo,
+      estado: pago.estado,
+      nota: pago.nota,
+    });
+    setPendingPrint(true);
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(500));
@@ -202,11 +228,27 @@ export function Pagos() {
             </select>
           </div>
         }
+        accionesFila={(p) => (
+          <button
+            onClick={() => verComprobante(p)}
+            className="text-tp-blue hover:text-tp-red font-bold transition-colors text-xs flex items-center gap-1"
+            title="Imprimir comprobante de pago"
+          >
+            <Printer className="w-3.5 h-3.5" /> Comprobante
+          </button>
+        )}
         exportarNombre="pagos"
         exportarFila={filaExport}
         porPagina={20}
         vacio="No hay transacciones registradas todavía."
       />
+
+      {/* Comprobante oculto para impresión */}
+      {comprobante && (
+        <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+          <ComprobantePago ref={comprobanteRef} comprobante={comprobante} />
+        </div>
+      )}
 
       <NuevoCobroModal
         open={isCobroModalOpen}
