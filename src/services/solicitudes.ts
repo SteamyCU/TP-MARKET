@@ -6,6 +6,7 @@ import {
   collection, doc, addDoc, updateDoc, getDocs, query, where, serverTimestamp,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { registrarAuditoria } from './auditoria';
 
 /**
  * Busca el documento de 'clientes' vinculado al usuario por email y lo crea si
@@ -70,6 +71,14 @@ export async function actualizarEstadoSolicitud(
     ...(extra?.notaInterna !== undefined ? { notaInterna: extra.notaInterna } : {}),
     ...(extra?.notaParaCliente !== undefined ? { notaParaCliente: extra.notaParaCliente } : {}),
     updatedAt: serverTimestamp(),
+  });
+  await registrarAuditoria({
+    accion: 'cambio_solicitud',
+    entidad: 'solicitud',
+    entidadId: solicitudId,
+    descripcion: `Solicitud actualizada a "${estado}"`,
+    valorNuevo: estado,
+    motivo: extra?.notaParaCliente || null,
   });
 }
 

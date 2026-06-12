@@ -323,6 +323,15 @@ service cloud.firestore {
              (!('loteCodigo' in data) || data.loteCodigo == null || data.loteCodigo is string);
     }
 
+    function isValidAuditoria(data) {
+      return hasOnlyAllowedFields(['accion', 'entidad', 'entidadId', 'descripcion', 'valorAnterior', 'valorNuevo', 'motivo', 'usuario', 'usuarioEmail', 'fecha']) &&
+             hasRequiredFields(['accion', 'entidad', 'entidadId', 'descripcion', 'usuario', 'fecha']) &&
+             data.accion is string && data.accion.size() <= 50 &&
+             data.entidad is string && data.entidad.size() <= 50 &&
+             data.descripcion is string && data.descripcion.size() <= 600 &&
+             data.usuario == request.auth.uid;
+    }
+
     function isValidSolicitud(data) {
       return hasOnlyAllowedFields(['clienteUid', 'clienteId', 'clienteNombre', 'clienteEmail', 'clienteTelefono', 'destinatarioId', 'destinatarioNombre', 'destinatarioProvincia', 'contenido', 'tipoEnvio', 'pesoEstimado', 'observaciones', 'estado', 'notaInterna', 'notaParaCliente', 'tracking', 'createdAt', 'updatedAt']) &&
              hasRequiredFields(['clienteUid', 'clienteId', 'destinatarioId', 'contenido', 'estado', 'createdAt']) &&
@@ -433,6 +442,15 @@ service cloud.firestore {
       allow create: if isFinanzas() && isValidGasto(request.resource.data);
       allow update: if isAdmin() && isValidGasto(request.resource.data) && areImmutableFieldsUnchanged(['createdAt']);
       allow delete: if isAdmin();
+    }
+
+    match /auditoria/{entradaId} {
+      // Registro inmutable: solo lectura para admin, creación por cualquier
+      // usuario autenticado con rol conocido (las acciones del portal cliente
+      // también se auditan), sin modificaciones ni borrados.
+      allow read: if isAdmin();
+      allow create: if isCliente() && isValidAuditoria(request.resource.data);
+      allow update, delete: if false;
     }
 
     match /solicitudes/{solicitudId} {

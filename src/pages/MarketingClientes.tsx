@@ -86,7 +86,7 @@ export function MarketingClientes() {
       : [...actuales, etiqueta];
     setIsSaving(true);
     try {
-      await actualizarEtiquetasCliente(ficha.id, nuevas);
+      await actualizarEtiquetasCliente(ficha.id, nuevas, ficha.cliente.nombre);
     } catch (err) {
       console.error('Error actualizando etiquetas:', err);
       notificar('No se pudieron actualizar las etiquetas.');

@@ -3,11 +3,19 @@
 
 import { doc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { registrarAuditoria } from './auditoria';
 
-export async function actualizarEtiquetasCliente(clienteId: string, etiquetas: string[]): Promise<void> {
+export async function actualizarEtiquetasCliente(clienteId: string, etiquetas: string[], clienteNombre?: string): Promise<void> {
   await updateDoc(doc(db, 'clientes', clienteId), {
     etiquetasMarketing: etiquetas,
     updatedAt: serverTimestamp(),
+  });
+  await registrarAuditoria({
+    accion: 'cambio_etiquetas_cliente',
+    entidad: 'cliente',
+    entidadId: clienteNombre || clienteId,
+    descripcion: `Etiquetas de marketing actualizadas`,
+    valorNuevo: etiquetas.join(', ') || 'sin etiquetas',
   });
 }
 

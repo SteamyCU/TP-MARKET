@@ -18,6 +18,7 @@ import {
   Inbox,
   Send,
   Megaphone,
+  Shield,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -60,6 +61,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3 },
     { name: 'Reportes Globales', path: '/dashboard/reportes', icon: BarChart3 },
     { name: 'Configuración', path: '/dashboard/configuracion', icon: Settings },
+    { name: 'Auditoría', path: '/dashboard/auditoria', icon: Shield },
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings },
   ];
 

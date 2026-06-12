@@ -3,6 +3,7 @@
 
 import { collection, doc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { registrarAuditoria } from './auditoria';
 
 export interface NuevoGastoInput {
   concepto: string;
@@ -22,9 +23,22 @@ export async function registrarGasto(input: NuevoGastoInput): Promise<string> {
     creadoPor: auth.currentUser?.uid || 'unknown',
     createdAt: serverTimestamp(),
   });
+  await registrarAuditoria({
+    accion: 'crear_gasto',
+    entidad: 'gasto',
+    entidadId: input.concepto,
+    descripcion: `Gasto "${input.concepto}" (${input.categoria})${input.loteCodigo ? ` · lote ${input.loteCodigo}` : ''}`,
+    valorNuevo: `${input.monto.toFixed(2)} €`,
+  });
   return docRef.id;
 }
 
-export async function eliminarGasto(gastoId: string): Promise<void> {
+export async function eliminarGasto(gastoId: string, descripcion?: string): Promise<void> {
   await deleteDoc(doc(db, 'gastos', gastoId));
+  await registrarAuditoria({
+    accion: 'eliminar_gasto',
+    entidad: 'gasto',
+    entidadId: gastoId,
+    descripcion: `Gasto eliminado${descripcion ? `: ${descripcion}` : ''}`,
+  });
 }

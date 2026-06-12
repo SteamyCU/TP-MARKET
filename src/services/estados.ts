@@ -6,6 +6,7 @@
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { ESTADOS_FINALES } from '../constants/estados';
+import { registrarAuditoria } from './auditoria';
 
 export type TipoCambioEstado = 'individual' | 'masivo' | 'lote';
 
@@ -71,6 +72,17 @@ export async function cambiarEstado(
     await batch.commit();
     actualizados += chunk.length;
   }
+
+  const estadosPrevios = [...new Set(paquetes.map(p => p.estado).filter(Boolean))];
+  await registrarAuditoria({
+    accion: 'cambio_estado',
+    entidad: 'paquete',
+    entidadId: paquetes.length === 1 ? paquetes[0].tracking : `${paquetes.length} paquetes`,
+    descripcion: `Cambio de estado ${opciones.tipoCambio}: ${paquetes.slice(0, 20).map(p => p.tracking).join(', ')}${paquetes.length > 20 ? '…' : ''}`,
+    valorAnterior: estadosPrevios.join(', '),
+    valorNuevo: nuevoEstado,
+    motivo: opciones.motivo || null,
+  });
 
   return actualizados;
 }

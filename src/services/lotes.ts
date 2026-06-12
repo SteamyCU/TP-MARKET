@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { cambiarEstado, type PaqueteParaCambio } from './estados';
+import { registrarAuditoria } from './auditoria';
 import type { EstadoLote } from '../constants/estados';
 
 export function generarCodigoLote(): string {
@@ -72,6 +73,12 @@ export async function crearLote(input: NuevoLoteInput): Promise<string> {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  await registrarAuditoria({
+    accion: 'crear_lote',
+    entidad: 'lote',
+    entidadId: input.codigo,
+    descripcion: `Lote ${input.codigo} creado (${input.ruta || 'sin ruta'})`,
+  });
   return docRef.id;
 }
 
@@ -109,6 +116,13 @@ export async function agregarPaquetesALote(
   });
 
   await batch.commit();
+
+  await registrarAuditoria({
+    accion: 'agregar_a_lote',
+    entidad: 'lote',
+    entidadId: loteCodigo,
+    descripcion: `${paquetes.length} paquete(s) agregados al lote ${loteCodigo}: ${paquetes.slice(0, 20).map(p => p.tracking).join(', ')}${paquetes.length > 20 ? '…' : ''}`,
+  });
   return paquetes.length;
 }
 
@@ -139,6 +153,13 @@ export async function quitarPaqueteDeLote(loteId: string, loteCodigo: string, pa
   });
 
   await batch.commit();
+
+  await registrarAuditoria({
+    accion: 'quitar_de_lote',
+    entidad: 'lote',
+    entidadId: loteCodigo,
+    descripcion: `Paquete ${paquete.tracking} retirado del lote ${loteCodigo}`,
+  });
 }
 
 /** Persiste los totales calculados en el documento del lote. */
@@ -169,6 +190,15 @@ export async function cambiarEstadoLote(
   if (nuevoEstado === 'En Tránsito') update.fechaRealSalida = serverTimestamp();
   if (nuevoEstado === 'Recibido') update.fechaRealLlegada = serverTimestamp();
   await updateDoc(doc(db, 'lotes', loteId), update);
+
+  await registrarAuditoria({
+    accion: 'cambio_estado_lote',
+    entidad: 'lote',
+    entidadId: loteCodigo,
+    descripcion: `Lote ${loteCodigo} → ${nuevoEstado}${opciones?.estadoPaquetes ? ` (paquetes → ${opciones.estadoPaquetes})` : ''}`,
+    valorNuevo: nuevoEstado,
+    motivo: opciones?.motivo || null,
+  });
 
   if (opciones?.estadoPaquetes && paquetes.length > 0) {
     await cambiarEstado(paquetes, opciones.estadoPaquetes, {

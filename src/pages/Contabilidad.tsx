@@ -241,7 +241,7 @@ export function Contabilidad() {
   const handleEliminarGasto = async (gasto: any) => {
     if (!window.confirm(`¿Eliminar el gasto "${gasto.concepto}" de €${(gasto.monto || 0).toFixed(2)}?`)) return;
     try {
-      await eliminarGasto(gasto.id);
+      await eliminarGasto(gasto.id, `${gasto.concepto} · ${(gasto.monto || 0).toFixed(2)} €`);
       notificar('Gasto eliminado.');
     } catch (err) {
       console.error('Error eliminando gasto:', err);

@@ -20,6 +20,7 @@ import { MisSolicitudes } from './pages/MisSolicitudes';
 import { Solicitudes } from './pages/Solicitudes';
 import { MarketingClientes } from './pages/MarketingClientes';
 import { Configuracion } from './pages/Configuracion';
+import { Auditoria } from './pages/Auditoria';
 import { Calculadora } from './pages/Calculadora';
 import { OfertasSalidas } from './pages/OfertasSalidas';
 import { AdminB2B } from './pages/AdminB2B';
@@ -722,6 +723,7 @@ export default function App() {
             <Route path="contabilidad" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner', 'contabilidad']}><Contabilidad /></RoleRoute>} />
             <Route path="configuracion-afiliados" element={<RoleRoute allowedRoles={['admin']}><ConfiguracionAfiliados /></RoleRoute>} />
             <Route path="configuracion" element={<RoleRoute allowedRoles={['admin']}><Configuracion /></RoleRoute>} />
+            <Route path="auditoria" element={<RoleRoute allowedRoles={['admin']}><Auditoria /></RoleRoute>} />
             <Route path="pagos" element={<RoleRoute allowedRoles={['admin', 'agente', 'contabilidad']}><Pagos /></RoleRoute>} />
             <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="*" element={<div className="p-8 text-tp-blue font-medium">Módulo en desarrollo...</div>} />

@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { ImportModal } from '../components/ImportModal';
 import { exportarExcel } from '../lib/excel';
+import { registrarAuditoria } from '../services/auditoria';
 import parsedClients from '../parsed_clients.json';
 
 interface Cliente {
@@ -197,6 +198,14 @@ export function Clientes() {
 
       if (selectedCliente) {
         await updateDoc(doc(db, 'clientes', selectedCliente.id), dataToSave);
+        await registrarAuditoria({
+          accion: 'cambio_datos_cliente',
+          entidad: 'cliente',
+          entidadId: selectedCliente.nombre,
+          descripcion: `Datos del cliente modificados`,
+          valorAnterior: `${selectedCliente.nombre} · ${selectedCliente.documentoIdentidad} · ${selectedCliente.telefonoEspana} · ${selectedCliente.email}`,
+          valorNuevo: `${clienteForm.nombre} · ${clienteForm.documentoIdentidad} · ${clienteForm.telefonoEspana} · ${clienteForm.email}`,
+        });
       } else {
         await addDoc(collection(db, 'clientes'), {
           ...dataToSave,
@@ -361,6 +370,12 @@ export function Clientes() {
       }
       await batch.commit();
     }
+    await registrarAuditoria({
+      accion: 'importacion',
+      entidad: 'cliente',
+      entidadId: `${filas.length} clientes`,
+      descripcion: `Importación masiva de ${filas.length} cliente(s) desde Excel/CSV`,
+    });
     return filas.length;
   };
 

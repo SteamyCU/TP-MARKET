@@ -7,6 +7,7 @@ import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { setEmpresa } from '../lib/empresa';
+import { registrarAuditoria } from './auditoria';
 import type { EntregaPaquete, MedidasPaquete } from '../types/models';
 import type { EstadoPago } from '../constants/estados';
 
@@ -156,6 +157,14 @@ export async function crearPaquete(input: NuevoPaqueteInput): Promise<string> {
       : 'Paquete recibido en oficina',
     timestamp: input.fechaRegistro,
     operadorId,
+  });
+
+  await registrarAuditoria({
+    accion: 'crear_paquete',
+    entidad: 'paquete',
+    entidadId: input.tracking,
+    descripcion: `Paquete registrado para ${input.clienteNombre} → ${input.destinatarioNombre} (${input.destino})`,
+    valorNuevo: `precio ${precioFinal ?? '—'} € · pagado ${importePagado} € · pago ${input.estadoPago}`,
   });
 
   return docRef.id;

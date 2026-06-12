@@ -3,6 +3,7 @@
 
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { registrarAuditoria } from './auditoria';
 
 export interface PaqueteConDeuda {
   id: string;
@@ -49,4 +50,14 @@ export async function registrarCobro({ paquete, monto, metodo, nota }: NuevoCobr
     updatedAt: serverTimestamp(),
   });
   await batch.commit();
+
+  await registrarAuditoria({
+    accion: 'cobro',
+    entidad: 'paquete',
+    entidadId: paquete.tracking,
+    descripcion: `Cobro de ${monto.toFixed(2)} € (${metodo}) sobre ${paquete.tracking}`,
+    valorAnterior: `pagado ${pagadoActual.toFixed(2)} € · pendiente ${pendienteActual.toFixed(2)} €`,
+    valorNuevo: `pagado ${nuevoPagado.toFixed(2)} € · pendiente ${nuevoPendiente.toFixed(2)} €`,
+    motivo: nota || null,
+  });
 }
