@@ -84,6 +84,35 @@ export interface Paquete {
   importePagado?: number;
   importePendiente?: number;
   entrega?: EntregaPaquete;
+  // Fase 3: asignación a lote de salida
+  loteId?: string | null;
+  loteCodigo?: string | null;
+}
+
+export interface Lote {
+  id: string;
+  codigo: string;
+  estado: string;
+  ruta?: string;
+  contenedor?: string;
+  oficinaOrigen?: string;
+  oficinaDestino?: string;
+  responsable?: string;
+  fechaEstimadaSalida?: string;
+  fechaRealSalida?: unknown;
+  fechaEstimadaLlegada?: string;
+  fechaRealLlegada?: unknown;
+  paqueteIds?: string[];
+  totalPaquetes?: number;
+  pesoTotal?: number;
+  pesoTasableTotal?: number;
+  volumenTotalCm3?: number;
+  valorDeclaradoTotal?: number;
+  ingresosEstimados?: number;
+  costesEstimados?: number | null;
+  beneficioEstimado?: number;
+  notas?: string;
+  creadoPor?: string;
 }
 
 export interface Pago {

@@ -9,6 +9,7 @@ import { useReactToPrint } from 'react-to-print';
 import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
 import { ESTADOS_PAQUETE, GRUPOS_ESTADO } from '../constants/estados';
 import type { PaqueteParaCambio } from '../services/estados';
+import { PanelLotes } from '../components/lotes/PanelLotes';
 
 interface Paquete {
   id: string;
@@ -31,6 +32,12 @@ interface Paquete {
   importePendiente?: number;
   importePagado?: number;
   estadoPago?: string;
+  pesoTasable?: number | null;
+  volumenCm3?: number | null;
+  valorDeclarado?: number | null;
+  precioFinal?: number | null;
+  loteId?: string | null;
+  loteCodigo?: string | null;
 }
 
 export function Logistica() {
@@ -382,6 +389,7 @@ export function Logistica() {
                       <th className="px-5 py-3">Tracking</th>
                       <th className="px-5 py-3">Contenido</th>
                       <th className="px-5 py-3">Destino</th>
+                      <th className="px-5 py-3">Lote</th>
                       <th className="px-5 py-3">Estado</th>
                       <th className="px-5 py-3 text-right">Acciones</th>
                     </tr>
@@ -389,7 +397,7 @@ export function Logistica() {
                   <tbody className="divide-y divide-tp-gray-soft">
                     {paquetesFiltrados.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-5 py-8 text-center text-tp-blue/40 italic">
+                        <td colSpan={7} className="px-5 py-8 text-center text-tp-blue/40 italic">
                           {paquetes.length === 0 ? 'No hay paquetes registrados.' : 'Ningún paquete coincide con la búsqueda o el filtro.'}
                         </td>
                       </tr>
@@ -407,6 +415,11 @@ export function Logistica() {
                         <td className="px-5 py-4 font-bold text-tp-blue">{p.tracking}</td>
                         <td className="px-5 py-4 text-tp-blue/70">{p.contenido || 'N/A'}</td>
                         <td className="px-5 py-4 text-tp-blue/70">{p.destino}</td>
+                        <td className="px-5 py-4">
+                          {p.loteCodigo
+                            ? <span className="font-mono text-xs font-bold text-tp-blue bg-tp-blue-light px-2 py-1 rounded-lg">{p.loteCodigo}</span>
+                            : <span className="text-xs text-tp-blue/30 italic">Sin lote</span>}
+                        </td>
                         <td className="px-5 py-4"><ChipEstado estado={p.estado} /></td>
                         <td className="px-5 py-4 text-right flex justify-end gap-2">
                           <button 
@@ -433,18 +446,7 @@ export function Logistica() {
         )}
 
         {activeTab === 'despacho' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-white p-6 rounded-2xl border border-tp-gray-soft text-center py-12">
-              <Truck className="w-16 h-16 mx-auto text-tp-blue/20 mb-4" />
-              <h2 className="text-xl font-bold text-tp-blue mb-2">Módulo de Despacho</h2>
-              <p className="text-tp-blue/60 max-w-md mx-auto mb-6">
-                Aquí podrás organizar los lotes, contenedores y guías aéreas/marítimas para el envío hacia Cuba.
-              </p>
-              <button className="bg-tp-blue hover:bg-[#004a78] text-white px-6 py-3 rounded-xl font-bold transition-colors inline-flex items-center gap-2">
-                <Plus className="w-5 h-5" /> Crear Nuevo Lote de Despacho
-              </button>
-            </div>
-          </div>
+          <PanelLotes paquetes={paquetes} />
         )}
       </div>
 

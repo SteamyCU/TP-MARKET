@@ -52,6 +52,10 @@ export const GRUPOS_ESTADO: Record<EstadoInfo['grupo'], string> = {
 /** Estados que cierran el ciclo de vida del paquete */
 export const ESTADOS_FINALES = ['Entregado', 'Devuelto', 'Cancelado'];
 
+/** Estados del ciclo de vida de un lote de salida */
+export const ESTADOS_LOTE = ['Abierto', 'Cerrado', 'En Tránsito', 'Recibido', 'Cancelado'] as const;
+export type EstadoLote = (typeof ESTADOS_LOTE)[number];
+
 /** Estados iniciales válidos al registrar un paquete en recepción */
 export const ESTADOS_INICIALES = ['Recepción', 'Validación', 'Incidencia'];
 
@@ -66,6 +70,10 @@ export const ESTADO_COLOR: Record<string, string> = {
   'pagado': 'bg-green-100 text-green-700',
   'parcial': 'bg-amber-100 text-amber-700',
   'confirmado': 'bg-green-100 text-green-700',
+  // Estados de lote
+  'abierto': 'bg-green-100 text-green-700',
+  'cerrado': 'bg-gray-200 text-gray-700',
+  'recibido': 'bg-cyan-100 text-cyan-700',
 };
 
 export const ESTADOS_PAGO = ['Pagado', 'Parcial', 'Pendiente'] as const;

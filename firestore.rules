@@ -169,14 +169,31 @@ service cloud.firestore {
              (!('referidoPor' in data) || (data.referidoPor is string));
     }
 
+    function isValidEstadoPaquete(estado) {
+      // Catálogo completo (src/constants/estados.ts) + valores legacy en datos antiguos
+      return estado in [
+        'Borrador', 'Registrado', 'Pendiente de datos', 'Pendiente de pago',
+        'Recepción', 'Validación', 'Clasificado', 'En preparación', 'Consolidado',
+        'Asignado a lote', 'En contenedor', 'Listo para salida', 'Despacho',
+        'En Tránsito', 'Aduana Cuba', 'Almacén Cuba', 'En Reparto',
+        'Disponible para recogida', 'Entregado', 'Devuelto', 'Cancelado',
+        'Incidencia', 'Pendiente', 'En Punto Pack'
+      ];
+    }
+
     function isValidPaquete(data) {
-      return hasOnlyAllowedFields(['tracking', 'clienteNombre', 'clienteTelefono', 'peso', 'origen', 'destino', 'contenido', 'estado', 'createdAt', 'updatedAt', 'operadorId', 'clienteId', 'destinatarioId', 'destinatarioNombre', 'referidoPor', 'montoComision', 'partnerId', 'precioAplicado', 'esB2B']) &&
+      return hasOnlyAllowedFields(['tracking', 'clienteNombre', 'clienteTelefono', 'peso', 'origen', 'destino', 'contenido', 'estado', 'createdAt', 'updatedAt', 'operadorId', 'clienteId', 'destinatarioId', 'destinatarioNombre', 'referidoPor', 'montoComision', 'partnerId', 'precioAplicado', 'esB2B', 'medidas', 'detallesIncidencia', 'destinatarioDireccion', 'destinatarioTelefono', 'destinatarioDocumento', 'guiaMaster', 'tipoEnvio', 'descripcion', 'volumenCm3', 'pesoVolumetrico', 'pesoTasable', 'valorDeclarado', 'precioSugerido', 'precioFinal', 'estadoPago', 'importePagado', 'importePendiente', 'entrega', 'loteId', 'loteCodigo']) &&
              hasRequiredFields(['tracking', 'peso', 'origen', 'destino', 'estado', 'createdAt', 'updatedAt']) &&
              data.tracking is string && data.tracking.size() > 0 && data.tracking.size() <= 50 &&
              data.peso is number && data.peso >= 0 &&
              data.origen is string && data.origen.size() > 0 && data.origen.size() <= 100 &&
              data.destino is string && data.destino.size() > 0 && data.destino.size() <= 100 &&
-             data.estado in ['Recepción', 'Validación', 'Consolidado', 'Despacho', 'Incidencia', 'Entregado', 'Pendiente', 'En Punto Pack'] &&
+             isValidEstadoPaquete(data.estado) &&
+             (!('estadoPago' in data) || (data.estadoPago is string && data.estadoPago in ['Pagado', 'Parcial', 'Pendiente'])) &&
+             (!('importePagado' in data) || data.importePagado is number) &&
+             (!('importePendiente' in data) || data.importePendiente is number) &&
+             (!('loteId' in data) || data.loteId == null || data.loteId is string) &&
+             (!('loteCodigo' in data) || data.loteCodigo == null || data.loteCodigo is string) &&
              (!('clienteNombre' in data) || (data.clienteNombre is string && data.clienteNombre.size() <= 100)) &&
              (!('clienteTelefono' in data) || (data.clienteTelefono is string && data.clienteTelefono.size() <= 50)) &&
              (!('contenido' in data) || (data.contenido is string && data.contenido.size() <= 1000)) &&
@@ -209,16 +226,29 @@ service cloud.firestore {
     }
 
     function isValidEvento(data) {
-      return hasOnlyAllowedFields(['paqueteId', 'estado', 'notas', 'timestamp', 'operadorId']) &&
+      return hasOnlyAllowedFields(['paqueteId', 'estado', 'notas', 'timestamp', 'operadorId', 'ubicacion', 'estadoAnterior', 'motivo', 'tipoCambio']) &&
              hasRequiredFields(['paqueteId', 'estado', 'timestamp']) &&
              data.paqueteId is string && data.paqueteId.size() > 0 && data.paqueteId.size() <= 100 &&
              data.estado is string && data.estado.size() > 0 && data.estado.size() <= 50 &&
              (!('notas' in data) || (data.notas is string && data.notas.size() <= 1000)) &&
-             (!('operadorId' in data) || (data.operadorId is string && data.operadorId.size() <= 100));
+             (!('operadorId' in data) || (data.operadorId is string && data.operadorId.size() <= 100)) &&
+             (!('ubicacion' in data) || (data.ubicacion is string && data.ubicacion.size() <= 200)) &&
+             (!('estadoAnterior' in data) || data.estadoAnterior == null || (data.estadoAnterior is string && data.estadoAnterior.size() <= 50)) &&
+             (!('motivo' in data) || data.motivo == null || (data.motivo is string && data.motivo.size() <= 500)) &&
+             (!('tipoCambio' in data) || (data.tipoCambio is string && data.tipoCambio in ['individual', 'masivo', 'lote']));
+    }
+
+    function isValidLote(data) {
+      return hasOnlyAllowedFields(['codigo', 'estado', 'ruta', 'contenedor', 'oficinaOrigen', 'oficinaDestino', 'responsable', 'fechaEstimadaSalida', 'fechaRealSalida', 'fechaEstimadaLlegada', 'fechaRealLlegada', 'paqueteIds', 'totalPaquetes', 'pesoTotal', 'pesoTasableTotal', 'volumenTotalCm3', 'valorDeclaradoTotal', 'ingresosEstimados', 'costesEstimados', 'beneficioEstimado', 'notas', 'createdAt', 'updatedAt', 'creadoPor']) &&
+             hasRequiredFields(['codigo', 'estado', 'createdAt']) &&
+             data.codigo is string && data.codigo.size() > 0 && data.codigo.size() <= 50 &&
+             data.estado in ['Abierto', 'Cerrado', 'En Tránsito', 'Recibido', 'Cancelado'] &&
+             (!('paqueteIds' in data) || data.paqueteIds is list) &&
+             (!('costesEstimados' in data) || data.costesEstimados == null || data.costesEstimados is number);
     }
 
     function isValidCliente(data) {
-      return hasOnlyAllowedFields(['nombre', 'documentoIdentidad', 'telefonoEspana', 'email', 'codigoPostal', 'localidad', 'direccion', 'agenteId', 'createdAt', 'updatedAt']) &&
+      return hasOnlyAllowedFields(['nombre', 'documentoIdentidad', 'telefonoEspana', 'telefonoSecundario', 'email', 'codigoPostal', 'localidad', 'direccion', 'observaciones', 'referido_por', 'agenteId', 'createdAt', 'updatedAt']) &&
              hasRequiredFields(['nombre', 'documentoIdentidad', 'email', 'direccion', 'createdAt']) &&
              data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 100 &&
              data.documentoIdentidad is string && data.documentoIdentidad.size() > 0 && data.documentoIdentidad.size() <= 50 &&
@@ -231,7 +261,7 @@ service cloud.firestore {
     }
 
     function isValidDestinatario(data) {
-      return hasOnlyAllowedFields(['clienteId', 'nombre', 'carnetPasaporte', 'telefonoCuba', 'email', 'direccion', 'provincia', 'municipio', 'codigoPostal', 'createdAt']) &&
+      return hasOnlyAllowedFields(['clienteId', 'nombre', 'carnetPasaporte', 'telefonoCuba', 'telefonoSecundario', 'email', 'direccion', 'provincia', 'municipio', 'codigoPostal', 'puntoRecogida', 'createdAt']) &&
              hasRequiredFields(['clienteId', 'nombre', 'carnetPasaporte', 'telefonoCuba', 'direccion', 'provincia', 'municipio', 'createdAt']) &&
              data.clienteId is string && data.clienteId.size() > 0 && data.clienteId.size() <= 100 &&
              data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 100 &&
@@ -371,6 +401,13 @@ service cloud.firestore {
     match /salidas/{salidaId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin() || isAgente();
+    }
+
+    match /lotes/{loteId} {
+      allow read: if isAgente();
+      allow create: if isAgente() && isValidLote(request.resource.data);
+      allow update: if isAgente() && isValidLote(request.resource.data) && areImmutableFieldsUnchanged(['codigo', 'createdAt']);
+      allow delete: if isAdmin();
     }
 
     match /noticias/{noticiaId} {
