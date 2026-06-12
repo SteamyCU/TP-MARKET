@@ -248,7 +248,7 @@ service cloud.firestore {
     }
 
     function isValidCliente(data) {
-      return hasOnlyAllowedFields(['nombre', 'documentoIdentidad', 'telefonoEspana', 'telefonoSecundario', 'email', 'codigoPostal', 'localidad', 'direccion', 'observaciones', 'referido_por', 'agenteId', 'createdAt', 'updatedAt']) &&
+      return hasOnlyAllowedFields(['nombre', 'documentoIdentidad', 'telefonoEspana', 'telefonoSecundario', 'email', 'codigoPostal', 'localidad', 'direccion', 'observaciones', 'referido_por', 'agenteId', 'etiquetasMarketing', 'contactos', 'createdAt', 'updatedAt']) &&
              hasRequiredFields(['nombre', 'documentoIdentidad', 'email', 'direccion', 'createdAt']) &&
              data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 100 &&
              data.documentoIdentidad is string && data.documentoIdentidad.size() > 0 && data.documentoIdentidad.size() <= 50 &&

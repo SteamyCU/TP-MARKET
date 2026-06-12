@@ -18,6 +18,7 @@ import { Logistica } from './pages/Logistica';
 import { MisDestinatarios } from './pages/MisDestinatarios';
 import { MisSolicitudes } from './pages/MisSolicitudes';
 import { Solicitudes } from './pages/Solicitudes';
+import { MarketingClientes } from './pages/MarketingClientes';
 import { Calculadora } from './pages/Calculadora';
 import { OfertasSalidas } from './pages/OfertasSalidas';
 import { AdminB2B } from './pages/AdminB2B';
@@ -710,6 +711,7 @@ export default function App() {
             <Route path="mis-destinatarios" element={<MisDestinatarios />} />
             <Route path="mis-solicitudes" element={<MisSolicitudes />} />
             <Route path="solicitudes" element={<RoleRoute allowedRoles={['admin', 'agente']}><Solicitudes /></RoleRoute>} />
+            <Route path="marketing" element={<RoleRoute allowedRoles={['admin', 'agente']}><MarketingClientes /></RoleRoute>} />
             <Route path="calculadora" element={<Calculadora />} />
             <Route path="ofertas" element={<OfertasSalidas />} />
             <Route path="red" element={<RedAfiliados />} />
