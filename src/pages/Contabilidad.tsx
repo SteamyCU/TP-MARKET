@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, setDoc, getDoc, where } from 'firebase/firestore';
 import { 
   Calculator, 
   TrendingUp, 
@@ -18,7 +18,11 @@ import {
   BarChart3,
   CheckCircle2,
   Clock,
-  Settings
+  Settings,
+  Receipt,
+  Plus,
+  Trash2,
+  Banknote
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { Navigate, Link, useSearchParams } from 'react-router-dom';
@@ -40,23 +44,14 @@ import {
   Line
 } from 'recharts';
 
+import { GastoFormModal } from '../components/GastoFormModal';
+import { NuevoCobroModal } from '../components/NuevoCobroModal';
+import { eliminarGasto } from '../services/gastos';
+import { exportarExcel } from '../lib/excel';
+
 const COLORS = ['#00314F', '#EE293B', '#004a78', '#D91F33', '#64748B'];
 
-// Datos de ejemplo para visualización
-const dataProvincias = [
-  { name: 'La Habana', kilos: 450, ingresos: 2800 },
-  { name: 'Santiago', kilos: 320, ingresos: 1950 },
-  { name: 'Camagüey', kilos: 210, ingresos: 1200 },
-  { name: 'Holguín', kilos: 180, ingresos: 1100 },
-  { name: 'Matanzas', kilos: 150, ingresos: 950 },
-];
-
-const dataAgentes = [
-  { name: 'Juan Pérez', envios: 85, kilos: 240, ingresos: 1500 },
-  { name: 'Elena Gómez', envios: 62, kilos: 180, ingresos: 1100 },
-  { name: 'Roberto Díaz', envios: 45, kilos: 120, ingresos: 850 },
-  { name: 'Ana Ruiz', envios: 38, kilos: 95, ingresos: 600 },
-];
+const toDateSafe = (f: any): Date | null => (f?.toDate ? f.toDate() : f instanceof Date ? f : null);
 
 export function Contabilidad() {
   const { user, role } = useAuth();
@@ -91,6 +86,11 @@ export function Contabilidad() {
   const [globalPrice, setGlobalPrice] = useState<number>(0);
   const [isUpdatingPrice, setIsUpdatingPrice] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [gastos, setGastos] = useState<any[]>([]);
+  const [paquetesConDeuda, setPaquetesConDeuda] = useState<any[]>([]);
+  const [isGastoModalOpen, setIsGastoModalOpen] = useState(false);
+  const [isCobroModalOpen, setIsCobroModalOpen] = useState(false);
+  const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch Global Price
@@ -109,24 +109,43 @@ export function Contabilidad() {
     });
 
     // Fetch Pagos
-    const qPagos = query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(100));
+    const qPagos = query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(500));
     const unsubPagos = onSnapshot(qPagos, (snap) => {
       setPagos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setLoading(false);
     });
 
     // Fetch Paquetes
-    const qPaquetes = query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(100));
+    const qPaquetes = query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(500));
     const unsubPaquetes = onSnapshot(qPaquetes, (snap) => {
       setPaquetes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    // Gastos operativos
+    const unsubGastos = onSnapshot(query(collection(db, 'gastos')), (snap) => {
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+      data.sort((a, b) => (toDateSafe(b.fecha)?.getTime() || 0) - (toDateSafe(a.fecha)?.getTime() || 0));
+      setGastos(data);
+    });
+
+    // Deuda pendiente real (todos los paquetes con importe pendiente)
+    const unsubDeuda = onSnapshot(query(collection(db, 'paquetes'), where('importePendiente', '>', 0)), (snap) => {
+      setPaquetesConDeuda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
     return () => {
       unsubAgentes();
       unsubPagos();
       unsubPaquetes();
+      unsubGastos();
+      unsubDeuda();
     };
   }, []);
+
+  const notificar = (texto: string) => {
+    setMensaje(texto);
+    setTimeout(() => setMensaje(null), 4000);
+  };
 
   const handleUpdateGlobalPrice = async () => {
     setIsUpdatingPrice(true);
@@ -167,10 +186,49 @@ export function Contabilidad() {
     .filter(p => selectedAgent === 'all' || p.operadorId === selectedAgent)
     .reduce((acc, p) => acc + (p.peso || 0), 0);
   const pendingConfirmations = filteredPagos.filter(p => p.estado === 'Pendiente').length;
-  const accountsReceivable = filteredPagos.filter(p => p.estado === 'Pendiente').reduce((acc, p) => acc + (p.monto || 0), 0);
 
-  // Stats for charts
-  const statsByProvince = dataProvincias; // Keep mock for now or calculate from real data if needed
+  // Los pagos referencian al paquete por su tracking
+  const paquetesPorTracking = useMemo(() => {
+    const mapa: Record<string, any> = {};
+    for (const p of paquetes) mapa[p.tracking] = p;
+    return mapa;
+  }, [paquetes]);
+
+  // Caja, gastos y beneficio
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  const esCobro = (p: any) => p.estado !== 'Pendiente';
+  const cajaHoy = pagos.filter(p => esCobro(p) && (toDateSafe(p.fecha)?.getTime() || 0) >= hoy.getTime())
+    .reduce((acc, p) => acc + (p.monto || 0), 0);
+  const ingresosMes = pagos.filter(p => esCobro(p) && (toDateSafe(p.fecha)?.getTime() || 0) >= inicioMes.getTime())
+    .reduce((acc, p) => acc + (p.monto || 0), 0);
+  const gastosMes = gastos.filter(g => (toDateSafe(g.fecha)?.getTime() || 0) >= inicioMes.getTime())
+    .reduce((acc, g) => acc + (g.monto || 0), 0);
+  const beneficioMes = ingresosMes - gastosMes;
+  const deudaPendiente = paquetesConDeuda.reduce((acc, p) => acc + (p.importePendiente || 0), 0);
+
+  // Análisis real por provincia (kilos por destino + cobros vinculados por tracking)
+  const statsByProvince = useMemo(() => {
+    const mapa: Record<string, { name: string; kilos: number; ingresos: number }> = {};
+    for (const p of paquetes) {
+      const prov = p.destino || 'Sin destino';
+      if (!mapa[prov]) mapa[prov] = { name: prov, kilos: 0, ingresos: 0 };
+      mapa[prov].kilos += p.peso || 0;
+    }
+    for (const pago of pagos) {
+      if (!esCobro(pago)) continue;
+      const paquete = paquetesPorTracking[pago.paqueteId];
+      const prov = paquete?.destino || 'Sin destino';
+      if (!mapa[prov]) mapa[prov] = { name: prov, kilos: 0, ingresos: 0 };
+      mapa[prov].ingresos += pago.monto || 0;
+    }
+    return Object.values(mapa)
+      .filter(e => e.kilos > 0 || e.ingresos > 0)
+      .sort((a, b) => b.ingresos - a.ingresos)
+      .slice(0, 6)
+      .map(e => ({ ...e, kilos: Math.round(e.kilos * 10) / 10, ingresos: Math.round(e.ingresos * 100) / 100 }));
+  }, [paquetes, pagos, paquetesPorTracking]);
+
   const statsByAgent = agentes.map(a => {
     const agentPagos = pagos.filter(p => p.agenteId === a.id);
     return {
@@ -179,6 +237,32 @@ export function Contabilidad() {
       kilos: paquetes.filter(p => p.operadorId === a.id).reduce((acc, p) => acc + (p.peso || 0), 0)
     };
   });
+
+  const handleEliminarGasto = async (gasto: any) => {
+    if (!window.confirm(`¿Eliminar el gasto "${gasto.concepto}" de €${(gasto.monto || 0).toFixed(2)}?`)) return;
+    try {
+      await eliminarGasto(gasto.id);
+      notificar('Gasto eliminado.');
+    } catch (err) {
+      console.error('Error eliminando gasto:', err);
+      notificar('No se pudo eliminar el gasto.');
+    }
+  };
+
+  const exportarTransacciones = () => {
+    exportarExcel('contabilidad-transacciones', filteredPagos.map(row => {
+      const paquete = paquetesPorTracking[row.paqueteId];
+      return {
+        Referencia: row.paqueteId,
+        Agente: agentes.find(a => a.id === row.agenteId)?.name || row.agenteId,
+        Provincia: paquete?.destino || '',
+        'Peso (kg)': paquete?.peso || '',
+        'Ingreso (€)': row.monto || 0,
+        Estado: row.estado,
+        Fecha: toDateSafe(row.fecha)?.toLocaleString('es-ES') || '',
+      };
+    }));
+  };
 
   return (
     <div className="space-y-6">
@@ -205,13 +289,55 @@ export function Contabilidad() {
             }
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-tp-gray-soft rounded-xl text-sm font-medium text-tp-blue hover:bg-gray-50 transition-colors">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={exportarTransacciones}
+            disabled={filteredPagos.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-tp-gray-soft rounded-xl text-sm font-medium text-tp-blue hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
             <Download className="w-4 h-4" /> Exportar Excel
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-tp-blue text-white rounded-xl text-sm font-medium hover:bg-[#004a78] transition-colors">
-            <Calendar className="w-4 h-4" /> Período: {timeRange === '30d' ? 'Último Mes' : 'Personalizado'}
+          <button
+            onClick={() => setIsCobroModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-tp-blue text-white rounded-xl text-sm font-medium hover:bg-[#004a78] transition-colors"
+          >
+            <Banknote className="w-4 h-4" /> Nuevo Cobro
           </button>
+          <button
+            onClick={() => setIsGastoModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-tp-red text-white rounded-xl text-sm font-medium hover:bg-[#D91F33] transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Nuevo Gasto
+          </button>
+        </div>
+      </div>
+
+      {mensaje && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5 text-green-600" />
+          <p className="text-sm font-medium text-green-800">{mensaje}</p>
+        </div>
+      )}
+
+      {/* Caja diaria y resultado del mes */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-tp-blue p-5 rounded-2xl text-white shadow-lg shadow-tp-blue/20">
+          <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Caja de Hoy</p>
+          <p className="text-2xl font-black mt-1">€{cajaHoy.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-tp-gray-soft shadow-sm">
+          <p className="text-[10px] font-bold text-tp-blue/40 uppercase tracking-wider">Ingresos del Mes</p>
+          <p className="text-2xl font-black text-tp-blue mt-1">€{ingresosMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-tp-gray-soft shadow-sm">
+          <p className="text-[10px] font-bold text-tp-blue/40 uppercase tracking-wider">Gastos del Mes</p>
+          <p className="text-2xl font-black text-tp-red mt-1">€{gastosMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</p>
+        </div>
+        <div className={cn("p-5 rounded-2xl border shadow-sm", beneficioMes >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200")}>
+          <p className="text-[10px] font-bold text-tp-blue/40 uppercase tracking-wider">Beneficio del Mes</p>
+          <p className={cn("text-2xl font-black mt-1", beneficioMes >= 0 ? "text-green-700" : "text-tp-red")}>
+            €{beneficioMes.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+          </p>
         </div>
       </div>
 
@@ -222,7 +348,7 @@ export function Contabilidad() {
             <div className="p-2 bg-tp-blue-light rounded-lg">
               <DollarSign className="w-5 h-5 text-tp-blue" />
             </div>
-            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full">+15%</span>
+            <span className="text-xs font-bold text-tp-blue bg-tp-blue-light px-2 py-1 rounded-full">{filteredPagos.length} pagos</span>
           </div>
           <div className="text-2xl font-black text-tp-blue">€{totalIngresos.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</div>
           <div className="text-xs text-tp-blue/50 font-medium mt-1">Ingresos Totales</div>
@@ -255,10 +381,10 @@ export function Contabilidad() {
             <div className="p-2 bg-yellow-50 rounded-lg">
               <Calculator className="w-5 h-5 text-yellow-600" />
             </div>
-            <span className="text-xs font-bold text-tp-red bg-red-50 px-2 py-1 rounded-full">{pendingConfirmations} Pend.</span>
+            <span className="text-xs font-bold text-tp-red bg-red-50 px-2 py-1 rounded-full">{paquetesConDeuda.length} paquetes</span>
           </div>
-          <div className="text-2xl font-black text-tp-blue">€{accountsReceivable.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</div>
-          <div className="text-xs text-tp-blue/50 font-medium mt-1">Cuentas por Cobrar</div>
+          <div className="text-2xl font-black text-tp-blue">€{deudaPendiente.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</div>
+          <div className="text-xs text-tp-blue/50 font-medium mt-1">Deuda Pendiente de Cobro</div>
         </div>
       </div>
 
@@ -350,7 +476,7 @@ export function Contabilidad() {
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dataProvincias}>
+              <BarChart data={statsByProvince}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11 }} />
                 <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11 }} />
@@ -436,11 +562,11 @@ export function Contabilidad() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2 py-1 bg-tp-blue-light text-tp-blue rounded text-[10px] font-bold uppercase">
-                      {paquetes.find(p => p.id === row.paqueteId)?.destino || 'N/A'}
+                      {paquetesPorTracking[row.paqueteId]?.destino || 'N/A'}
                     </span>
                   </td>
                   <td className="px-6 py-4 font-medium">
-                    {paquetes.find(p => p.id === row.paqueteId)?.peso || 0} Kg
+                    {paquetesPorTracking[row.paqueteId]?.peso || 0} Kg
                   </td>
                   <td className="px-6 py-4 font-black text-tp-blue">€{row.monto.toFixed(2)}</td>
                   <td className="px-6 py-4">
@@ -471,6 +597,97 @@ export function Contabilidad() {
           </table>
         </div>
       </div>
+
+      {/* Gastos Operativos */}
+      <div className="bg-white rounded-2xl border border-tp-gray-soft shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-tp-gray-soft flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold text-tp-blue flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-tp-red" /> Gastos Operativos
+          </h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportarExcel('gastos', gastos.map(g => ({
+                Fecha: toDateSafe(g.fecha)?.toLocaleDateString('es-ES') || '',
+                Concepto: g.concepto,
+                'Categoría': g.categoria,
+                'Importe (€)': g.monto || 0,
+                Lote: g.loteCodigo || '',
+                Ruta: g.ruta || '',
+                Notas: g.notas || '',
+              })))}
+              disabled={gastos.length === 0}
+              className="flex items-center gap-1.5 px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl text-xs font-bold hover:bg-tp-gray-soft transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" /> Exportar
+            </button>
+            <button
+              onClick={() => setIsGastoModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-tp-red text-white rounded-xl text-xs font-bold hover:bg-[#D91F33] transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Nuevo Gasto
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-tp-blue/70 font-medium border-b border-tp-gray-soft">
+              <tr>
+                <th className="px-6 py-4">Fecha</th>
+                <th className="px-6 py-4">Concepto</th>
+                <th className="px-6 py-4">Categoría</th>
+                <th className="px-6 py-4">Lote / Ruta</th>
+                <th className="px-6 py-4">Importe</th>
+                {role === 'admin' && <th className="px-6 py-4 text-right">Acciones</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-tp-gray-soft">
+              {gastos.length === 0 && (
+                <tr>
+                  <td colSpan={role === 'admin' ? 6 : 5} className="px-6 py-8 text-center text-tp-blue/40 italic">
+                    No hay gastos registrados. Usa "Nuevo Gasto" para registrar costes de lotes, transporte, aduana...
+                  </td>
+                </tr>
+              )}
+              {gastos.slice(0, 50).map(g => (
+                <tr key={g.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-6 py-4 text-tp-blue/70">{toDateSafe(g.fecha)?.toLocaleDateString('es-ES') || '—'}</td>
+                  <td className="px-6 py-4 font-bold text-tp-blue">{g.concepto}</td>
+                  <td className="px-6 py-4">
+                    <span className="px-2 py-1 bg-tp-blue-light text-tp-blue rounded text-[10px] font-bold uppercase">{g.categoria}</span>
+                  </td>
+                  <td className="px-6 py-4 text-tp-blue/70">
+                    {g.loteCodigo ? <span className="font-mono text-xs font-bold">{g.loteCodigo}</span> : (g.ruta || '—')}
+                  </td>
+                  <td className="px-6 py-4 font-black text-tp-red">€{(g.monto || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}</td>
+                  {role === 'admin' && (
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        onClick={() => handleEliminarGasto(g)}
+                        className="p-2 text-tp-blue/40 hover:text-tp-red transition-colors"
+                        title="Eliminar gasto"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modales */}
+      <GastoFormModal
+        open={isGastoModalOpen}
+        onClose={() => setIsGastoModalOpen(false)}
+        onCreated={() => notificar('Gasto registrado correctamente.')}
+      />
+      <NuevoCobroModal
+        open={isCobroModalOpen}
+        onClose={() => setIsCobroModalOpen(false)}
+        onDone={(tracking, monto) => notificar(`Cobro de €${monto.toFixed(2)} registrado sobre ${tracking}.`)}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { cn } from '../lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
+import { NuevoCobroModal } from '../components/NuevoCobroModal';
 import { exportarExcel } from '../lib/excel';
 import { METODOS_PAGO } from '../constants/estados';
 
@@ -30,6 +31,8 @@ export function Pagos() {
   const [loading, setLoading] = useState(true);
   const [filtroMetodo, setFiltroMetodo] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [isCobroModalOpen, setIsCobroModalOpen] = useState(false);
+  const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(500));
@@ -129,11 +132,21 @@ export function Pagos() {
           >
             <Download className="w-4 h-4" /> Exportar Reporte
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-tp-blue text-white rounded-xl text-sm font-medium hover:bg-[#004a78] transition-colors">
+          <button
+            onClick={() => setIsCobroModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-tp-blue text-white rounded-xl text-sm font-medium hover:bg-[#004a78] transition-colors"
+          >
             <Wallet className="w-4 h-4" /> Nuevo Cobro
           </button>
         </div>
       </div>
+
+      {mensaje && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5 text-green-600" />
+          <p className="text-sm font-medium text-green-800">{mensaje}</p>
+        </div>
+      )}
 
       {/* Resumen de Caja (calculado sobre los pagos cargados) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -193,6 +206,15 @@ export function Pagos() {
         exportarFila={filaExport}
         porPagina={20}
         vacio="No hay transacciones registradas todavía."
+      />
+
+      <NuevoCobroModal
+        open={isCobroModalOpen}
+        onClose={() => setIsCobroModalOpen(false)}
+        onDone={(tracking, monto) => {
+          setMensaje(`Cobro de €${monto.toFixed(2)} registrado sobre ${tracking}.`);
+          setTimeout(() => setMensaje(null), 4000);
+        }}
       />
     </div>
   );

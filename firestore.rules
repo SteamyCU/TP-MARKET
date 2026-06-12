@@ -216,7 +216,7 @@ service cloud.firestore {
     }
 
     function isValidPago(data) {
-      return hasOnlyAllowedFields(['paqueteId', 'monto', 'metodo', 'fecha', 'agenteId', 'estado', 'confirmadoPor', 'fechaConfirmacion']) &&
+      return hasOnlyAllowedFields(['paqueteId', 'monto', 'metodo', 'fecha', 'agenteId', 'estado', 'confirmadoPor', 'fechaConfirmacion', 'nota']) &&
              hasRequiredFields(['paqueteId', 'monto', 'metodo', 'fecha', 'agenteId']) &&
              data.paqueteId is string &&
              data.monto is number &&
@@ -311,6 +311,16 @@ service cloud.firestore {
 
     function isValidSetting(data) {
       return true; // Settings can have various structures depending on the setting document
+    }
+
+    function isValidGasto(data) {
+      return hasOnlyAllowedFields(['concepto', 'categoria', 'monto', 'fecha', 'loteId', 'loteCodigo', 'ruta', 'notas', 'creadoPor', 'createdAt']) &&
+             hasRequiredFields(['concepto', 'categoria', 'monto', 'fecha', 'createdAt']) &&
+             data.concepto is string && data.concepto.size() > 0 && data.concepto.size() <= 200 &&
+             data.categoria is string && data.categoria.size() <= 50 &&
+             data.monto is number && data.monto > 0 &&
+             (!('loteId' in data) || data.loteId == null || data.loteId is string) &&
+             (!('loteCodigo' in data) || data.loteCodigo == null || data.loteCodigo is string);
     }
 
     function isValidSolicitud(data) {
@@ -417,6 +427,13 @@ service cloud.firestore {
       allow read: if isAgente();
       allow create: if isAgente() && isValidLote(request.resource.data);
       allow update: if isAgente() && isValidLote(request.resource.data) && areImmutableFieldsUnchanged(['codigo', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    match /gastos/{gastoId} {
+      allow read: if isAgente();
+      allow create: if isAgente() && isValidGasto(request.resource.data);
+      allow update: if isAdmin() && isValidGasto(request.resource.data) && areImmutableFieldsUnchanged(['createdAt']);
       allow delete: if isAdmin();
     }
 

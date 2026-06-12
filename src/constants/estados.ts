@@ -104,6 +104,16 @@ export type EstadoPago = (typeof ESTADOS_PAGO)[number];
 
 export const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta'] as const;
 
+export const CATEGORIAS_GASTO = [
+  'Transporte',
+  'Aduana',
+  'Personal',
+  'Alquiler',
+  'Suministros',
+  'Comisiones',
+  'Otros',
+] as const;
+
 export const TIPOS_ENVIO = [
   'Miscelánea',
   'Ropa y Calzado',
