@@ -15,6 +15,8 @@ import {
   UserSquare2,
   Newspaper,
   Building2,
+  Inbox,
+  Send,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -45,6 +47,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Dashboard Global', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Negocios', path: '/dashboard/negocios', icon: Building2 },
     { name: 'Gestión Clientes', path: '/dashboard/clientes', icon: Users },
+    { name: 'Solicitudes', path: '/dashboard/solicitudes', icon: Inbox },
     { 
       name: 'Contabilidad', 
       path: '/dashboard/contabilidad', 
@@ -60,6 +63,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const agenteItems = [
     { name: 'Dashboard Operativo', path: '/dashboard', icon: LayoutDashboard, badge: null },
     { name: 'Recepción', path: '/dashboard/recepcion', icon: PackagePlus, badge: null },
+    { name: 'Solicitudes', path: '/dashboard/solicitudes', icon: Inbox, badge: null },
     { name: 'Gestión Clientes', path: '/dashboard/clientes', icon: Users, badge: null },
     { name: 'Contabilidad', path: '/dashboard/contabilidad', icon: Wallet, badge: null },
     { name: 'Cobros y Pagos', path: '/dashboard/pagos', icon: Wallet, badge: null },
@@ -73,6 +77,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const clienteItems = [
     { name: 'Mis Paquetes', path: '/dashboard', icon: LayoutDashboard, badge: null },
+    { name: 'Solicitar Envío', path: '/dashboard/mis-solicitudes', icon: Send, badge: null },
     { name: 'Mis Destinatarios', path: '/dashboard/mis-destinatarios', icon: Users, badge: null },
     { name: 'Calculadora', path: '/dashboard/calculadora', icon: LayoutDashboard, badge: null },
     { name: 'Seguimiento', path: '/dashboard/seguimiento', icon: SearchIcon, badge: null },

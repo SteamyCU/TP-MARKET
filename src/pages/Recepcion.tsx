@@ -8,13 +8,14 @@ import { ClienteFormModal } from '../components/ClienteFormModal';
 import { DestinatarioFormModal } from '../components/DestinatarioFormModal';
 import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
 import { useAuth } from '../AuthContext';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { cn } from '../lib/utils';
 import { db, auth } from '../firebase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { generarTracking, cargarConfigNegocio, crearPaquete } from '../services/paquetes';
+import { marcarSolicitudConvertida } from '../services/solicitudes';
 import { exportarExcel } from '../lib/excel';
 import { ESTADOS_INICIALES, ESTADOS_PAGO, METODOS_PAGO, TIPOS_ENVIO, PROVINCIAS_CUBA, type EstadoPago } from '../constants/estados';
 import type { Cliente, Destinatario } from '../types/models';
@@ -48,6 +49,7 @@ const FORM_INICIAL = {
 export function Recepcion() {
   const { role, profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [tracking, setTracking] = useState(generarTracking());
   const [paquetesHoy, setPaquetesHoy] = useState<any[]>([]);
@@ -74,6 +76,8 @@ export function Recepcion() {
   const [mostrarResultados, setMostrarResultados] = useState(false);
   const [isNewClienteModalOpen, setIsNewClienteModalOpen] = useState(false);
   const [isNewDestinatarioModalOpen, setIsNewDestinatarioModalOpen] = useState(false);
+  // Solicitud del portal cliente que se está convirtiendo en paquete (Fase 5)
+  const [solicitudOrigen, setSolicitudOrigen] = useState<any>(null);
 
   // Etiqueta imprimible del último paquete registrado
   const [etiquetaData, setEtiquetaData] = useState<any>(null);
@@ -84,6 +88,23 @@ export function Recepcion() {
   useEffect(() => {
     cargarConfigNegocio().then(setConfig);
   }, []);
+
+  // Precargar datos al llegar desde "Convertir en paquete" del panel de solicitudes
+  useEffect(() => {
+    const solicitud = (location.state as any)?.solicitud;
+    if (solicitud?.id) {
+      setSolicitudOrigen(solicitud);
+      setSelectedClienteId(solicitud.clienteId || '');
+      setSelectedDestinatarioId(solicitud.destinatarioId || '');
+      setFormData(prev => ({
+        ...prev,
+        contenido: solicitud.contenido || '',
+        tipoEnvio: solicitud.tipoEnvio || prev.tipoEnvio,
+        descripcion: solicitud.observaciones || '',
+        peso: solicitud.pesoEstimado ? String(solicitud.pesoEstimado) : prev.peso,
+      }));
+    }
+  }, [location.state]);
 
   useEffect(() => {
     const today = new Date();
@@ -321,6 +342,16 @@ export function Recepcion() {
         trackingInterno: tracking,
       });
 
+      // Si venimos de una solicitud del portal cliente, marcarla como convertida
+      if (solicitudOrigen?.id) {
+        try {
+          await marcarSolicitudConvertida(solicitudOrigen.id, tracking);
+        } catch (err) {
+          console.error('Error marcando solicitud como convertida:', err);
+        }
+        setSolicitudOrigen(null);
+      }
+
       setSuccess(`¡Paquete registrado con éxito! Tracking: ${tracking}`);
       if (accion === 'etiqueta') setPendingPrint(true);
 
@@ -408,6 +439,20 @@ export function Recepcion() {
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-tp-red" />
           <p className="text-sm font-medium text-tp-red">{errors.submit}</p>
+        </div>
+      )}
+
+      {solicitudOrigen && (
+        <div className="bg-tp-blue-light/40 border border-tp-blue/20 rounded-xl p-4 flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-tp-blue">
+            Creando paquete desde la solicitud de <span className="font-bold">{solicitudOrigen.clienteNombre}</span>. Al registrarlo, la solicitud se marcará como convertida.
+          </p>
+          <button
+            onClick={() => setSolicitudOrigen(null)}
+            className="text-xs font-bold text-tp-blue/50 hover:text-tp-red shrink-0"
+          >
+            Desvincular
+          </button>
         </div>
       )}
 

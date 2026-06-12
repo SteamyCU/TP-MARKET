@@ -313,6 +313,16 @@ service cloud.firestore {
       return true; // Settings can have various structures depending on the setting document
     }
 
+    function isValidSolicitud(data) {
+      return hasOnlyAllowedFields(['clienteUid', 'clienteId', 'clienteNombre', 'clienteEmail', 'clienteTelefono', 'destinatarioId', 'destinatarioNombre', 'destinatarioProvincia', 'contenido', 'tipoEnvio', 'pesoEstimado', 'observaciones', 'estado', 'notaInterna', 'notaParaCliente', 'tracking', 'createdAt', 'updatedAt']) &&
+             hasRequiredFields(['clienteUid', 'clienteId', 'destinatarioId', 'contenido', 'estado', 'createdAt']) &&
+             data.clienteUid is string &&
+             data.contenido is string && data.contenido.size() > 0 && data.contenido.size() <= 1000 &&
+             data.estado in ['Nueva', 'Pendiente de revisión', 'Faltan datos', 'Aprobada', 'Convertida en paquete', 'Rechazada', 'Cancelada'] &&
+             (!('pesoEstimado' in data) || data.pesoEstimado == null || data.pesoEstimado is number) &&
+             (!('tracking' in data) || data.tracking == null || data.tracking is string);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -407,6 +417,22 @@ service cloud.firestore {
       allow read: if isAgente();
       allow create: if isAgente() && isValidLote(request.resource.data);
       allow update: if isAgente() && isValidLote(request.resource.data) && areImmutableFieldsUnchanged(['codigo', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    match /solicitudes/{solicitudId} {
+      // El cliente ve sus solicitudes; el equipo interno las ve todas
+      allow read: if isAgente() || (isAuthenticated() && resource.data.clienteUid == request.auth.uid);
+      // El cliente crea sus solicitudes en estado 'Nueva'
+      allow create: if isAuthenticated() && isValidSolicitud(request.resource.data) &&
+        request.resource.data.clienteUid == request.auth.uid &&
+        request.resource.data.estado == 'Nueva';
+      // El equipo interno gestiona; el cliente solo puede tocar las suyas mientras siguen abiertas
+      allow update: if isValidSolicitud(request.resource.data) && areImmutableFieldsUnchanged(['clienteUid', 'createdAt']) && (
+        isAgente() ||
+        (isAuthenticated() && resource.data.clienteUid == request.auth.uid &&
+          resource.data.estado in ['Nueva', 'Pendiente de revisión', 'Faltan datos'])
+      );
       allow delete: if isAdmin();
     }
 

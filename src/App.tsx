@@ -16,6 +16,8 @@ import { RedAfiliados } from './pages/RedAfiliados';
 import { Clientes } from './pages/Clientes';
 import { Logistica } from './pages/Logistica';
 import { MisDestinatarios } from './pages/MisDestinatarios';
+import { MisSolicitudes } from './pages/MisSolicitudes';
+import { Solicitudes } from './pages/Solicitudes';
 import { Calculadora } from './pages/Calculadora';
 import { OfertasSalidas } from './pages/OfertasSalidas';
 import { AdminB2B } from './pages/AdminB2B';
@@ -706,6 +708,8 @@ export default function App() {
             <Route path="b2b" element={<RoleRoute allowedRoles={['admin']}><AdminB2B /></RoleRoute>} />
             <Route path="clientes" element={<Clientes />} />
             <Route path="mis-destinatarios" element={<MisDestinatarios />} />
+            <Route path="mis-solicitudes" element={<MisSolicitudes />} />
+            <Route path="solicitudes" element={<RoleRoute allowedRoles={['admin', 'agente']}><Solicitudes /></RoleRoute>} />
             <Route path="calculadora" element={<Calculadora />} />
             <Route path="ofertas" element={<OfertasSalidas />} />
             <Route path="red" element={<RedAfiliados />} />

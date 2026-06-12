@@ -56,6 +56,21 @@ export const ESTADOS_FINALES = ['Entregado', 'Devuelto', 'Cancelado'];
 export const ESTADOS_LOTE = ['Abierto', 'Cerrado', 'En Tránsito', 'Recibido', 'Cancelado'] as const;
 export type EstadoLote = (typeof ESTADOS_LOTE)[number];
 
+/** Estados de una solicitud de envío del portal cliente */
+export const ESTADOS_SOLICITUD = [
+  'Nueva',
+  'Pendiente de revisión',
+  'Faltan datos',
+  'Aprobada',
+  'Convertida en paquete',
+  'Rechazada',
+  'Cancelada',
+] as const;
+export type EstadoSolicitud = (typeof ESTADOS_SOLICITUD)[number];
+
+/** Estados de solicitud que el propio cliente aún puede cancelar/editar */
+export const ESTADOS_SOLICITUD_ABIERTOS: string[] = ['Nueva', 'Pendiente de revisión', 'Faltan datos'];
+
 /** Estados iniciales válidos al registrar un paquete en recepción */
 export const ESTADOS_INICIALES = ['Recepción', 'Validación', 'Incidencia'];
 
@@ -74,6 +89,14 @@ export const ESTADO_COLOR: Record<string, string> = {
   'abierto': 'bg-green-100 text-green-700',
   'cerrado': 'bg-gray-200 text-gray-700',
   'recibido': 'bg-cyan-100 text-cyan-700',
+  // Estados de solicitud (portal cliente)
+  'nueva': 'bg-tp-blue-light text-tp-blue',
+  'pendiente de revisión': 'bg-amber-100 text-amber-700',
+  'faltan datos': 'bg-amber-100 text-amber-800',
+  'aprobada': 'bg-green-100 text-green-700',
+  'convertida en paquete': 'bg-emerald-100 text-emerald-700',
+  'rechazada': 'bg-red-100 text-tp-red',
+  'cancelada': 'bg-gray-200 text-gray-700',
 };
 
 export const ESTADOS_PAGO = ['Pagado', 'Parcial', 'Pendiente'] as const;

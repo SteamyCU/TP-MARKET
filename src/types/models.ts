@@ -132,3 +132,23 @@ export interface EventoPaquete {
   operadorId: string;
   ubicacion?: string;
 }
+
+export interface Solicitud {
+  id: string;
+  clienteUid: string;
+  clienteId: string;
+  clienteNombre: string;
+  clienteEmail: string;
+  clienteTelefono?: string;
+  destinatarioId: string;
+  destinatarioNombre: string;
+  destinatarioProvincia?: string;
+  contenido: string;
+  tipoEnvio: string;
+  pesoEstimado?: number | null;
+  observaciones?: string;
+  estado: string;
+  notaInterna?: string;
+  notaParaCliente?: string;
+  tracking?: string | null;
+}
