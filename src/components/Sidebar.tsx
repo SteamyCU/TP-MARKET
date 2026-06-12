@@ -59,6 +59,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Cobros y Pagos', path: '/dashboard/pagos', icon: Wallet },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3 },
     { name: 'Reportes Globales', path: '/dashboard/reportes', icon: BarChart3 },
+    { name: 'Configuración', path: '/dashboard/configuracion', icon: Settings },
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings },
   ];
 

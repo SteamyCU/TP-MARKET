@@ -3,9 +3,10 @@
 // existen en Firestore ('paquetes', 'pagos', 'eventos'); los campos nuevos
 // son aditivos.
 
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
+import { setEmpresa } from '../lib/empresa';
 import type { EntregaPaquete, MedidasPaquete } from '../types/models';
 import type { EstadoPago } from '../constants/estados';
 
@@ -21,19 +22,31 @@ export async function cargarConfigNegocio(): Promise<ConfigNegocio> {
     const snap = await getDoc(doc(db, 'settings', 'negocio'));
     if (snap.exists()) {
       const data = snap.data();
-      return {
+      const config: ConfigNegocio = {
         ...CONFIG_NEGOCIO_DEFAULT,
         ...data,
         recargosTipoEnvio: {
           ...CONFIG_NEGOCIO_DEFAULT.recargosTipoEnvio,
           ...(data.recargosTipoEnvio || {}),
         },
+        empresa: {
+          ...CONFIG_NEGOCIO_DEFAULT.empresa,
+          ...(data.empresa || {}),
+        },
       };
+      setEmpresa(config.empresa, config.condicionesRecibo);
+      return config;
     }
   } catch (error) {
     console.error('No se pudo cargar settings/negocio, usando valores por defecto:', error);
   }
   return CONFIG_NEGOCIO_DEFAULT;
+}
+
+/** Guarda la configuración del negocio (solo admin según firestore.rules). */
+export async function guardarConfigNegocio(config: ConfigNegocio): Promise<void> {
+  await setDoc(doc(db, 'settings', 'negocio'), config, { merge: true });
+  setEmpresa(config.empresa, config.condicionesRecibo);
 }
 
 export interface NuevoPaqueteInput {

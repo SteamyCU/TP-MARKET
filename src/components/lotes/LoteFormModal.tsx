@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { crearLote, generarCodigoLote } from '../../services/lotes';
+import { cargarConfigNegocio } from '../../services/paquetes';
+import { CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../../lib/calculos';
 
 interface LoteFormModalProps {
   open: boolean;
@@ -25,6 +27,11 @@ export function LoteFormModal({ open, onClose, onCreated }: LoteFormModalProps) 
   }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [config, setConfig] = useState<ConfigNegocio>(CONFIG_NEGOCIO_DEFAULT);
+
+  useEffect(() => {
+    if (open) cargarConfigNegocio().then(setConfig);
+  }, [open]);
 
   if (!open) return null;
 
@@ -86,23 +93,34 @@ export function LoteFormModal({ open, onClose, onCreated }: LoteFormModalProps) 
             </div>
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Ruta *</label>
-              <input type="text" required value={form.ruta} onChange={e => setForm({ ...form, ruta: e.target.value })} placeholder="Madrid → La Habana" className={inputClass} />
+              <input type="text" required list="config-rutas" value={form.ruta} onChange={e => setForm({ ...form, ruta: e.target.value })} placeholder="Madrid → La Habana" className={inputClass} />
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Contenedor / Guía</label>
-              <input type="text" value={form.contenedor} onChange={e => setForm({ ...form, contenedor: e.target.value })} placeholder="CNT-001 / AWB..." className={inputClass} />
+              <input type="text" list="config-contenedores" value={form.contenedor} onChange={e => setForm({ ...form, contenedor: e.target.value })} placeholder="CNT-001 / AWB..." className={inputClass} />
             </div>
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Oficina Origen</label>
-              <input type="text" value={form.oficinaOrigen} onChange={e => setForm({ ...form, oficinaOrigen: e.target.value })} className={inputClass} />
+              <input type="text" list="config-oficinas" value={form.oficinaOrigen} onChange={e => setForm({ ...form, oficinaOrigen: e.target.value })} className={inputClass} />
             </div>
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Oficina Destino</label>
-              <input type="text" value={form.oficinaDestino} onChange={e => setForm({ ...form, oficinaDestino: e.target.value })} placeholder="La Habana..." className={inputClass} />
+              <input type="text" list="config-oficinas" value={form.oficinaDestino} onChange={e => setForm({ ...form, oficinaDestino: e.target.value })} placeholder="La Habana..." className={inputClass} />
             </div>
           </div>
+
+          {/* Sugerencias desde la configuración del negocio */}
+          <datalist id="config-rutas">
+            {config.rutas.map(r => <option key={r} value={r} />)}
+          </datalist>
+          <datalist id="config-oficinas">
+            {config.oficinas.map(o => <option key={o} value={o} />)}
+          </datalist>
+          <datalist id="config-contenedores">
+            {config.contenedores.map(c => <option key={c} value={c} />)}
+          </datalist>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Responsable</label>

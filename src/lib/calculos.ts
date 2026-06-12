@@ -2,6 +2,15 @@
 // y precio sugerido. Los parámetros son configurables en settings/negocio;
 // si el documento no existe se usan estos valores por defecto.
 
+export interface EmpresaConfig {
+  nombre: string;
+  subtitulo: string;
+  pie: string;
+  telefono: string;
+  email: string;
+  direccion: string;
+}
+
 export interface ConfigNegocio {
   /** Divisor volumétrico estándar: pesoVol (kg) = volumen (cm³) / factor */
   factorVolumetrico: number;
@@ -9,6 +18,14 @@ export interface ConfigNegocio {
   tarifaBaseKg: number;
   /** Multiplicador de tarifa por tipo de envío (1 = sin recargo) */
   recargosTipoEnvio: Record<string, number>;
+  /** Datos de empresa para documentos impresos */
+  empresa: EmpresaConfig;
+  /** Catálogos logísticos (sugerencias en formularios de lote) */
+  oficinas: string[];
+  rutas: string[];
+  contenedores: string[];
+  /** Texto de condiciones que aparece en el recibo de paquete */
+  condicionesRecibo: string;
 }
 
 export const CONFIG_NEGOCIO_DEFAULT: ConfigNegocio = {
@@ -19,6 +36,19 @@ export const CONFIG_NEGOCIO_DEFAULT: ConfigNegocio = {
     'Móvil / Electrónica': 1.25,
     'Medicinas': 0.9,
   },
+  empresa: {
+    nombre: 'TO PAQUETE LOGÍSTICA S.L.',
+    subtitulo: 'CUBANACAN EXPRESS PARTNER',
+    pie: 'DOCUMENTO OFICIAL DE TRANSPORTE - TO PAQUETE LOGÍSTICA S.L.',
+    telefono: '',
+    email: '',
+    direccion: '',
+  },
+  oficinas: ['Madrid, España'],
+  rutas: ['Madrid → La Habana'],
+  contenedores: [],
+  condicionesRecibo:
+    'El remitente declara que el contenido descrito es veraz y de su propiedad, y que no incluye artículos prohibidos por la normativa aduanera de destino. El peso tasable determina el importe del servicio.',
 };
 
 export function calcularVolumenCm3(ancho?: number | null, largo?: number | null, alto?: number | null): number | null {

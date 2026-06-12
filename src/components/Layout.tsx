@@ -1,11 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Chatbot } from './Chatbot';
+import { cargarConfigNegocio } from '../services/paquetes';
 
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Carga la configuración del negocio una vez (datos de empresa para
+  // documentos, tarifas, catálogos logísticos...)
+  useEffect(() => {
+    cargarConfigNegocio();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

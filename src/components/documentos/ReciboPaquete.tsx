@@ -1,6 +1,7 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { EncabezadoDocumento, PieDocumento } from './EncabezadoDocumento';
+import { getCondicionesRecibo } from '../../lib/empresa';
 
 export interface DatosRecibo {
   tracking: string;
@@ -95,9 +96,7 @@ export const ReciboPaquete = React.forwardRef<HTMLDivElement, ReciboPaqueteProps
 
       <div className="text-[8px] leading-snug border border-black p-2 mb-4">
         <span className="font-bold uppercase">Condiciones: </span>
-        El remitente declara que el contenido descrito es veraz y de su propiedad, y que no incluye artículos prohibidos
-        por la normativa aduanera de destino. El peso tasable determina el importe del servicio. Consulte el estado de su
-        envío con el número de tracking en nuestra plataforma de seguimiento.
+        {getCondicionesRecibo()} Consulte el estado de su envío con el número de tracking en nuestra plataforma de seguimiento.
       </div>
 
       <div className="grid grid-cols-2 gap-12 mt-8">
