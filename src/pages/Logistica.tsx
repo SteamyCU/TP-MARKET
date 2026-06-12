@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Package, Truck, Layers, Search, Filter, AlertCircle, CheckCircle2, Clock, MapPin, ArrowRight, Box, Plus, X, Printer } from 'lucide-react';
-import { db, auth } from '../firebase';
-import { collection, query, onSnapshot, where, orderBy, doc, updateDoc, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Package, Truck, Layers, Search, AlertCircle, CheckCircle2, Box, Plus, Printer, RefreshCw } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { ChipEstado } from '../components/ChipEstado';
+import { CambioEstadoModal } from '../components/CambioEstadoModal';
 import { cn } from '../lib/utils';
 import { useReactToPrint } from 'react-to-print';
 import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
+import { ESTADOS_PAQUETE, GRUPOS_ESTADO } from '../constants/estados';
+import type { PaqueteParaCambio } from '../services/estados';
 
 interface Paquete {
   id: string;
@@ -25,6 +28,9 @@ interface Paquete {
   destinatarioDireccion?: string;
   destinatarioTelefono?: string;
   guiaMaster?: string;
+  importePendiente?: number;
+  importePagado?: number;
+  estadoPago?: string;
 }
 
 export function Logistica() {
@@ -32,12 +38,12 @@ export function Logistica() {
   const [paquetes, setPaquetes] = useState<Paquete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  const [selectedPaquete, setSelectedPaquete] = useState<Paquete | null>(null);
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [statusNotes, setStatusNotes] = useState('');
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  
+  const [paquetesParaEstado, setPaquetesParaEstado] = useState<PaqueteParaCambio[]>([]);
+  const [isEstadoModalOpen, setIsEstadoModalOpen] = useState(false);
+  const [mensajeExito, setMensajeExito] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('');
+
   const [selectedPaqueteIds, setSelectedPaqueteIds] = useState<Set<string>>(new Set());
   const [paquetesParaImprimir, setPaquetesParaImprimir] = useState<any[]>([]);
   const componentRef = useRef<HTMLDivElement>(null);
@@ -64,11 +70,23 @@ export function Logistica() {
     setSelectedPaqueteIds(newSelected);
   };
 
+  const paquetesFiltrados = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return paquetes.filter(p => {
+      if (filtroEstado && p.estado !== filtroEstado) return false;
+      if (!term) return true;
+      return (p.tracking || '').toLowerCase().includes(term) ||
+        (p.clienteNombre || '').toLowerCase().includes(term) ||
+        (p.destinatarioNombre || '').toLowerCase().includes(term) ||
+        (p.destino || '').toLowerCase().includes(term);
+    });
+  }, [paquetes, searchTerm, filtroEstado]);
+
   const toggleSelectAll = () => {
-    if (selectedPaqueteIds.size === paquetes.length) {
+    if (selectedPaqueteIds.size === paquetesFiltrados.length) {
       setSelectedPaqueteIds(new Set());
     } else {
-      setSelectedPaqueteIds(new Set(paquetes.map(p => p.id)));
+      setSelectedPaqueteIds(new Set(paquetesFiltrados.map(p => p.id)));
     }
   };
 
@@ -123,50 +141,26 @@ export function Logistica() {
   const paquetesEnDespacho = paquetes.filter(p => p.estado === 'Despacho').length;
   const incidencias = paquetes.filter(p => p.estado === 'Incidencia').length;
 
-  const openStatusModal = (paquete: Paquete) => {
-    setSelectedPaquete(paquete);
-    setNewStatus(paquete.estado);
-    setStatusNotes('');
-    setIsStatusModalOpen(true);
+  const abrirCambioIndividual = (paquete: Paquete) => {
+    setPaquetesParaEstado([paquete]);
+    setIsEstadoModalOpen(true);
   };
 
-  const handleUpdateStatus = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPaquete) return;
-    
-    setIsUpdatingStatus(true);
-    try {
-      // Update package status
-      const paqueteRef = doc(db, 'paquetes', selectedPaquete.id);
-      
-      const updateData: any = {
-        estado: newStatus,
-        updatedAt: serverTimestamp()
-      };
-      
-      // If changing from Incidencia to something else, we might want to clear the details
-      if (selectedPaquete.estado === 'Incidencia' && newStatus !== 'Incidencia') {
-        updateData.detallesIncidencia = '';
-      }
-      
-      await updateDoc(paqueteRef, updateData);
+  const abrirCambioMasivo = () => {
+    const seleccionados = paquetes.filter(p => selectedPaqueteIds.has(p.id));
+    if (seleccionados.length === 0) return;
+    setPaquetesParaEstado(seleccionados);
+    setIsEstadoModalOpen(true);
+  };
 
-      // Add event
-      await addDoc(collection(db, 'eventos'), {
-        paqueteId: selectedPaquete.tracking,
-        estado: newStatus,
-        notas: statusNotes || `Estado actualizado a ${newStatus}`,
-        timestamp: serverTimestamp(),
-        operadorId: auth.currentUser?.uid || 'unknown'
-      });
-
-      setIsStatusModalOpen(false);
-      setSelectedPaquete(null);
-    } catch (error) {
-      console.error("Error updating status:", error);
-    } finally {
-      setIsUpdatingStatus(false);
-    }
+  const onEstadoCambiado = (nuevoEstado: string, actualizados: number) => {
+    setMensajeExito(
+      actualizados === 1
+        ? `Estado actualizado a "${nuevoEstado}".`
+        : `${actualizados} paquetes actualizados a "${nuevoEstado}".`
+    );
+    setSelectedPaqueteIds(new Set());
+    setTimeout(() => setMensajeExito(null), 4000);
   };
 
   return (
@@ -177,6 +171,13 @@ export function Logistica() {
           <p className="text-tp-blue/60 mt-1">Control centralizado de clasificación y despacho</p>
         </div>
       </div>
+
+      {mensajeExito && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5 text-green-600" />
+          <p className="text-sm font-medium text-green-800">{mensajeExito}</p>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-tp-gray-soft">
@@ -296,26 +297,47 @@ export function Logistica() {
             <div className="bg-white p-6 rounded-2xl border border-tp-gray-soft">
               <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
                 <h2 className="text-lg font-bold text-tp-blue">Clasificación de Envíos</h2>
-                <div className="flex gap-3 w-full md:w-auto">
+                <div className="flex flex-wrap gap-3 w-full md:w-auto">
                   {selectedPaqueteIds.size > 0 && (
-                    <button 
-                      onClick={imprimirSeleccionados}
-                      className="bg-tp-blue text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-[#004a78] transition-colors"
-                    >
-                      <Printer className="w-4 h-4" /> Imprimir ({selectedPaqueteIds.size})
-                    </button>
+                    <>
+                      <button
+                        onClick={abrirCambioMasivo}
+                        className="bg-tp-red text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-[#D91F33] transition-colors"
+                      >
+                        <RefreshCw className="w-4 h-4" /> Cambiar Estado ({selectedPaqueteIds.size})
+                      </button>
+                      <button
+                        onClick={imprimirSeleccionados}
+                        className="bg-tp-blue text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-[#004a78] transition-colors"
+                      >
+                        <Printer className="w-4 h-4" /> Imprimir ({selectedPaqueteIds.size})
+                      </button>
+                    </>
                   )}
                   <div className="relative flex-1 md:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/40" />
-                    <input 
-                      type="text" 
-                      placeholder="Buscar por tracking..." 
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Buscar tracking, cliente, destino..."
                       className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-sm"
                     />
                   </div>
-                  <button className="bg-tp-blue-light text-tp-blue px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-tp-blue-light/80 transition-colors">
-                    <Filter className="w-4 h-4" /> Filtros
-                  </button>
+                  <select
+                    value={filtroEstado}
+                    onChange={(e) => setFiltroEstado(e.target.value)}
+                    className="bg-tp-blue-light text-tp-blue px-4 py-2 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none cursor-pointer"
+                  >
+                    <option value="">Todos los estados</option>
+                    {(['origen', 'transito', 'destino', 'final', 'alerta'] as const).map(g => (
+                      <optgroup key={g} label={GRUPOS_ESTADO[g]}>
+                        {ESTADOS_PAQUETE.filter(e => e.grupo === g).map(e => (
+                          <option key={e.value} value={e.value}>{e.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -350,9 +372,9 @@ export function Logistica() {
                   <thead className="bg-gray-50 text-tp-blue/70 font-medium border-b border-tp-gray-soft">
                     <tr>
                       <th className="px-5 py-3 w-10">
-                        <input 
-                          type="checkbox" 
-                          checked={paquetes.length > 0 && selectedPaqueteIds.size === paquetes.length}
+                        <input
+                          type="checkbox"
+                          checked={paquetesFiltrados.length > 0 && selectedPaqueteIds.size === paquetesFiltrados.length}
                           onChange={toggleSelectAll}
                           className="rounded border-tp-gray-soft text-tp-blue focus:ring-tp-blue/20"
                         />
@@ -365,7 +387,14 @@ export function Logistica() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-tp-gray-soft">
-                    {paquetes.map((p) => (
+                    {paquetesFiltrados.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-8 text-center text-tp-blue/40 italic">
+                          {paquetes.length === 0 ? 'No hay paquetes registrados.' : 'Ningún paquete coincide con la búsqueda o el filtro.'}
+                        </td>
+                      </tr>
+                    )}
+                    {paquetesFiltrados.map((p) => (
                       <tr key={p.id} className={cn("hover:bg-gray-50/50 transition-colors", selectedPaqueteIds.has(p.id) && "bg-tp-blue-light/20")}>
                         <td className="px-5 py-4">
                           <input 
@@ -387,8 +416,8 @@ export function Logistica() {
                           >
                             <Printer className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => openStatusModal(p)}
+                          <button
+                            onClick={() => abrirCambioIndividual(p)}
                             className="text-tp-blue hover:text-tp-red font-bold transition-colors"
                           >
                             Actualizar Estado
@@ -419,66 +448,13 @@ export function Logistica() {
         )}
       </div>
 
-      {/* Status Update Modal */}
-      {isStatusModalOpen && selectedPaquete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-tp-blue/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="p-4 border-b border-tp-gray-soft flex justify-between items-center bg-tp-blue text-white">
-              <h3 className="font-bold">Actualizar Estado: {selectedPaquete.tracking}</h3>
-              <button onClick={() => setIsStatusModalOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleUpdateStatus} className="p-6 space-y-4">
-              {selectedPaquete.estado === 'Incidencia' && (
-                <div className="bg-red-50 border border-red-100 p-3 rounded-lg text-sm text-tp-red mb-4">
-                  <p className="font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> Incidencia Actual:</p>
-                  <p className="mt-1">{selectedPaquete.detallesIncidencia || 'No hay detalles registrados.'}</p>
-                </div>
-              )}
-              
-              <div>
-                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Nuevo Estado</label>
-                <select 
-                  value={newStatus} 
-                  onChange={e => setNewStatus(e.target.value)} 
-                  className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none bg-white"
-                >
-                  <option value="Recepción">Recepción</option>
-                  <option value="Validación">Validación</option>
-                  <option value="Clasificado">Clasificado</option>
-                  <option value="Consolidado">Consolidado</option>
-                  <option value="Despacho">Despacho</option>
-                  <option value="En Tránsito">En Tránsito</option>
-                  <option value="Aduana Cuba">Aduana Cuba</option>
-                  <option value="Almacén Cuba">Almacén Cuba</option>
-                  <option value="En Reparto">En Reparto</option>
-                  <option value="Entregado">Entregado</option>
-                  <option value="Incidencia">Incidencia</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Notas (Opcional)</label>
-                <textarea 
-                  rows={3} 
-                  value={statusNotes} 
-                  onChange={e => setStatusNotes(e.target.value)} 
-                  placeholder="Añade un comentario sobre este cambio de estado..."
-                  className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none resize-none"
-                ></textarea>
-              </div>
-              
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsStatusModalOpen(false)} className="px-4 py-2 text-tp-blue font-bold hover:bg-tp-blue/5 rounded-lg transition-colors">Cancelar</button>
-                <button type="submit" disabled={isUpdatingStatus} className="bg-tp-blue text-white px-6 py-2 rounded-lg font-bold hover:bg-[#004a78] transition-colors disabled:opacity-50">
-                  {isUpdatingStatus ? 'Actualizando...' : 'Actualizar'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal de cambio de estado (individual y masivo) */}
+      <CambioEstadoModal
+        open={isEstadoModalOpen}
+        onClose={() => { setIsEstadoModalOpen(false); setPaquetesParaEstado([]); }}
+        paquetes={paquetesParaEstado}
+        onDone={onEstadoCambiado}
+      />
 
       {/* Hidden Label for Printing */}
       <div className="hidden">
