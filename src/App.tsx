@@ -703,12 +703,12 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/dashboard" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
-            <Route path="recepcion" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner']}><Recepcion /></RoleRoute>} />
+            <Route path="recepcion" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner', 'logistica']}><Recepcion /></RoleRoute>} />
             <Route path="perfil" element={<Perfil />} />
             <Route path="negocios" element={<RoleRoute allowedRoles={['admin']}><Negocios /></RoleRoute>} />
             <Route path="usuarios" element={<RoleRoute allowedRoles={['admin']}><Usuarios /></RoleRoute>} />
             <Route path="b2b" element={<RoleRoute allowedRoles={['admin']}><AdminB2B /></RoleRoute>} />
-            <Route path="clientes" element={<Clientes />} />
+            <Route path="clientes" element={<RoleRoute allowedRoles={['admin', 'agente']}><Clientes /></RoleRoute>} />
             <Route path="mis-destinatarios" element={<MisDestinatarios />} />
             <Route path="mis-solicitudes" element={<MisSolicitudes />} />
             <Route path="solicitudes" element={<RoleRoute allowedRoles={['admin', 'agente']}><Solicitudes /></RoleRoute>} />
@@ -716,13 +716,13 @@ export default function App() {
             <Route path="calculadora" element={<Calculadora />} />
             <Route path="ofertas" element={<OfertasSalidas />} />
             <Route path="red" element={<RedAfiliados />} />
-            <Route path="logistica" element={<Logistica />} />
+            <Route path="logistica" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner', 'logistica']}><Logistica /></RoleRoute>} />
             <Route path="comisiones" element={<ComisionesAgente />} />
-            <Route path="reportes" element={<RoleRoute allowedRoles={['admin']}><Reportes /></RoleRoute>} />
-            <Route path="contabilidad" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner']}><Contabilidad /></RoleRoute>} />
+            <Route path="reportes" element={<RoleRoute allowedRoles={['admin', 'contabilidad']}><Reportes /></RoleRoute>} />
+            <Route path="contabilidad" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner', 'contabilidad']}><Contabilidad /></RoleRoute>} />
             <Route path="configuracion-afiliados" element={<RoleRoute allowedRoles={['admin']}><ConfiguracionAfiliados /></RoleRoute>} />
             <Route path="configuracion" element={<RoleRoute allowedRoles={['admin']}><Configuracion /></RoleRoute>} />
-            <Route path="pagos" element={<RoleRoute allowedRoles={['admin', 'agente']}><Pagos /></RoleRoute>} />
+            <Route path="pagos" element={<RoleRoute allowedRoles={['admin', 'agente', 'contabilidad']}><Pagos /></RoleRoute>} />
             <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="*" element={<div className="p-8 text-tp-blue font-medium">Módulo en desarrollo...</div>} />
           </Route>

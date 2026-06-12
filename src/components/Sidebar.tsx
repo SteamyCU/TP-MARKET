@@ -105,6 +105,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
   ];
 
+  const contabilidadItems = [
+    { name: 'Contabilidad', path: '/dashboard/contabilidad', icon: Wallet, badge: null },
+    { name: 'Cobros y Pagos', path: '/dashboard/pagos', icon: Wallet, badge: null },
+    { name: 'Reportes', path: '/dashboard/reportes', icon: BarChart3, badge: null },
+    { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
+  ];
+
+  const logisticaItems = [
+    { name: 'Recepción', path: '/dashboard/recepcion', icon: PackagePlus, badge: null },
+    { name: 'Logística', path: '/dashboard/logistica', icon: Truck, badge: null },
+    { name: 'Seguimiento', path: '/dashboard/seguimiento', icon: SearchIcon, badge: null },
+    { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
+  ];
+
   const puntoPackItems = [
     { name: 'Dashboard Punto Pack', path: '/dashboard', icon: LayoutDashboard, badge: null },
     { name: 'Paquetes en Custodia', path: '/dashboard/logistica', icon: PackagePlus, badge: null },
@@ -112,10 +126,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
   ];
 
-  const navItems = role === 'admin' ? adminItems : 
-                   role === 'agente' ? agenteItems : 
+  const navItems = role === 'admin' ? adminItems :
+                   role === 'agente' ? agenteItems :
                    role === 'influencer' ? influencerItems :
                    role === 'partner' ? (profile?.tipoColaborador === 'punto_pack' ? puntoPackItems : partnerItems) :
+                   role === 'contabilidad' ? contabilidadItems :
+                   role === 'logistica' ? logisticaItems :
                    clienteItems;
 
   return (

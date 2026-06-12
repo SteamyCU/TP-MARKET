@@ -94,31 +94,31 @@ service cloud.firestore {
     }
 
     function isAgente() {
-      return isAuthenticated() && (
-        (request.auth.token.email in ["gaosvbc@gmail.com", "wondercuban@gmail.com"]) ||
-        (getUserData().role in ['admin', 'agente', 'partner'])
-      );
+      return isAdmin() || (isAuthenticated() && getUserData().role in ['agente', 'partner']);
+    }
+
+    // Equipo con acceso operativo a paquetes, eventos y lotes
+    function isOperativo() {
+      return isAgente() || (isAuthenticated() && getUserData().role == 'logistica');
+    }
+
+    // Equipo con acceso financiero a pagos y gastos
+    function isFinanzas() {
+      return isAgente() || (isAuthenticated() && getUserData().role == 'contabilidad');
     }
 
     function isCliente() {
-      return isAuthenticated() && (
-        (request.auth.token.email in ["gaosvbc@gmail.com", "topaquete01@gmail.com", "wondercuban@gmail.com", "mpsteamy@gmail.com", "raulenamorado91@gmail.com"]) ||
-        (getUserData().role in ['admin', 'agente', 'partner', 'influencer', 'cliente'])
+      return isAdmin() || (isAuthenticated() &&
+        getUserData().role in ['admin', 'agente', 'partner', 'influencer', 'cliente', 'contabilidad', 'logistica']
       );
     }
 
     function isInfluencer() {
-      return isAuthenticated() && (
-        getUserData().role == 'influencer' ||
-        request.auth.token.email == "raulenamorado91@gmail.com"
-      );
+      return isAuthenticated() && getUserData().role == 'influencer';
     }
 
     function isPartner() {
-      return isAuthenticated() && (
-        getUserData().role == 'partner' ||
-        request.auth.token.email == "topaquete01@gmail.com"
-      );
+      return isAuthenticated() && getUserData().role == 'partner';
     }
 
     function isOwner(userId) {
@@ -141,7 +141,7 @@ service cloud.firestore {
       return hasOnlyAllowedFields(['email', 'name', 'role', 'createdAt', 'updatedAt', 'telefono', 'direccion', 'dni', 'oficina', 'socialHandle', 'businessName', 'precioPorKilo', 'notas', 'balance', 'tipoColaborador', 'codigoReferido', 'tasaComision', 'balanceComisiones', 'apiKey', 'tier', 'capacityPackages', 'contractUrl', 'payoutMethod', 'payoutDetails', 'tipoInfluencer', 'redesSociales', 'metodoCobro', 'datosCobro', 'status', 'referidoPor']) &&
              hasRequiredFields(['email', 'role']) &&
              data.email is string &&
-             data.role in ['admin', 'agente', 'influencer', 'partner', 'cliente'] &&
+             data.role in ['admin', 'agente', 'influencer', 'partner', 'cliente', 'contabilidad', 'logistica'] &&
              (!('status' in data) || (data.status is string && data.status in ['active', 'suspended'])) &&
              (!('telefono' in data) || (data.telefono is string && data.telefono.size() <= 50)) &&
              (!('direccion' in data) || (data.direccion is string && data.direccion.size() <= 200)) &&
@@ -345,11 +345,8 @@ service cloud.firestore {
         isAdmin()
       );
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && areImmutableFieldsUnchanged(['createdAt']) && (
-        isAdmin() || 
-        (request.auth.uid == userId && (
-          request.resource.data.role == resource.data.role ||
-          request.auth.token.email in ["gaosvbc@gmail.com", "topaquete01@gmail.com", "wondercuban@gmail.com", "mpsteamy@gmail.com", "raulenamorado91@gmail.com"]
-        ))
+        isAdmin() ||
+        (request.auth.uid == userId && request.resource.data.role == resource.data.role)
       );
       allow delete: if isAdmin();
     }
@@ -362,21 +359,21 @@ service cloud.firestore {
         isCliente() ||
         (resource != null && (resource.data.clienteId == request.auth.uid || resource.data.referidoPor == request.auth.uid || resource.data.partnerId == request.auth.uid))
       );
-      allow create: if isAgente() && isValidPaquete(request.resource.data);
-      allow update: if isAgente() && isValidPaquete(request.resource.data) && areImmutableFieldsUnchanged(['tracking', 'createdAt']);
+      allow create: if isOperativo() && isValidPaquete(request.resource.data);
+      allow update: if isOperativo() && isValidPaquete(request.resource.data) && areImmutableFieldsUnchanged(['tracking', 'createdAt']);
       allow delete: if isAdmin();
     }
 
     match /pagos/{pagoId} {
-      allow read: if isAgente();
-      allow create: if isAgente() && isValidPago(request.resource.data);
+      allow read: if isFinanzas();
+      allow create: if isFinanzas() && isValidPago(request.resource.data);
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
     match /eventos/{eventoId} {
-      allow read: if isCliente() || isAgente();
-      allow create: if isAgente() && isValidEvento(request.resource.data);
+      allow read: if isCliente() || isOperativo();
+      allow create: if isOperativo() && isValidEvento(request.resource.data);
       allow update: if isAdmin() && isValidEvento(request.resource.data) && areImmutableFieldsUnchanged(['paqueteId', 'timestamp']);
       allow delete: if isAdmin();
     }
@@ -409,7 +406,8 @@ service cloud.firestore {
 
     match /referrals/{referralId} {
       allow read: if isAgente() || isInfluencer();
-      allow create: if true; // Publicly accessible for tracking
+      // Tracking público de visitas referidas, pero solo con el esquema esperado
+      allow create: if isValidReferral(request.resource.data);
       allow update, delete: if isAdmin();
     }
 
@@ -424,15 +422,15 @@ service cloud.firestore {
     }
 
     match /lotes/{loteId} {
-      allow read: if isAgente();
-      allow create: if isAgente() && isValidLote(request.resource.data);
-      allow update: if isAgente() && isValidLote(request.resource.data) && areImmutableFieldsUnchanged(['codigo', 'createdAt']);
+      allow read: if isOperativo();
+      allow create: if isOperativo() && isValidLote(request.resource.data);
+      allow update: if isOperativo() && isValidLote(request.resource.data) && areImmutableFieldsUnchanged(['codigo', 'createdAt']);
       allow delete: if isAdmin();
     }
 
     match /gastos/{gastoId} {
-      allow read: if isAgente();
-      allow create: if isAgente() && isValidGasto(request.resource.data);
+      allow read: if isFinanzas();
+      allow create: if isFinanzas() && isValidGasto(request.resource.data);
       allow update: if isAdmin() && isValidGasto(request.resource.data) && areImmutableFieldsUnchanged(['createdAt']);
       allow delete: if isAdmin();
     }

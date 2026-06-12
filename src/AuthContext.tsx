@@ -3,9 +3,11 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
+type RolUsuario = 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | 'contabilidad' | 'logistica';
+
 interface AuthContextType {
   user: User | null;
-  role: 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | null;
+  role: RolUsuario | null;
   profile: any | null;
   loading: boolean;
   error: string | null;
@@ -27,7 +29,7 @@ import { handleFirestoreError, OperationType } from './lib/firestore-errors';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | null>(null);
+  const [role, setRole] = useState<RolUsuario | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,18 +57,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (userDoc.exists()) {
             const data = userDoc.data();
-            let currentRole = data.role;
-            let forcedRole = currentRole;
+            const currentRole = data.role;
 
-            // Enforce specific roles for requested emails
+            // El rol vive en el documento del usuario. Único bootstrap permitido:
+            // el email configurado en VITE_BOOTSTRAP_ADMIN se eleva a admin.
             const bootstrapAdmin = import.meta.env.VITE_BOOTSTRAP_ADMIN;
-            if (currentUser.email === bootstrapAdmin) forcedRole = 'admin';
-            else if (currentUser.email === 'raulenamorado91@gmail.com') forcedRole = 'influencer';
-            else if (currentUser.email === 'topaquete01@gmail.com') forcedRole = 'partner';
-            else if (currentUser.email === 'wondercuban@gmail.com') forcedRole = 'agente';
-            else if (currentUser.email === 'mpsteamy@gmail.com') forcedRole = 'cliente';
+            const forcedRole = (bootstrapAdmin && currentUser.email === bootstrapAdmin) ? 'admin' : currentRole;
 
-            // Check for role conflict if registering, but ignore if it's a forced role
+            // Aviso si intenta registrarse con otro rol teniendo ya uno asignado
             const pendingRole = localStorage.getItem('pending_role');
             if (pendingRole && pendingRole !== currentRole && forcedRole === currentRole) {
               const roleLabels: any = {
@@ -74,7 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 influencer: 'Influencer',
                 partner: 'Partner B2B',
                 cliente: 'Cliente',
-                admin: 'Administrador'
+                admin: 'Administrador',
+                contabilidad: 'Contabilidad',
+                logistica: 'Logística'
               };
               setError(`Este correo ya está registrado como ${roleLabels[currentRole] || currentRole}. No puedes registrarte como ${roleLabels[pendingRole] || pendingRole}.`);
               localStorage.removeItem('pending_role');
@@ -95,17 +95,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             // Check for pending registration role in localStorage
             const pendingRole = localStorage.getItem('pending_role') as any;
-            let newRole: 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' = 'cliente';
-            
+            let newRole: RolUsuario = 'cliente';
+
             const bootstrapAdmin = import.meta.env.VITE_BOOTSTRAP_ADMIN;
-            if (currentUser.email === bootstrapAdmin) {
+            if (bootstrapAdmin && currentUser.email === bootstrapAdmin) {
               newRole = 'admin';
-            } else if (currentUser.email === 'raulenamorado91@gmail.com') {
-              newRole = 'influencer';
-            } else if (currentUser.email === 'topaquete01@gmail.com') {
-              newRole = 'partner';
-            } else if (currentUser.email === 'wondercuban@gmail.com') {
-              newRole = 'agente';
             } else if (pendingRole && ['agente', 'influencer', 'partner', 'cliente'].includes(pendingRole)) {
               newRole = pendingRole;
               localStorage.removeItem('pending_role');

@@ -10,7 +10,7 @@ interface UserProfile {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente';
+  role: 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | 'contabilidad' | 'logistica';
   telefono?: string;
   dni?: string;
   direccion?: string;
@@ -36,7 +36,7 @@ export function Usuarios() {
   const [newUser, setNewUser] = useState({
     email: '',
     name: '',
-    role: 'agente' as const,
+    role: 'agente' as 'agente' | 'contabilidad' | 'logistica',
     oficina: '',
     telefono: ''
   });
@@ -50,7 +50,7 @@ export function Usuarios() {
   }
 
   useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', '==', 'agente'));
+    const q = query(collection(db, 'users'), where('role', 'in', ['agente', 'contabilidad', 'logistica']));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const usersData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -200,7 +200,17 @@ export function Usuarios() {
                           {user.name?.charAt(0) || user.email?.charAt(0)}
                         </div>
                         <div>
-                          <div className="font-bold text-tp-blue">{user.name || 'Sin nombre'}</div>
+                          <div className="font-bold text-tp-blue flex items-center gap-2">
+                            {user.name || 'Sin nombre'}
+                            <span className={cn(
+                              "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider",
+                              user.role === 'agente' ? "bg-tp-blue-light text-tp-blue" :
+                              user.role === 'contabilidad' ? "bg-green-100 text-green-700" :
+                              "bg-purple-100 text-purple-700"
+                            )}>
+                              {user.role === 'logistica' ? 'Logística' : user.role}
+                            </span>
+                          </div>
                           <div className="text-xs text-tp-blue/50 flex items-center gap-1">
                             <Mail className="w-3 h-3" /> {user.email}
                           </div>
@@ -255,10 +265,22 @@ export function Usuarios() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-tp-blue/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="p-6 border-b border-tp-gray-soft flex justify-between items-center bg-tp-blue text-white">
-              <h3 className="text-xl font-bold">Agregar Nuevo Agente</h3>
+              <h3 className="text-xl font-bold">Agregar Miembro del Equipo</h3>
               <button onClick={() => setIsNewUserModalOpen(false)}><XCircle className="w-6 h-6" /></button>
             </div>
             <form onSubmit={handleCreateUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Rol</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'agente' | 'contabilidad' | 'logistica' })}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                >
+                  <option value="agente">Agente (operación completa)</option>
+                  <option value="logistica">Logística (recepción, estados y lotes)</option>
+                  <option value="contabilidad">Contabilidad (pagos, gastos y reportes)</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Email</label>
                 <input 
@@ -295,7 +317,7 @@ export function Usuarios() {
                   disabled={isUpdating === 'new'}
                   className="w-full bg-tp-red text-white py-3 rounded-xl font-bold hover:bg-[#D91F33] transition-colors disabled:opacity-50"
                 >
-                  {isUpdating === 'new' ? 'Creando...' : 'Crear Agente'}
+                  {isUpdating === 'new' ? 'Creando...' : 'Crear Usuario'}
                 </button>
               </div>
             </form>
