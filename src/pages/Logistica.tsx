@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Package, Truck, Layers, Search, AlertCircle, CheckCircle2, Box, Plus, Printer, RefreshCw } from 'lucide-react';
+import { Package, Truck, Layers, AlertCircle, CheckCircle2, Box, Printer, RefreshCw } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { ChipEstado } from '../components/ChipEstado';
 import { CambioEstadoModal } from '../components/CambioEstadoModal';
+import { DataTable, type ColumnaDef } from '../components/DataTable';
 import { cn } from '../lib/utils';
 import { useReactToPrint } from 'react-to-print';
 import { EtiquetaPaquete } from '../components/EtiquetaPaquete';
@@ -48,10 +49,9 @@ export function Logistica() {
   const [paquetesParaEstado, setPaquetesParaEstado] = useState<PaqueteParaCambio[]>([]);
   const [isEstadoModalOpen, setIsEstadoModalOpen] = useState(false);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const limpiarSeleccionRef = useRef<() => void>(() => {});
 
-  const [selectedPaqueteIds, setSelectedPaqueteIds] = useState<Set<string>>(new Set());
   const [paquetesParaImprimir, setPaquetesParaImprimir] = useState<any[]>([]);
   const componentRef = useRef<HTMLDivElement>(null);
 
@@ -67,55 +67,13 @@ export function Logistica() {
     }
   }, [paquetesParaImprimir, handlePrint]);
 
-  const toggleSelectPaquete = (id: string) => {
-    const newSelected = new Set(selectedPaqueteIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedPaqueteIds(newSelected);
-  };
+  const paquetesFiltrados = useMemo(
+    () => (filtroEstado ? paquetes.filter(p => p.estado === filtroEstado) : paquetes),
+    [paquetes, filtroEstado]
+  );
 
-  const paquetesFiltrados = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    return paquetes.filter(p => {
-      if (filtroEstado && p.estado !== filtroEstado) return false;
-      if (!term) return true;
-      return (p.tracking || '').toLowerCase().includes(term) ||
-        (p.clienteNombre || '').toLowerCase().includes(term) ||
-        (p.destinatarioNombre || '').toLowerCase().includes(term) ||
-        (p.destino || '').toLowerCase().includes(term);
-    });
-  }, [paquetes, searchTerm, filtroEstado]);
-
-  const toggleSelectAll = () => {
-    if (selectedPaqueteIds.size === paquetesFiltrados.length) {
-      setSelectedPaqueteIds(new Set());
-    } else {
-      setSelectedPaqueteIds(new Set(paquetesFiltrados.map(p => p.id)));
-    }
-  };
-
-  const prepararImpresion = async (paquete: Paquete) => {
-    const dataEtiqueta = {
-      tracking: paquete.tracking,
-      remitente: paquete.clienteNombre || 'CLIENTE TOPAQUETE',
-      consignatario: paquete.destinatarioNombre || 'DESTINATARIO',
-      direccion: paquete.destinatarioDireccion || paquete.destino || 'DIRECCIÓN NO ESPECIFICADA',
-      telefono: paquete.destinatarioTelefono || paquete.clienteTelefono || 'N/A',
-      idDestinatario: paquete.destinatarioDocumento || paquete.destinatarioId || 'N/A',
-      peso: paquete.peso || 0,
-      piezas: 1,
-      guiaMaster: paquete.guiaMaster || 'TP-MASTER-001',
-      trackingInterno: paquete.tracking
-    };
-    setPaquetesParaImprimir([dataEtiqueta]);
-  };
-
-  const imprimirSeleccionados = () => {
-    const seleccionados = paquetes.filter(p => selectedPaqueteIds.has(p.id));
-    const dataEtiquetas = seleccionados.map(paquete => ({
+  const imprimirLista = (lista: Paquete[]) => {
+    const dataEtiquetas = lista.map(paquete => ({
       tracking: paquete.tracking,
       remitente: paquete.clienteNombre || 'CLIENTE TOPAQUETE',
       consignatario: paquete.destinatarioNombre || 'DESTINATARIO',
@@ -129,6 +87,8 @@ export function Logistica() {
     }));
     setPaquetesParaImprimir(dataEtiquetas);
   };
+
+  const prepararImpresion = (paquete: Paquete) => imprimirLista([paquete]);
 
   useEffect(() => {
     const q = query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'));
@@ -153,22 +113,44 @@ export function Logistica() {
     setIsEstadoModalOpen(true);
   };
 
-  const abrirCambioMasivo = () => {
-    const seleccionados = paquetes.filter(p => selectedPaqueteIds.has(p.id));
-    if (seleccionados.length === 0) return;
-    setPaquetesParaEstado(seleccionados);
-    setIsEstadoModalOpen(true);
-  };
-
   const onEstadoCambiado = (nuevoEstado: string, actualizados: number) => {
     setMensajeExito(
       actualizados === 1
         ? `Estado actualizado a "${nuevoEstado}".`
         : `${actualizados} paquetes actualizados a "${nuevoEstado}".`
     );
-    setSelectedPaqueteIds(new Set());
+    limpiarSeleccionRef.current();
     setTimeout(() => setMensajeExito(null), 4000);
   };
+
+  const columnasClasificacion: ColumnaDef<Paquete>[] = [
+    { key: 'tracking', label: 'Tracking', sortable: true, render: (p) => <span className="font-bold text-tp-blue">{p.tracking}</span> },
+    { key: 'clienteNombre', label: 'Cliente', sortable: true, valor: (p) => p.clienteNombre || '' },
+    { key: 'contenido', label: 'Contenido', valor: (p) => p.contenido || 'N/A' },
+    { key: 'destino', label: 'Destino', sortable: true, valor: (p) => p.destino || '' },
+    { key: 'peso', label: 'Peso (kg)', sortable: true, valor: (p) => p.peso || 0 },
+    {
+      key: 'loteCodigo', label: 'Lote', sortable: true, valor: (p) => p.loteCodigo || '',
+      render: (p) => p.loteCodigo
+        ? <span className="font-mono text-xs font-bold text-tp-blue bg-tp-blue-light px-2 py-1 rounded-lg">{p.loteCodigo}</span>
+        : <span className="text-xs text-tp-blue/30 italic">Sin lote</span>,
+    },
+    { key: 'estado', label: 'Estado', sortable: true, render: (p) => <ChipEstado estado={p.estado} /> },
+  ];
+
+  const filaExportPaquete = (p: Paquete) => ({
+    Tracking: p.tracking,
+    Cliente: p.clienteNombre || '',
+    Destinatario: p.destinatarioNombre || '',
+    Destino: p.destino || '',
+    Contenido: p.contenido || '',
+    'Peso (kg)': p.peso || 0,
+    'Peso Tasable (kg)': p.pesoTasable || p.peso || 0,
+    'Precio Final (€)': p.precioFinal ?? '',
+    'Pendiente (€)': p.importePendiente ?? '',
+    Lote: p.loteCodigo || '',
+    Estado: p.estado,
+  });
 
   return (
     <div className="space-y-6">
@@ -302,51 +284,7 @@ export function Logistica() {
         {activeTab === 'clasificacion' && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <div className="bg-white p-6 rounded-2xl border border-tp-gray-soft">
-              <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
-                <h2 className="text-lg font-bold text-tp-blue">Clasificación de Envíos</h2>
-                <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                  {selectedPaqueteIds.size > 0 && (
-                    <>
-                      <button
-                        onClick={abrirCambioMasivo}
-                        className="bg-tp-red text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-[#D91F33] transition-colors"
-                      >
-                        <RefreshCw className="w-4 h-4" /> Cambiar Estado ({selectedPaqueteIds.size})
-                      </button>
-                      <button
-                        onClick={imprimirSeleccionados}
-                        className="bg-tp-blue text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-sm hover:bg-[#004a78] transition-colors"
-                      >
-                        <Printer className="w-4 h-4" /> Imprimir ({selectedPaqueteIds.size})
-                      </button>
-                    </>
-                  )}
-                  <div className="relative flex-1 md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/40" />
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Buscar tracking, cliente, destino..."
-                      className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-sm"
-                    />
-                  </div>
-                  <select
-                    value={filtroEstado}
-                    onChange={(e) => setFiltroEstado(e.target.value)}
-                    className="bg-tp-blue-light text-tp-blue px-4 py-2 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none cursor-pointer"
-                  >
-                    <option value="">Todos los estados</option>
-                    {(['origen', 'transito', 'destino', 'final', 'alerta'] as const).map(g => (
-                      <optgroup key={g} label={GRUPOS_ESTADO[g]}>
-                        {ESTADOS_PAQUETE.filter(e => e.grupo === g).map(e => (
-                          <option key={e.value} value={e.value}>{e.label}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <h2 className="text-lg font-bold text-tp-blue mb-6">Clasificación de Envíos</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="p-4 border border-tp-gray-soft rounded-xl bg-gray-50">
@@ -374,73 +312,71 @@ export function Logistica() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 text-tp-blue/70 font-medium border-b border-tp-gray-soft">
-                    <tr>
-                      <th className="px-5 py-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={paquetesFiltrados.length > 0 && selectedPaqueteIds.size === paquetesFiltrados.length}
-                          onChange={toggleSelectAll}
-                          className="rounded border-tp-gray-soft text-tp-blue focus:ring-tp-blue/20"
-                        />
-                      </th>
-                      <th className="px-5 py-3">Tracking</th>
-                      <th className="px-5 py-3">Contenido</th>
-                      <th className="px-5 py-3">Destino</th>
-                      <th className="px-5 py-3">Lote</th>
-                      <th className="px-5 py-3">Estado</th>
-                      <th className="px-5 py-3 text-right">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-tp-gray-soft">
-                    {paquetesFiltrados.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-5 py-8 text-center text-tp-blue/40 italic">
-                          {paquetes.length === 0 ? 'No hay paquetes registrados.' : 'Ningún paquete coincide con la búsqueda o el filtro.'}
-                        </td>
-                      </tr>
-                    )}
-                    {paquetesFiltrados.map((p) => (
-                      <tr key={p.id} className={cn("hover:bg-gray-50/50 transition-colors", selectedPaqueteIds.has(p.id) && "bg-tp-blue-light/20")}>
-                        <td className="px-5 py-4">
-                          <input 
-                            type="checkbox" 
-                            checked={selectedPaqueteIds.has(p.id)}
-                            onChange={() => toggleSelectPaquete(p.id)}
-                            className="rounded border-tp-gray-soft text-tp-blue focus:ring-tp-blue/20"
-                          />
-                        </td>
-                        <td className="px-5 py-4 font-bold text-tp-blue">{p.tracking}</td>
-                        <td className="px-5 py-4 text-tp-blue/70">{p.contenido || 'N/A'}</td>
-                        <td className="px-5 py-4 text-tp-blue/70">{p.destino}</td>
-                        <td className="px-5 py-4">
-                          {p.loteCodigo
-                            ? <span className="font-mono text-xs font-bold text-tp-blue bg-tp-blue-light px-2 py-1 rounded-lg">{p.loteCodigo}</span>
-                            : <span className="text-xs text-tp-blue/30 italic">Sin lote</span>}
-                        </td>
-                        <td className="px-5 py-4"><ChipEstado estado={p.estado} /></td>
-                        <td className="px-5 py-4 text-right flex justify-end gap-2">
-                          <button 
-                            onClick={() => prepararImpresion(p)}
-                            className="p-2 text-tp-blue hover:bg-tp-blue-light rounded-lg transition-colors"
-                            title="Imprimir Etiqueta"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => abrirCambioIndividual(p)}
-                            className="text-tp-blue hover:text-tp-red font-bold transition-colors"
-                          >
-                            Actualizar Estado
-                          </button>
-                        </td>
-                      </tr>
+              <DataTable
+                datos={paquetesFiltrados}
+                columnas={columnasClasificacion}
+                isLoading={isLoading}
+                buscarEn={(p) => `${p.tracking} ${p.clienteNombre || ''} ${p.destinatarioNombre || ''} ${p.destino || ''}`}
+                placeholderBusqueda="Buscar tracking, cliente, destino..."
+                filtros={
+                  <select
+                    value={filtroEstado}
+                    onChange={(e) => setFiltroEstado(e.target.value)}
+                    className="bg-tp-blue-light text-tp-blue px-4 py-2 rounded-xl font-bold text-sm focus:outline-none focus:ring-2 focus:ring-tp-blue/20 appearance-none cursor-pointer"
+                  >
+                    <option value="">Todos los estados</option>
+                    {(['origen', 'transito', 'destino', 'final', 'alerta'] as const).map(g => (
+                      <optgroup key={g} label={GRUPOS_ESTADO[g]}>
+                        {ESTADOS_PAQUETE.filter(e => e.grupo === g).map(e => (
+                          <option key={e.value} value={e.value}>{e.label}</option>
+                        ))}
+                      </optgroup>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </select>
+                }
+                seleccionable
+                accionesMasivas={(seleccionados, limpiar) => (
+                  <>
+                    <button
+                      onClick={() => {
+                        limpiarSeleccionRef.current = limpiar;
+                        setPaquetesParaEstado(seleccionados);
+                        setIsEstadoModalOpen(true);
+                      }}
+                      className="bg-tp-red text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-xs hover:bg-[#D91F33] transition-colors"
+                    >
+                      <RefreshCw className="w-4 h-4" /> Cambiar Estado ({seleccionados.length})
+                    </button>
+                    <button
+                      onClick={() => imprimirLista(seleccionados)}
+                      className="bg-tp-blue text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 text-xs hover:bg-[#004a78] transition-colors"
+                    >
+                      <Printer className="w-4 h-4" /> Imprimir ({seleccionados.length})
+                    </button>
+                  </>
+                )}
+                accionesFila={(p) => (
+                  <>
+                    <button
+                      onClick={() => prepararImpresion(p)}
+                      className="p-2 text-tp-blue hover:bg-tp-blue-light rounded-lg transition-colors"
+                      title="Imprimir Etiqueta"
+                    >
+                      <Printer className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => abrirCambioIndividual(p)}
+                      className="text-tp-blue hover:text-tp-red font-bold transition-colors text-xs"
+                    >
+                      Actualizar Estado
+                    </button>
+                  </>
+                )}
+                exportarNombre="paquetes"
+                exportarFila={filaExportPaquete}
+                porPagina={25}
+                vacio={paquetes.length === 0 ? 'No hay paquetes registrados.' : 'Ningún paquete coincide con la búsqueda o el filtro.'}
+              />
             </div>
           </div>
         )}

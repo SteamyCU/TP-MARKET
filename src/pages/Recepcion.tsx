@@ -15,6 +15,7 @@ import { db, auth } from '../firebase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { generarTracking, cargarConfigNegocio, crearPaquete } from '../services/paquetes';
+import { exportarExcel } from '../lib/excel';
 import { ESTADOS_INICIALES, ESTADOS_PAGO, METODOS_PAGO, TIPOS_ENVIO, PROVINCIAS_CUBA, type EstadoPago } from '../constants/estados';
 import type { Cliente, Destinatario } from '../types/models';
 
@@ -1153,7 +1154,20 @@ export function Recepcion() {
         <div className="p-5 border-b border-tp-gray-soft flex justify-between items-center">
           <h2 className="text-lg font-bold text-tp-blue">Paquetes Recibidos Hoy ({paquetesHoy.length})</h2>
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 text-sm font-medium text-tp-blue bg-tp-blue-light rounded-lg hover:bg-tp-gray-soft transition-colors">Exportar</button>
+            <button
+              onClick={() => exportarExcel(`paquetes-hoy-${new Date().toISOString().slice(0, 10)}`, paquetesHoy.map(p => ({
+                Tracking: p.tracking,
+                Hora: p.hora,
+                Cliente: p.cliente,
+                Peso: p.peso,
+                Destino: p.destino,
+                Estado: p.estado,
+              })))}
+              disabled={paquetesHoy.length === 0}
+              className="px-3 py-1.5 text-sm font-medium text-tp-blue bg-tp-blue-light rounded-lg hover:bg-tp-gray-soft transition-colors disabled:opacity-50"
+            >
+              Exportar
+            </button>
           </div>
         </div>
         <div className="overflow-x-auto">

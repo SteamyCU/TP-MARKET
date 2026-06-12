@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard, Package, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard, Package, Clock, CheckCircle2, AlertCircle, Download, Upload } from 'lucide-react';
 import { db, auth } from '../firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, where, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, where, orderBy, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
+import { ImportModal } from '../components/ImportModal';
+import { exportarExcel } from '../lib/excel';
 import parsedClients from '../parsed_clients.json';
 
 interface Cliente {
@@ -40,6 +42,7 @@ export function Clientes() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isClienteModalOpen, setIsClienteModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDestinatarioModalOpen, setIsDestinatarioModalOpen] = useState(false);
   const [isPaquetesModalOpen, setIsPaquetesModalOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -310,11 +313,56 @@ export function Clientes() {
     });
   };
 
-  const filteredClientes = clientes.filter(c => 
+  const filteredClientes = clientes.filter(c =>
     c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.documentoIdentidad.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleExportarClientes = () => {
+    exportarExcel('clientes', filteredClientes.map(c => ({
+      Nombre: c.nombre,
+      'Documento': c.documentoIdentidad,
+      Email: c.email,
+      'Teléfono': c.telefonoEspana,
+      'Dirección': c.direccion,
+      Localidad: c.localidad,
+      'Código Postal': c.codigoPostal,
+      Agente: agentes[c.agenteId] || c.agenteId || '',
+    })));
+  };
+
+  const normalizarDato = (v: string) => v.trim().toLowerCase();
+  const detectarClienteDuplicado = (fila: Record<string, string>): string | null => {
+    const existente = clientes.find(c =>
+      (fila.documentoIdentidad && normalizarDato(c.documentoIdentidad || '') === normalizarDato(fila.documentoIdentidad)) ||
+      (fila.email && normalizarDato(c.email || '') === normalizarDato(fila.email))
+    );
+    return existente ? `Ya existe: ${existente.nombre}` : null;
+  };
+
+  const importarClientes = async (filas: Record<string, string>[]): Promise<number> => {
+    const TAM_BATCH = 400;
+    for (let i = 0; i < filas.length; i += TAM_BATCH) {
+      const batch = writeBatch(db);
+      for (const fila of filas.slice(i, i + TAM_BATCH)) {
+        batch.set(doc(collection(db, 'clientes')), {
+          nombre: fila.nombre,
+          documentoIdentidad: fila.documentoIdentidad,
+          email: fila.email,
+          telefonoEspana: fila.telefonoEspana || '',
+          direccion: fila.direccion || '',
+          localidad: fila.localidad || '',
+          codigoPostal: fila.codigoPostal || '',
+          agenteId: auth.currentUser?.uid || 'unknown',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+    return filas.length;
+  };
 
   return (
     <div className="space-y-6">
@@ -323,16 +371,31 @@ export function Clientes() {
           <h1 className="text-2xl font-bold text-tp-blue">Gestión de Clientes</h1>
           <p className="text-tp-blue/60 mt-1">Administra clientes y sus destinatarios en Cuba</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {role === 'admin' && (
-            <button 
+            <button
               onClick={handleMigrateRoxana}
               className="bg-tp-blue-light text-tp-blue hover:bg-tp-blue hover:text-white px-4 py-2 rounded-xl font-bold transition-colors"
             >
               Migrar a Roxana
             </button>
           )}
-          <button 
+          <button
+            onClick={handleExportarClientes}
+            disabled={filteredClientes.length === 0}
+            className="bg-white border border-tp-gray-soft text-tp-blue hover:bg-gray-50 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            Exportar
+          </button>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="bg-white border border-tp-gray-soft text-tp-blue hover:bg-gray-50 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            Importar
+          </button>
+          <button
             onClick={() => {
               setSelectedCliente(null);
               resetClienteForm();
@@ -704,6 +767,29 @@ export function Clientes() {
           </div>
         </div>
       )}
+
+      {/* Importación masiva de clientes desde Excel/CSV */}
+      <ImportModal
+        open={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        titulo="Importar Clientes"
+        plantillaNombre="plantilla-clientes"
+        campos={[
+          { key: 'nombre', label: 'Nombre', requerido: true, ejemplo: 'María Pérez García' },
+          { key: 'documentoIdentidad', label: 'Documento', requerido: true, ejemplo: '12345678X' },
+          { key: 'email', label: 'Email', requerido: true, ejemplo: 'maria@email.com' },
+          { key: 'telefonoEspana', label: 'Teléfono', ejemplo: '+34 600 000 000' },
+          { key: 'direccion', label: 'Dirección', requerido: true, ejemplo: 'Calle Mayor 1, Madrid' },
+          { key: 'localidad', label: 'Localidad', ejemplo: 'Madrid' },
+          { key: 'codigoPostal', label: 'Código Postal', ejemplo: '28001' },
+        ]}
+        validarFila={(fila) => {
+          if (fila.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fila.email)) return 'Email no válido';
+          return null;
+        }}
+        detectarDuplicado={detectarClienteDuplicado}
+        onImportar={importarClientes}
+      />
     </div>
   );
 }
