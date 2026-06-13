@@ -6,7 +6,8 @@
 -- Funciones helper (equivalentes a isAdmin/isAgente/... en firestore.rules)
 -- =========================================================
 
-create or replace function public.current_role()
+-- Nota: se evita el nombre "current_role" porque es una palabra reservada de Postgres.
+create or replace function public.auth_role()
 returns text
 language sql stable
 security definer
@@ -17,35 +18,35 @@ $$;
 
 create or replace function public.is_admin()
 returns boolean language sql stable as $$
-  select public.current_role() = 'admin'
+  select public.auth_role() = 'admin'
 $$;
 
 -- agente, partner o admin (gestión comercial/operativa amplia)
 create or replace function public.is_agente()
 returns boolean language sql stable as $$
-  select public.current_role() in ('admin','agente','partner')
+  select public.auth_role() in ('admin','agente','partner')
 $$;
 
 -- operaciones de almacén/logística: agente, logistica o admin
 create or replace function public.is_operativo()
 returns boolean language sql stable as $$
-  select public.current_role() in ('admin','agente','logistica')
+  select public.auth_role() in ('admin','agente','logistica')
 $$;
 
 -- finanzas: agente, contabilidad o admin
 create or replace function public.is_finanzas()
 returns boolean language sql stable as $$
-  select public.current_role() in ('admin','agente','contabilidad')
+  select public.auth_role() in ('admin','agente','contabilidad')
 $$;
 
 create or replace function public.is_influencer()
 returns boolean language sql stable as $$
-  select public.current_role() = 'influencer'
+  select public.auth_role() = 'influencer'
 $$;
 
 create or replace function public.is_partner()
 returns boolean language sql stable as $$
-  select public.current_role() = 'partner'
+  select public.auth_role() = 'partner'
 $$;
 
 -- =========================================================
@@ -127,7 +128,7 @@ create policy paquetes_select on public.paquetes
   for select using (
     public.is_agente()
     or public.is_influencer()
-    or public.current_role() in ('contabilidad','logistica')
+    or public.auth_role() in ('contabilidad','logistica')
     or exists (select 1 from public.clientes c where c.id = cliente_id and c.user_id = auth.uid())
     or partner_id = auth.uid()
   );
@@ -143,7 +144,7 @@ create policy eventos_select on public.eventos
   for select using (
     public.is_operativo()
     or public.is_finanzas()
-    or public.current_role() = 'cliente'
+    or public.auth_role() = 'cliente'
     or public.is_influencer()
     or public.is_partner()
   );
