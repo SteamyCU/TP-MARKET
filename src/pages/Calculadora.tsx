@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator } from 'lucide-react';
 import { useAuth } from '../AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { getProfile } from '../services/profiles';
 
 export function Calculadora() {
   const { user, profile } = useAuth();
@@ -16,10 +15,9 @@ export function Calculadora() {
     const fetchAgentPrice = async () => {
       if (profile?.role === 'cliente' && profile?.agenteId) {
         try {
-          const agentRef = doc(db, 'users', profile.agenteId);
-          const agentSnap = await getDoc(agentRef);
-          if (agentSnap.exists() && agentSnap.data().precioPorKilo) {
-            setPrecioPorKilo(agentSnap.data().precioPorKilo);
+          const agent = await getProfile(profile.agenteId);
+          if (agent && agent.precioPorKilo) {
+            setPrecioPorKilo(agent.precioPorKilo as number);
           }
         } catch (error) {
           console.error("Error fetching agent price:", error);

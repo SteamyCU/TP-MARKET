@@ -3,6 +3,7 @@ import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard,
 import { db } from '../firebase';
 import { auth } from '../supabase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, where, orderBy, writeBatch } from 'firebase/firestore';
+import { subscribeProfiles, listProfiles } from '../services/profiles';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
@@ -81,12 +82,10 @@ export function Clientes() {
 
   useEffect(() => {
     if (role === 'admin') {
-      const q = query(collection(db, 'users'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const unsubscribe = subscribeProfiles({}, (profiles) => {
         const agentesMap: Record<string, string> = {};
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          agentesMap[doc.id] = data.name || data.email || 'Desconocido';
+        profiles.forEach((p) => {
+          agentesMap[p.id] = (p.name as string) || p.email || 'Desconocido';
         });
         setAgentes(agentesMap);
       });
@@ -127,13 +126,13 @@ export function Clientes() {
     if (!window.confirm('¿Migrar todos los clientes al agente Roxana Enamorado?')) return;
     try {
       // Find Roxana user
-      const qUsers = query(collection(db, 'users'));
-      const snapshot = await getDocs(qUsers);
-      let roxanaId = null;
-      snapshot.forEach(doc => {
-        const data = doc.data();
-        if (data.email?.toLowerCase().includes('roxana') || data.name?.toLowerCase().includes('roxana')) {
-          roxanaId = doc.id;
+      const profiles = await listProfiles();
+      let roxanaId: string | null = null;
+      profiles.forEach((p) => {
+        const email = (p.email || '').toLowerCase();
+        const name = ((p.name as string) || '').toLowerCase();
+        if (email.includes('roxana') || name.includes('roxana')) {
+          roxanaId = p.id;
         }
       });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, doc, updateDoc, setDoc, serverTimestamp, where, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, serverTimestamp, where, addDoc, orderBy } from 'firebase/firestore';
+import { subscribeProfiles, createStaffProfile, updateProfileFields } from '../services/profiles';
 import { 
   Building2, 
   Plus, 
@@ -83,13 +84,8 @@ export function AdminB2B() {
   }
 
   useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', '==', 'partner'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const partnersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as PartnerProfile[];
-      setPartners(partnersData);
+    const unsubscribe = subscribeProfiles({ role: 'partner' }, (profiles) => {
+      setPartners(profiles as unknown as PartnerProfile[]);
       setLoading(false);
     });
 
@@ -188,14 +184,7 @@ export function AdminB2B() {
     e.preventDefault();
     setIsUpdating('new');
     try {
-      const userDocRef = doc(collection(db, 'users'));
-      await setDoc(userDocRef, {
-        ...newPartner,
-        role: 'partner',
-        status: 'active',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      await createStaffProfile('partner', newPartner.email, { ...newPartner, status: 'active' });
       setIsNewPartnerModalOpen(false);
       setNewPartner({ 
         email: '', 
@@ -233,10 +222,7 @@ export function AdminB2B() {
     if (!selectedPartner) return;
     setIsUpdating(selectedPartner.id);
     try {
-      await updateDoc(doc(db, 'users', selectedPartner.id), {
-        ...editFormData,
-        updatedAt: serverTimestamp()
-      });
+      await updateProfileFields(selectedPartner.id, { ...editFormData });
       setIsEditPartnerModalOpen(false);
     } catch (error) {
       console.error("Error updating partner:", error);

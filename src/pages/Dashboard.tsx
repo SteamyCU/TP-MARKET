@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, orderBy, limit, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { subscribeProfiles, getProfile } from '../services/profiles';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { InfluencerDashboard } from '../components/dashboard/InfluencerDashboard';
 import { PartnerB2BDashboard } from '../components/dashboard/PartnerB2BDashboard';
@@ -54,14 +55,12 @@ export function Dashboard() {
         if (isMounted) setLotes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       });
       // Fetch all users for stats
-      const qUsers = query(collection(db, 'users'));
-      unsubscribeUsers = onSnapshot(qUsers, (snap) => {
+      unsubscribeUsers = subscribeProfiles({}, (profiles) => {
         let influencers = 0;
         let partners = 0;
         let agentes = 0;
         let clientes = 0;
-        snap.forEach(doc => {
-          const u = doc.data();
+        profiles.forEach(u => {
           if (u.role === 'influencer') influencers++;
           else if (u.role === 'partner') partners++;
           else if (u.role === 'agente') agentes++;
@@ -132,10 +131,9 @@ export function Dashboard() {
         }
       });
     } else if (role === 'agente') {
-        const userRef = doc(db, 'users', user.uid);
-        getDoc(userRef).then((snap) => {
-          if (snap.exists() && isMounted) {
-            setUserData(snap.data());
+        getProfile(user.uid).then((p) => {
+          if (p && isMounted) {
+            setUserData(p);
           }
         });
 
@@ -165,10 +163,9 @@ export function Dashboard() {
             
             if (clienteData.agenteId && clienteData.agenteId !== 'self') {
               try {
-                const agentRef = doc(db, 'users', clienteData.agenteId);
-                const agentSnap = await getDoc(agentRef);
-                if (agentSnap.exists() && agentSnap.data().precioPorKilo && isMounted) {
-                  setPrecioPorKilo(agentSnap.data().precioPorKilo);
+                const agent = await getProfile(clienteData.agenteId);
+                if (agent && agent.precioPorKilo && isMounted) {
+                  setPrecioPorKilo(agent.precioPorKilo as number);
                 }
               } catch (e) {
                 console.error("Error fetching agent price", e);

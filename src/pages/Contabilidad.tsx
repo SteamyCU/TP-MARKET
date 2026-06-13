@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, setDoc, getDoc, where } from 'firebase/firestore';
+import { subscribeProfiles } from '../services/profiles';
 import { 
   Calculator, 
   TrendingUp, 
@@ -103,9 +104,8 @@ export function Contabilidad() {
     fetchSettings();
 
     // Fetch Agentes
-    const qAgentes = query(collection(db, 'users'));
-    const unsubAgentes = onSnapshot(qAgentes, (snap) => {
-      setAgentes(snap.docs.filter(d => d.data().role === 'agente').map(d => ({ id: d.id, ...d.data() })));
+    const unsubAgentes = subscribeProfiles({ role: 'agente' }, (profiles) => {
+      setAgentes(profiles);
     });
 
     // Fetch Pagos

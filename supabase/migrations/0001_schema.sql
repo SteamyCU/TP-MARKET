@@ -11,8 +11,13 @@ create extension if not exists pgcrypto;
 -- =========================================================
 -- PROFILES (antes: colección 'users')
 -- =========================================================
+-- Nota: id NO es FK a auth.users para permitir que un admin cree perfiles de
+-- staff (agente/contabilidad/logistica/partner) antes de que esa persona tenga
+-- cuenta de Auth. Cuando un usuario se registra, AuthContext inserta su perfil
+-- con id = auth.uid(); cuando un admin crea staff, se genera un uuid nuevo y se
+-- vincula al iniciar sesión con ese email.
 create table public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
   email text not null,
   role text not null default 'cliente'
     check (role in ('admin','agente','influencer','partner','cliente','contabilidad','logistica')),

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { subscribeProfiles, createStaffProfile, updateProfileFields, deleteProfile } from '../services/profiles';
 import { Users, Shield, UserCog, Trash2, Mail, Phone, MapPin, Building2, Search, Filter, MoreVertical, CheckCircle2, XCircle, CreditCard, Plus, Wallet } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { Navigate, Link } from 'react-router-dom';
@@ -50,16 +49,13 @@ export function Usuarios() {
   }
 
   useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', 'in', ['agente', 'contabilidad', 'logistica']));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const usersData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as UserProfile[];
-      setUsers(usersData);
-      setLoading(false);
-    });
-
+    const unsubscribe = subscribeProfiles(
+      { roles: ['agente', 'contabilidad', 'logistica'] },
+      (profiles) => {
+        setUsers(profiles as unknown as UserProfile[]);
+        setLoading(false);
+      },
+    );
     return () => unsubscribe();
   }, []);
 
@@ -67,12 +63,8 @@ export function Usuarios() {
     e.preventDefault();
     setIsUpdating('new');
     try {
-      const userDocRef = doc(collection(db, 'users'));
-      await setDoc(userDocRef, {
-        ...newUser,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      const { email, role, ...rest } = newUser;
+      await createStaffProfile(role, email, rest);
       setIsNewUserModalOpen(false);
       setNewUser({ email: '', name: '', role: 'agente', oficina: '', telefono: '' });
     } catch (error) {
@@ -97,10 +89,7 @@ export function Usuarios() {
     if (!selectedUser) return;
     setIsUpdating(selectedUser.id);
     try {
-      await updateDoc(doc(db, 'users', selectedUser.id), {
-        ...editFormData,
-        updatedAt: serverTimestamp()
-      });
+      await updateProfileFields(selectedUser.id, { ...editFormData });
       setIsEditAgentModalOpen(false);
     } catch (error) {
       console.error("Error updating agent details:", error);
@@ -114,7 +103,7 @@ export function Usuarios() {
     if (!window.confirm("¿Estás seguro de que deseas eliminar este usuario? Esta acción no se puede deshacer.")) return;
     
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      await deleteProfile(userId);
     } catch (error) {
       console.error("Error deleting user:", error);
       alert("Error al eliminar el usuario.");

@@ -82,6 +82,14 @@ create policy profiles_select on public.profiles
 create policy profiles_insert_self on public.profiles
   for insert with check (id = auth.uid());
 
+-- Un admin puede crear perfiles de staff/partner sin cuenta de Auth todavía.
+create policy profiles_insert_admin on public.profiles
+  for insert with check (public.is_admin());
+
+-- Un admin puede eliminar perfiles (p. ej. dar de baja a un agente).
+create policy profiles_delete_admin on public.profiles
+  for delete using (public.is_admin());
+
 -- Un usuario actualiza su propio perfil, pero no puede cambiarse el rol;
 -- el admin puede actualizar cualquier perfil (incluido el rol).
 create policy profiles_update_self on public.profiles
@@ -282,3 +290,14 @@ create policy settings_select on public.settings
 create policy settings_write on public.settings
   for all using (public.is_admin())
   with check (public.is_admin());
+
+-- =========================================================
+-- REALTIME (opcional): habilita actualizaciones en vivo de profiles,
+-- equivalente a onSnapshot de Firestore. Si la publicación no existe o la
+-- tabla ya está añadida, no pasa nada.
+-- =========================================================
+do $$
+begin
+  alter publication supabase_realtime add table public.profiles;
+exception when others then null;
+end $$;

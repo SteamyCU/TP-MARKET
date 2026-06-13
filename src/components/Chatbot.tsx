@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { GoogleGenAI } from '@google/genai';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { listProfiles } from '../services/profiles';
 import { useAuth } from '../AuthContext';
 
 interface Message {
@@ -38,9 +39,7 @@ export function Chatbot() {
     const fetchContextData = async () => {
       try {
         // Fetch all agents
-        const qAgents = query(collection(db, 'users'), where('role', '==', 'agente'));
-        const agentsSnap = await getDocs(qAgents);
-        const agents = agentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const agents = await listProfiles({ role: 'agente' });
         setAgentsData(agents);
 
         // If user is a client, fetch their assigned agent

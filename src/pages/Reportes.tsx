@@ -8,6 +8,7 @@ import {
 } from 'recharts';
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
+import { subscribeProfiles } from '../services/profiles';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { exportarExcel } from '../lib/excel';
@@ -32,7 +33,7 @@ export function Reportes() {
       onSnapshot(query(collection(db, 'gastos')), s => setGastos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(query(collection(db, 'clientes')), s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(query(collection(db, 'lotes')), s => setLotes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, 'users')), s => setUsuarios(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      subscribeProfiles({}, (profiles) => setUsuarios(profiles)),
     ];
     return () => subs.forEach(u => u());
   }, []);

@@ -15,6 +15,7 @@ import { cn } from '../lib/utils';
 import { db } from '../firebase';
 import { auth } from '../supabase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
+import { subscribeProfiles } from '../services/profiles';
 import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { generarTracking, cargarConfigNegocio, crearPaquete } from '../services/paquetes';
 import { marcarSolicitudConvertida } from '../services/solicitudes';
@@ -148,9 +149,8 @@ export function Recepcion() {
 
   useEffect(() => {
     if (role === 'admin') {
-      const q = query(collection(db, 'users'), where('role', '==', 'partner'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        setPartners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const unsubscribe = subscribeProfiles({ role: 'partner' }, (profiles) => {
+        setPartners(profiles);
       });
       return () => unsubscribe();
     } else if (role === 'partner' && profile?.tipoColaborador === 'punto_pack') {

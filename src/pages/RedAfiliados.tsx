@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, UserPlus, Package, ArrowUpRight, Search, Filter, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
-import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
+import { subscribeProfiles } from '../services/profiles';
 
 export function RedAfiliados() {
   const { user } = useAuth();
@@ -15,23 +13,13 @@ export function RedAfiliados() {
   useEffect(() => {
     if (!user?.uid) return;
 
-    const q = query(
-      collection(db, 'users'),
-      where('referidoPor', '==', user.uid),
-      orderBy('createdAt', 'desc')
+    const unsubscribe = subscribeProfiles(
+      { extraKey: 'referidoPor', extraValue: user.uid },
+      (profiles) => {
+        setNetwork(profiles);
+        setLoading(false);
+      },
     );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: any[] = [];
-      snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() });
-      });
-      setNetwork(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users (red afiliados)');
-      setLoading(false);
-    });
 
     return () => unsubscribe();
   }, [user?.uid]);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { subscribeProfiles, updateProfileFields } from '../services/profiles';
 import { Calendar, Tag, Plus, Trash2, Send, Bell, Building2, Users, Star, Save, RefreshCw, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -66,28 +67,24 @@ export function OfertasSalidas() {
 
     if (role === 'admin') {
       // Fetch Agents
-      const qAgentes = query(collection(db, 'users'), where('role', '==', 'agente'));
-      unsubAgentes = onSnapshot(qAgentes, (snap) => {
-        const ags = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setAgentes(ags);
+      unsubAgentes = subscribeProfiles({ role: 'agente' }, (ags) => {
+        setAgentes(ags as any[]);
         setPreciosAgentes(prev => {
           const next = { ...prev };
           ags.forEach(ag => {
-            if (next[ag.id] === undefined) next[ag.id] = ag.precioPorKilo?.toString() || '';
+            if (next[ag.id] === undefined) next[ag.id] = (ag.precioPorKilo as number)?.toString() || '';
           });
           return next;
         });
       });
 
       // Fetch B2B Partners
-      const qPartners = query(collection(db, 'users'), where('role', '==', 'partner'));
-      unsubPartners = onSnapshot(qPartners, (snap) => {
-        const pts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setPartners(pts);
+      unsubPartners = subscribeProfiles({ role: 'partner' }, (pts) => {
+        setPartners(pts as any[]);
         setPreciosPartners(prev => {
           const next = { ...prev };
           pts.forEach(pt => {
-            if (next[pt.id] === undefined) next[pt.id] = pt.precioPorKilo?.toString() || '';
+            if (next[pt.id] === undefined) next[pt.id] = (pt.precioPorKilo as number)?.toString() || '';
           });
           return next;
         });
@@ -120,7 +117,7 @@ export function OfertasSalidas() {
       for (const ag of agentes) {
         const val = parseFloat(preciosAgentes[ag.id]);
         if (!isNaN(val) && val !== ag.precioPorKilo) {
-          await updateDoc(doc(db, 'users', ag.id), { precioPorKilo: val });
+          await updateProfileFields(ag.id, { precioPorKilo: val });
         }
       }
 
@@ -128,7 +125,7 @@ export function OfertasSalidas() {
       for (const pt of partners) {
         const val = parseFloat(preciosPartners[pt.id]);
         if (!isNaN(val) && val !== pt.precioPorKilo) {
-          await updateDoc(doc(db, 'users', pt.id), { precioPorKilo: val });
+          await updateProfileFields(pt.id, { precioPorKilo: val });
         }
       }
 
