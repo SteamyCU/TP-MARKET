@@ -2,7 +2,8 @@
 // mantiene sincronizados importePagado/importePendiente/estadoPago del paquete.
 
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { registrarAuditoria } from './auditoria';
 
 export interface PaqueteConDeuda {

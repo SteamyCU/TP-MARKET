@@ -1,12 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from './firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { supabase, toAuthUser, type AuthUser } from './supabase';
 
 type RolUsuario = 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | 'contabilidad' | 'logistica';
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   role: RolUsuario | null;
   profile: any | null;
   loading: boolean;
@@ -15,9 +13,9 @@ interface AuthContextType {
   clearError: () => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ 
-  user: null, 
-  role: null, 
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  role: null,
   profile: null,
   loading: true,
   error: null,
@@ -25,10 +23,22 @@ const AuthContext = createContext<AuthContextType>({
   clearError: () => {}
 });
 
-import { handleFirestoreError, OperationType } from './lib/firestore-errors';
+const ROLE_LABELS: Record<string, string> = {
+  agente: 'Agente',
+  influencer: 'Influencer',
+  partner: 'Partner B2B',
+  cliente: 'Cliente',
+  admin: 'Administrador',
+  contabilidad: 'Contabilidad',
+  logistica: 'Logística',
+};
+
+function buildProfile(row: { id: string; email: string; role: string; extra: Record<string, unknown> }) {
+  return { ...row.extra, id: row.id, email: row.email, role: row.role };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [role, setRole] = useState<RolUsuario | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,128 +48,147 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (data: any) => {
     if (!user) return;
-    const userDocRef = doc(db, 'users', user.uid);
-    try {
-      await setDoc(userDocRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
-      setProfile(prev => ({ ...prev, ...data }));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+    const { role: newRole, email: newEmail, id: _id, ...rest } = data;
+    const mergedExtra = { ...(profile || {}), ...rest };
+    delete mergedExtra.role;
+    delete mergedExtra.email;
+    delete mergedExtra.id;
+
+    const update: Record<string, unknown> = { extra: mergedExtra };
+    if (newRole) update.role = newRole;
+    if (newEmail) update.email = newEmail;
+
+    const { error: updateError } = await supabase.from('profiles').update(update).eq('id', user.uid);
+    if (updateError) {
+      console.error('No se pudo actualizar el perfil:', updateError);
+      return;
     }
+    setProfile((prev: any) => ({ ...prev, ...data }));
+    if (newRole) setRole(newRole);
+  };
+
+  /** Carga (o crea) el perfil del usuario autenticado en la tabla 'profiles'. */
+  const cargarPerfil = async (currentUser: AuthUser) => {
+    const { data: row, error: selectError } = await supabase
+      .from('profiles')
+      .select('id, email, role, extra')
+      .eq('id', currentUser.uid)
+      .maybeSingle();
+
+    if (selectError) {
+      console.error('Error cargando el perfil:', selectError);
+      setLoading(false);
+      return;
+    }
+
+    const bootstrapAdmin = import.meta.env.VITE_BOOTSTRAP_ADMIN;
+
+    if (row) {
+      const currentRole = row.role as RolUsuario;
+      const forcedRole: RolUsuario = (bootstrapAdmin && currentUser.email === bootstrapAdmin) ? 'admin' : currentRole;
+
+      // Aviso si intenta registrarse con otro rol teniendo ya uno asignado
+      const pendingRole = localStorage.getItem('pending_role');
+      if (pendingRole && pendingRole !== currentRole && forcedRole === currentRole) {
+        setError(`Este correo ya está registrado como ${ROLE_LABELS[currentRole] || currentRole}. No puedes registrarte como ${ROLE_LABELS[pendingRole] || pendingRole}.`);
+        localStorage.removeItem('pending_role');
+      }
+
+      if (forcedRole !== currentRole) {
+        const { error: updateError } = await supabase.from('profiles').update({ role: forcedRole }).eq('id', currentUser.uid);
+        if (updateError) console.error('No se pudo actualizar el rol:', updateError);
+        setRole(forcedRole);
+        setProfile(buildProfile({ ...row, role: forcedRole }));
+      } else {
+        setRole(currentRole);
+        setProfile(buildProfile(row));
+      }
+    } else {
+      // Primer login: crear el perfil
+      const pendingRole = localStorage.getItem('pending_role') as RolUsuario | null;
+      let newRole: RolUsuario = 'cliente';
+
+      if (bootstrapAdmin && currentUser.email === bootstrapAdmin) {
+        newRole = 'admin';
+      } else if (pendingRole && ['agente', 'influencer', 'partner', 'cliente'].includes(pendingRole)) {
+        newRole = pendingRole;
+        localStorage.removeItem('pending_role');
+      }
+
+      const extra: Record<string, unknown> = {
+        name: currentUser.displayName || '',
+      };
+
+      if (newRole === 'influencer') {
+        extra.codigoReferido = `REF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        extra.tier = 'bronze';
+        extra.tasaComision = 0.03;
+        extra.balanceComisiones = 0;
+      } else if (newRole === 'partner') {
+        extra.apiKey = `pk_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+        extra.balance = 0;
+      }
+
+      // Código de referido pendiente (registro vía enlace de afiliado)
+      const pendingRef = localStorage.getItem('pending_ref');
+      if (pendingRef) {
+        try {
+          const { data: referrer } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('extra->>codigoReferido', pendingRef)
+            .maybeSingle();
+          if (referrer) {
+            extra.referidoPor = referrer.id;
+          }
+        } catch (err) {
+          console.error('Error buscando referidor:', err);
+        }
+        localStorage.removeItem('pending_ref');
+      }
+
+      const { error: insertError } = await supabase.from('profiles').insert({
+        id: currentUser.uid,
+        email: currentUser.email,
+        role: newRole,
+        extra,
+      });
+
+      if (insertError) {
+        console.error('No se pudo crear el perfil:', insertError);
+      } else {
+        setRole(newRole);
+        setProfile(buildProfile({ id: currentUser.uid, email: currentUser.email || '', role: newRole, extra }));
+      }
+    }
+    setLoading(false);
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            const currentRole = data.role;
+    let activo = true;
 
-            // El rol vive en el documento del usuario. Único bootstrap permitido:
-            // el email configurado en VITE_BOOTSTRAP_ADMIN se eleva a admin.
-            const bootstrapAdmin = import.meta.env.VITE_BOOTSTRAP_ADMIN;
-            const forcedRole = (bootstrapAdmin && currentUser.email === bootstrapAdmin) ? 'admin' : currentRole;
-
-            // Aviso si intenta registrarse con otro rol teniendo ya uno asignado
-            const pendingRole = localStorage.getItem('pending_role');
-            if (pendingRole && pendingRole !== currentRole && forcedRole === currentRole) {
-              const roleLabels: any = {
-                agente: 'Agente',
-                influencer: 'Influencer',
-                partner: 'Partner B2B',
-                cliente: 'Cliente',
-                admin: 'Administrador',
-                contabilidad: 'Contabilidad',
-                logistica: 'Logística'
-              };
-              setError(`Este correo ya está registrado como ${roleLabels[currentRole] || currentRole}. No puedes registrarte como ${roleLabels[pendingRole] || pendingRole}.`);
-              localStorage.removeItem('pending_role');
-            }
-
-            if (forcedRole !== currentRole) {
-              try {
-                await setDoc(userDocRef, { role: forcedRole }, { merge: true });
-                setRole(forcedRole);
-                setProfile({ ...data, role: forcedRole });
-              } catch (error) {
-                handleFirestoreError(error, OperationType.WRITE, `users/${currentUser.uid}`);
-              }
-            } else {
-              setRole(currentRole);
-              setProfile(data);
-            }
-          } else {
-            // Check for pending registration role in localStorage
-            const pendingRole = localStorage.getItem('pending_role') as any;
-            let newRole: RolUsuario = 'cliente';
-
-            const bootstrapAdmin = import.meta.env.VITE_BOOTSTRAP_ADMIN;
-            if (bootstrapAdmin && currentUser.email === bootstrapAdmin) {
-              newRole = 'admin';
-            } else if (pendingRole && ['agente', 'influencer', 'partner', 'cliente'].includes(pendingRole)) {
-              newRole = pendingRole;
-              localStorage.removeItem('pending_role');
-            }
-
-            const initialProfile: any = {
-              email: currentUser.email,
-              name: currentUser.displayName || '',
-              role: newRole,
-              createdAt: serverTimestamp()
-            };
-
-            // Auto-generate specific fields based on role
-            if (newRole === 'influencer') {
-              initialProfile.codigoReferido = `REF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-              initialProfile.tier = 'bronze';
-              initialProfile.tasaComision = 0.03;
-              initialProfile.balanceComisiones = 0;
-            } else if (newRole === 'partner') {
-              initialProfile.apiKey = `pk_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-              initialProfile.balance = 0;
-            }
-
-            // Check for pending referral code
-            const pendingRef = localStorage.getItem('pending_ref');
-            if (pendingRef) {
-              try {
-                const { collection, query, where, getDocs } = await import('firebase/firestore');
-                const usersRef = collection(db, 'users');
-                const q = query(usersRef, where('codigoReferido', '==', pendingRef));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                  const referrerDoc = querySnapshot.docs[0];
-                  initialProfile.referidoPor = referrerDoc.id;
-                }
-              } catch (err) {
-                console.error("Error looking up referrer:", err);
-              }
-              localStorage.removeItem('pending_ref');
-            }
-
-            try {
-              await setDoc(userDocRef, initialProfile);
-              setRole(newRole);
-              setProfile(initialProfile);
-            } catch (error) {
-              handleFirestoreError(error, OperationType.WRITE, `users/${currentUser.uid}`);
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching user role:", error);
-        }
+    const procesarUsuario = async (authUser: AuthUser | null) => {
+      setUser(authUser);
+      if (authUser) {
+        await cargarPerfil(authUser);
       } else {
         setRole(null);
         setProfile(null);
+        setLoading(false);
       }
-      setLoading(false);
+    };
+
+    // onAuthStateChange emite el evento INITIAL_SESSION al suscribirse,
+    // por lo que no es necesario llamar a getSession() por separado.
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!activo) return;
+      procesarUsuario(toAuthUser(session?.user));
     });
 
-    return () => unsubscribe();
+    return () => {
+      activo = false;
+      subscription.subscription.unsubscribe();
+    };
   }, []);
 
   return (

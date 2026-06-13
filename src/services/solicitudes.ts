@@ -5,7 +5,8 @@
 import {
   collection, doc, addDoc, updateDoc, getDocs, query, where, serverTimestamp,
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { registrarAuditoria } from './auditoria';
 
 /**

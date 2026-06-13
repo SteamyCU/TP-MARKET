@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard, Package, Clock, CheckCircle2, AlertCircle, Download, Upload } from 'lucide-react';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, where, orderBy, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';

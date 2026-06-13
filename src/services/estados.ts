@@ -4,7 +4,8 @@
 // tracking) y añadiendo campos aditivos: estadoAnterior, motivo y tipoCambio.
 
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { ESTADOS_FINALES } from '../constants/estados';
 import { registrarAuditoria } from './auditoria';
 

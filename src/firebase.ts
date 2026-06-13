@@ -1,20 +1,12 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, getDocFromServer, doc } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
+// La autenticación (login/registro/logout) vive en Supabase Auth (ver src/supabase.ts).
+// Firebase/Firestore se mantiene como almacén de datos mientras se completa la
+// migración (Fase 13: Migración a Supabase).
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-});
-
-export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
-export const registerWithEmail = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
-export const loginWithEmail = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
-export const logout = () => signOut(auth);
 
 // Test connection to Firestore
 async function testConnection() {

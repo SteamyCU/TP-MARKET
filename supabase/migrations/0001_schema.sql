@@ -14,28 +14,18 @@ create extension if not exists pgcrypto;
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
-  name text,
   role text not null default 'cliente'
     check (role in ('admin','agente','influencer','partner','cliente','contabilidad','logistica')),
-  telefono text,
-  direccion text,
-  dni text,
-  oficina text,
-  tipo_colaborador text, -- p.ej. 'punto_pack' para partners
-  precio_por_kilo numeric,
-  balance numeric default 0,
-  codigo_referido text unique,
-  referido_por uuid references public.profiles(id),
-  tasa_comision numeric,
-  balance_comisiones numeric default 0,
-  tier text,
-  api_key text,
-  status text,
+  -- Resto de campos del perfil (name, telefono, direccion, dni, oficina,
+  -- tipoColaborador, precioPorKilo, balance, codigoReferido, referidoPor,
+  -- tasaComision, balanceComisiones, tier, apiKey, status, ...): igual que
+  -- en Firestore 'users', se guardan como JSON flexible.
+  extra jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 create index profiles_role_idx on public.profiles(role);
-create index profiles_codigo_referido_idx on public.profiles(codigo_referido);
+create index profiles_codigo_referido_idx on public.profiles ((extra->>'codigoReferido'));
 
 -- =========================================================
 -- CLIENTES

@@ -4,7 +4,8 @@
 // son aditivos.
 
 import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { setEmpresa } from '../lib/empresa';
 import { registrarAuditoria } from './auditoria';

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import type { Cliente } from '../types/models';
 
 interface ClienteFormModalProps {

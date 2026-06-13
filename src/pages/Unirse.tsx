@@ -18,7 +18,8 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
-import { db, loginWithGoogle } from '../firebase';
+import { db } from '../firebase';
+import { loginWithGoogle } from '../supabase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 

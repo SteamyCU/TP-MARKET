@@ -6,7 +6,8 @@ import {
   collection, doc, addDoc, updateDoc, writeBatch,
   serverTimestamp, arrayUnion, arrayRemove,
 } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { cambiarEstado, type PaqueteParaCambio } from './estados';
 import { registrarAuditoria } from './auditoria';
 import type { EstadoLote } from '../constants/estados';

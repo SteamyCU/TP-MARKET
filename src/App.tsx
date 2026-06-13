@@ -40,7 +40,8 @@ import { ComisionesAgente } from './pages/ComisionesAgente';
 import { ProgramaAfiliados } from './pages/ProgramaAfiliados';
 import { Unirse } from './pages/Unirse';
 import { ScrollToTop } from './components/ScrollToTop';
-import { db, auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './firebase';
+import { db } from './firebase';
+import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './supabase';
 import { cn } from './lib/utils';
 import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight } from 'lucide-react';
 
@@ -526,14 +527,11 @@ function Login() {
     setError(null);
     clearError();
     try {
-      await loginWithGoogle();
+      const { error: oauthError } = await loginWithGoogle();
+      if (oauthError) throw oauthError;
     } catch (err: any) {
       console.error("Login error:", err);
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('Inicio de sesión cancelado.');
-      } else {
-        setError('Ocurrió un error al intentar iniciar sesión.');
-      }
+      setError('Ocurrió un error al intentar iniciar sesión.');
     } finally {
       setIsLoading(false);
     }
@@ -558,14 +556,13 @@ function Login() {
       }
     } catch (err: any) {
       console.error("Email auth error:", err);
-      if (err.code === 'auth/email-already-in-use') {
+      const msg: string = err?.message || '';
+      if (msg.includes('already registered') || msg.includes('already in use')) {
         setError('Este correo ya está registrado. Por favor, inicia sesión.');
-      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+      } else if (msg.includes('Invalid login credentials')) {
         setError('Correo o contraseña incorrectos.');
-      } else if (err.code === 'auth/weak-password') {
+      } else if (msg.includes('Password should be at least')) {
         setError('La contraseña debe tener al menos 6 caracteres.');
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('El registro con correo y contraseña no está habilitado en Firebase. Por favor, habilítalo en la consola de Firebase (Authentication -> Sign-in method -> Email/Password).');
       } else {
         setError('Ocurrió un error. Verifica tus datos e intenta de nuevo.');
       }

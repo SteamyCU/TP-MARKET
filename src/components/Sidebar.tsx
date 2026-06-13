@@ -22,7 +22,8 @@ import {
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { logout, db } from '../firebase';
+import { db } from '../firebase';
+import { logout } from '../supabase';
 import { useAuth } from '../AuthContext';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 

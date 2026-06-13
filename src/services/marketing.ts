@@ -2,7 +2,8 @@
 // guardados como campos aditivos en los documentos de 'clientes'.
 
 import { doc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { registrarAuditoria } from './auditoria';
 
 export async function actualizarEtiquetasCliente(clienteId: string, etiquetas: string[], clienteNombre?: string): Promise<void> {

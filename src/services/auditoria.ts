@@ -3,7 +3,8 @@
 // para no interrumpir la operación principal que está auditando.
 
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 
 export type AccionAuditoria =
   | 'crear_paquete'

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Send, AlertCircle, CheckCircle2, PackagePlus, Info } from 'lucide-react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';

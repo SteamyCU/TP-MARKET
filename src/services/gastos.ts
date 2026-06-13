@@ -2,7 +2,8 @@
 // ruta o categoría para calcular el beneficio real del negocio.
 
 import { collection, doc, addDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db } from '../firebase';
+import { auth } from '../supabase';
 import { registrarAuditoria } from './auditoria';
 
 export interface NuevoGastoInput {
