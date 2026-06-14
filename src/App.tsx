@@ -43,7 +43,7 @@ import { ScrollToTop } from './components/ScrollToTop';
 import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './supabase';
 import { cn } from './lib/utils';
-import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
   const { profile, updateProfile } = useAuth();
@@ -489,7 +489,9 @@ function Login() {
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   React.useEffect(() => {
     const refCode = searchParams.get('ref');
     if (refCode) {
@@ -528,7 +530,18 @@ function Login() {
       setError('Por favor, completa todos los campos.');
       return;
     }
-    
+
+    if (!isLogin) {
+      if (password.length < 6) {
+        setError('La contraseña debe tener al menos 6 caracteres.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Las contraseñas no coinciden. Vuelve a escribirlas.');
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
     clearError();
@@ -616,15 +629,45 @@ function Login() {
               required
               className="w-full px-6 py-4 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
             />
-            <input 
-              type="password" 
-              placeholder={isLogin ? "Tu contraseña" : "Crea una contraseña"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-6 py-4 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
-            />
-            <button 
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder={isLogin ? "Tu contraseña" : "Crea una contraseña"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-6 py-4 pr-14 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-tp-blue/40 hover:text-tp-blue transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            {!isLogin && (
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Repite la contraseña"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full px-6 py-4 pr-14 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-tp-blue/40 hover:text-tp-blue transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            )}
+            <button
               type="submit"
               disabled={isLoading}
               className="w-full bg-tp-blue text-white py-4 rounded-2xl font-black hover:bg-[#004a78] transition-all shadow-lg shadow-tp-blue/20 disabled:opacity-50"
