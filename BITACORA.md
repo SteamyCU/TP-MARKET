@@ -1,0 +1,105 @@
+# Bitácora del proyecto · ToPaquete
+
+Registro de avances de la plataforma de logística ToPaquete (envíos España → Cuba)
+y de los pendientes para dejarla lista para producción.
+
+Última actualización: 2026-06-14
+
+---
+
+## Estado general
+
+- **Stack:** React 19 + TypeScript + Vite 6 + Tailwind 4 + react-router-dom 7.
+- **Backend:** Supabase (Auth + Postgres + RLS). Proyecto `idcfuravemoljjxbdkeh`.
+- **Firebase:** eliminado por completo del proyecto. La app ya no depende de Firebase.
+- **Motivo del cambio:** Firebase no carga desde Cuba (mercado principal de clientes),
+  por eso toda la plataforma se migró a Supabase.
+- **Despliegue:** todavía en local (`npm run dev`), sin dominio conectado aún.
+
+---
+
+## Fases completadas
+
+| Fase | Descripción |
+|------|-------------|
+| 0.5 + 1 | Flujo profesional de recepción de paquetes con motor de precios |
+| 2 | Gestión de estados de paquetes (individual y masiva) con historial enriquecido |
+| 3 | Gestión de lotes de salida con manifiesto y exportación CSV |
+| 4 | Exportación Excel/CSV e importación masiva con `DataTable` reutilizable |
+| 5 | Portal de clientes: solicitudes de envío con flujo de revisión interna |
+| 6 | Cobros, gastos y agregados contables reales |
+| 7 | Analítica de marketing de clientes (segmentos, etiquetas, historial de contacto) |
+| 8 | Reportes con datos reales y panel operativo de administración |
+| 9 | Documentos imprimibles: recibo, comprobante de pago, hoja de entrega |
+| 10 | Página de configuración del negocio respaldada por `settings` |
+| 11 | Limpieza del sistema de roles con `contabilidad` y `logistica` |
+| 12 | Auditoría inmutable con visor para administración |
+| **13** | **Migración completa a Supabase** (ver desglose abajo) |
+
+### Desglose Fase 13 · Migración a Supabase
+
+- **13.1** Esquema SQL completo y políticas RLS (`0001_schema.sql`, `0002_rls.sql`).
+- **13.2** Autenticación migrada a Supabase Auth + tabla `profiles`.
+- **13.3** Migración de todas las colecciones de Firestore a tablas de Supabase:
+  clientes, destinatarios, paquetes, eventos, pagos, lotes, gastos, solicitudes,
+  auditoría, facturas B2B, settings, ofertas/salidas, afiliados e influencers.
+- **13.4** Eliminación total de Firebase (código, dependencia npm y archivos de config).
+
+### Arreglos posteriores del flujo de acceso
+
+- Mensaje claro cuando el acceso con Google no está configurado.
+- Registro de **partners / puntos de entrega**: `/login?mode=register&role=partner`
+  ahora asigna correctamente `role='partner'` (antes quedaban como `cliente`).
+- Formulario de email en `/unirse` (alta de agentes/influencers): ahora permite
+  crear cuenta o iniciar sesión con email/contraseña (antes estaba inerte).
+
+### Roles del sistema
+
+| Rol | Cómo se obtiene |
+|-----|-----------------|
+| `admin` | Único. Correo definido en `VITE_BOOTSTRAP_ADMIN` (`gaosvbc@gmail.com`) |
+| `partner` | Alta vía `/ser-partner` → `/login?mode=register&role=partner` |
+| `agente` / `influencer` | Alta vía `/unirse` (queda como solicitud para revisión) |
+| `contabilidad` / `logistica` | Creados por el admin desde el panel de usuarios |
+| `cliente` | Rol por defecto de cualquier registro normal |
+
+---
+
+## Pendientes para finalizar la plataforma
+
+### En el panel de Supabase (acciones manuales del dueño)
+
+- [ ] Ejecutar la migración `supabase/migrations/0003_afiliado_datos.sql` en el
+      SQL Editor (añade la columna `datos jsonb` a `solicitudes_afiliado`,
+      necesaria para el formulario de `/unirse`).
+- [ ] Confirmar que **"Confirm email"** sigue desactivado en
+      Authentication → Providers → Email (si no, los registros nuevos quedan sin confirmar).
+- [ ] Configurar **SMTP propio** (p. ej. Resend) para evitar el límite de
+      envío de correos de Supabase (~2-4/hora en el plan gratuito) antes de producción.
+
+### Funcionalidad pendiente en código
+
+- [ ] **Google OAuth:** el botón "Continuar con Google" muestra un mensaje de
+      "no disponible". Falta configurar el proveedor Google en Supabase
+      (credenciales de Google Cloud Console) para habilitarlo.
+- [ ] **Subida de ID/Pasaporte en `/unirse`:** el `input type="file"` del alta de
+      agente es un stub. Falta conectar **Supabase Storage** para guardar el documento.
+
+### Despliegue
+
+- [ ] Conectar dominio y publicar la web (hosting + variables de entorno de producción).
+- [ ] Revisar el tamaño del bundle (`> 500 kB`): considerar `code-splitting`
+      con `import()` dinámico o `manualChunks`.
+
+---
+
+## Variables de entorno (`.env.local`)
+
+```
+VITE_SUPABASE_URL=https://idcfuravemoljjxbdkeh.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon key del proyecto>
+VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
+```
+
+> `.env.local` está en `.gitignore`: no se sube al repo y debe crearse a mano en
+> cada máquina/entorno.
