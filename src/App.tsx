@@ -563,6 +563,8 @@ function Login() {
         setError('Correo o contraseña incorrectos.');
       } else if (msg.includes('Password should be at least')) {
         setError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (msg.includes('security purposes') || msg.includes('after')) {
+        setError('Por seguridad, espera un minuto antes de volver a intentarlo.');
       } else {
         setError('Ocurrió un error. Verifica tus datos e intenta de nuevo.');
       }
