@@ -6,6 +6,7 @@ import {
   TrendingUp, Star, Quote, Facebook, Instagram, Twitter, 
   Mail, Phone, MapPin, Globe, UserPlus, Newspaper, Zap
 } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 const faqs = [
   {
@@ -76,8 +77,10 @@ export function Landing() {
   const [calcPeso, setCalcPeso] = useState(5);
   const [calcDestino, setCalcDestino] = useState('La Habana');
   const [calcTipo, setCalcTipo] = useState('Normal');
+  const [calcModo, setCalcModo] = useState<'Regular' | 'Express'>('Regular');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const precioPorKilo = 5.00; // Default public price
+  const recargoExpress = 1.5; // Recargo estimado del servicio aéreo Express
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -114,7 +117,7 @@ export function Landing() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }} />
 
       {/* Hero Section with Calculator */}
-      <header id="calculadora" className="bg-gradient-to-br from-tp-blue to-[#003355] py-20 px-6 relative overflow-hidden">
+      <header id="calculadora" className="bg-gradient-to-br from-tp-blue to-[#003355] py-20 px-6 relative overflow-hidden scroll-mt-20">
         <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
           <div className="absolute top-10 left-10 w-64 h-64 bg-white rounded-full blur-3xl"></div>
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-tp-red rounded-full blur-3xl"></div>
@@ -154,6 +157,42 @@ export function Landing() {
             <p className="text-tp-blue/50 text-sm mb-8">Obtén un presupuesto estimado al instante.</p>
             
             <div className="space-y-8">
+              <div>
+                <label className="block text-xs font-black text-tp-blue/40 uppercase tracking-widest mb-2">Modo de Envío</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCalcModo('Regular')}
+                    className={cn(
+                      "px-4 py-3 rounded-xl font-black text-left transition-all border",
+                      calcModo === 'Regular'
+                        ? "bg-tp-blue text-white border-tp-blue shadow-md"
+                        : "bg-gray-50 text-tp-blue border-tp-gray-soft hover:border-tp-blue/30"
+                    )}
+                  >
+                    Regular
+                    <span className={cn("block text-[10px] font-bold normal-case mt-0.5", calcModo === 'Regular' ? "text-white/70" : "text-tp-blue/40")}>
+                      Marítimo · 30-45 días
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCalcModo('Express')}
+                    className={cn(
+                      "px-4 py-3 rounded-xl font-black text-left transition-all border",
+                      calcModo === 'Express'
+                        ? "bg-tp-red text-white border-tp-red shadow-md"
+                        : "bg-gray-50 text-tp-blue border-tp-gray-soft hover:border-tp-blue/30"
+                    )}
+                  >
+                    Express
+                    <span className={cn("block text-[10px] font-bold normal-case mt-0.5", calcModo === 'Express' ? "text-white/70" : "text-tp-blue/40")}>
+                      Aéreo · 7-15 días
+                    </span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-xs font-black text-tp-blue/40 uppercase tracking-widest">Peso del Envío</label>
@@ -210,7 +249,7 @@ export function Landing() {
                     <span className="text-tp-blue/60 text-[10px] font-bold">*Sujeto a tarifa de agente</span>
                   </div>
                   <div className="text-5xl font-black text-tp-blue tracking-tighter">
-                    €{(calcPeso * precioPorKilo).toFixed(2)}
+                    €{(calcPeso * precioPorKilo * (calcModo === 'Express' ? recargoExpress : 1)).toFixed(2)}
                   </div>
                 </div>
                 <button onClick={() => navigate('/login?mode=register')} className="w-full bg-tp-red text-white py-5 rounded-2xl font-black text-lg hover:bg-[#D91F33] transition-all shadow-lg shadow-tp-red/20 flex items-center justify-center gap-3 group">
@@ -350,7 +389,7 @@ export function Landing() {
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-24 px-6 bg-white border-t border-tp-gray-soft">
+      <section id="faq" className="py-24 px-6 bg-white border-t border-tp-gray-soft scroll-mt-20">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <div className="w-20 h-20 bg-tp-blue-light rounded-3xl flex items-center justify-center mx-auto mb-6 text-tp-blue rotate-3">

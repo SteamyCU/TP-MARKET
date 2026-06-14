@@ -131,9 +131,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               © 2026 To Paquete Logística. Todos los derechos reservados.
             </p>
             <div className="flex items-center gap-6 text-xs font-black text-tp-blue/30 uppercase tracking-widest">
-              <a href="#" className="hover:text-tp-red transition-colors">Privacidad</a>
-              <a href="#" className="hover:text-tp-red transition-colors">Cookies</a>
-              <a href="#" className="hover:text-tp-red transition-colors">Legal</a>
+              <button onClick={() => navigate('/politica-privacidad')} className="hover:text-tp-red transition-colors">Privacidad</button>
+              <button onClick={() => navigate('/politica-privacidad#cookies')} className="hover:text-tp-red transition-colors">Cookies</button>
+              <button onClick={() => navigate('/terminos-condiciones')} className="hover:text-tp-red transition-colors">Legal</button>
             </div>
           </div>
         </div>

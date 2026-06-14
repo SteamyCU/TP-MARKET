@@ -36,7 +36,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
       <div className="flex items-center gap-6 ml-4">
         {role !== 'cliente' && (
           <button 
-            onClick={() => navigate('/recepcion')}
+            onClick={() => navigate('/dashboard/recepcion')}
             className="hidden md:flex items-center gap-2 bg-tp-red hover:bg-[#D91F33] text-white px-5 py-2.5 rounded-full text-sm font-medium transition-colors shadow-sm"
           >
             <Plus className="w-4 h-4" />

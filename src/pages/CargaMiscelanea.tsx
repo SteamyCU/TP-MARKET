@@ -201,7 +201,7 @@ export function CargaMiscelanea() {
           <div className="mt-8 flex justify-center gap-6 text-sm font-bold text-white/40">
             <Link to="/medicinas-exentas" className="hover:text-tp-red transition-colors">Medicinas Exentas</Link>
             <span>|</span>
-            <Link to="/como-funciona" className="hover:text-tp-red transition-colors">Cómo Funciona</Link>
+            <Link to="/#faq" className="hover:text-tp-red transition-colors">Cómo Funciona</Link>
           </div>
         </div>
       </section>

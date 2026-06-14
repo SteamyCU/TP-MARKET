@@ -91,7 +91,7 @@ export function PoliticaPrivacidad() {
             </div>
           </section>
 
-          <section>
+          <section id="cookies" className="scroll-mt-24">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-8 h-8 bg-tp-blue text-white rounded-full flex items-center justify-center text-sm font-black">6</div>
               <h2 className="text-2xl font-black text-tp-blue m-0">Cookies</h2>

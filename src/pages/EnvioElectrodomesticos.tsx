@@ -197,7 +197,7 @@ export function EnvioElectrodomesticos() {
           <div className="mt-8 flex justify-center gap-6 text-sm font-bold text-white/40">
             <Link to="/envios-maritimos" className="hover:text-tp-red transition-colors">Envíos Marítimos</Link>
             <span>|</span>
-            <Link to="/cobertura" className="hover:text-tp-red transition-colors">Cobertura</Link>
+            <Link to="/sobre-nosotros" className="hover:text-tp-red transition-colors">Cobertura</Link>
           </div>
         </div>
       </section>
