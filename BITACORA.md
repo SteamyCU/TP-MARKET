@@ -69,7 +69,7 @@ y de los pendientes para dejarla lista para producción.
 
 ### En el panel de Supabase (acciones manuales del dueño)
 
-- [ ] Ejecutar la migración `supabase/migrations/0003_afiliado_datos.sql` en el
+- [x] Ejecutar la migración `supabase/migrations/0003_afiliado_datos.sql` en el
       SQL Editor (añade la columna `datos jsonb` a `solicitudes_afiliado`,
       necesaria para el formulario de `/unirse`).
 - [ ] Confirmar que **"Confirm email"** sigue desactivado en
@@ -79,9 +79,8 @@ y de los pendientes para dejarla lista para producción.
 
 ### Funcionalidad pendiente en código
 
-- [ ] **Google OAuth:** el botón "Continuar con Google" muestra un mensaje de
-      "no disponible". Falta configurar el proveedor Google en Supabase
-      (credenciales de Google Cloud Console) para habilitarlo.
+- [x] **Google OAuth:** configurado y funcionando (proveedor Google habilitado
+      en Supabase con credenciales de Google Cloud Console).
 - [ ] **Subida de ID/Pasaporte en `/unirse`:** el `input type="file"` del alta de
       agente es un stub. Falta conectar **Supabase Storage** para guardar el documento.
 

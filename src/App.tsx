@@ -518,7 +518,7 @@ function Login() {
       if (oauthError) throw oauthError;
     } catch (err: any) {
       console.error("Login error:", err);
-      setError('El acceso con Google todavía no está disponible. Por favor, usa tu correo y contraseña.');
+      setError('No se pudo iniciar el acceso con Google. Por favor, inténtalo de nuevo o usa tu correo y contraseña.');
     } finally {
       setIsLoading(false);
     }
