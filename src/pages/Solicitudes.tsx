@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, CheckCircle2, AlertCircle, PackagePlus, Inbox } from 'lucide-react';
-import { collection, query, onSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../firebase';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
-import { actualizarEstadoSolicitud } from '../services/solicitudes';
+import { actualizarEstadoSolicitud, subscribeSolicitudes } from '../services/solicitudes';
 import { ESTADOS_SOLICITUD } from '../constants/estados';
 import type { Solicitud } from '../types/models';
 
@@ -24,12 +22,8 @@ export function Solicitudes() {
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'solicitudes'));
-    const unsub = onSnapshot(q, (snap) => {
-      const data: SolicitudDoc[] = [];
-      snap.forEach(d => data.push({ id: d.id, ...d.data() } as SolicitudDoc));
-      data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-      setSolicitudes(data);
+    const unsub = subscribeSolicitudes({}, (data) => {
+      setSolicitudes(data as unknown as SolicitudDoc[]);
       setIsLoading(false);
     });
     return () => unsub();

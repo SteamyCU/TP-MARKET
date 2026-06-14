@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Box, TrendingUp, CheckCircle2, Wallet, FileText, Key, Plus, ArrowRight, Download, Search, LayoutGrid, List } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
-import { db } from '../../firebase';
-import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { subscribePaquetes } from '../../services/paquetes';
+import { subscribeInvoices } from '../../services/b2b';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { cn } from '../../lib/utils';
 import { ChipEstado } from '../ChipEstado';
@@ -52,32 +51,26 @@ export function PartnerB2BDashboard() {
     });
 
     // Fetch invoices
-    const qInvoices = query(
-      collection(db, 'b2b_invoices'),
-      where('partnerId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(10)
+    const unsubscribeInvoices = subscribeInvoices(
+      { partnerId: user.uid, limit: 10 },
+      (data) => {
+        let pending = 0;
+        data.forEach((inv) => {
+          if (inv.status === 'pending') {
+            pending += (inv.totalAmount || 0);
+          }
+        });
+        setInvoices(data);
+        setStats(prev => ({
+          ...prev,
+          pendingInvoice: pending
+        }));
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'b2b_invoices (partner)');
+        console.error("Error in partner invoices snapshot:", error);
+      }
     );
-
-    const unsubscribeInvoices = onSnapshot(qInvoices, (snapshot) => {
-      const data: any[] = [];
-      let pending = 0;
-      snapshot.forEach((doc) => {
-        const inv = { id: doc.id, ...doc.data() } as any;
-        data.push(inv);
-        if (inv.status === 'pending') {
-          pending += (inv.totalAmount || 0);
-        }
-      });
-      setInvoices(data);
-      setStats(prev => ({
-        ...prev,
-        pendingInvoice: pending
-      }));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'b2b_invoices (partner)');
-      console.error("Error in partner invoices snapshot:", error);
-    });
 
     return () => {
       unsubscribePaquetes();

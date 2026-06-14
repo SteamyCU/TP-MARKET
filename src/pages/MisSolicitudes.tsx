@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Send, AlertCircle, CheckCircle2, PackagePlus, Info } from 'lucide-react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
 import { auth } from '../supabase';
 import { subscribeDestinatarios } from '../services/destinatarios';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { DestinatarioFormModal } from '../components/DestinatarioFormModal';
-import { crearSolicitud, actualizarEstadoSolicitud, obtenerOCrearClienteDoc } from '../services/solicitudes';
+import { crearSolicitud, actualizarEstadoSolicitud, obtenerOCrearClienteDoc, subscribeSolicitudes } from '../services/solicitudes';
 import { TIPOS_ENVIO, ESTADOS_SOLICITUD_ABIERTOS } from '../constants/estados';
 import type { Destinatario, Solicitud } from '../types/models';
 
@@ -50,12 +48,8 @@ export function MisSolicitudes() {
   useEffect(() => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
-    const q = query(collection(db, 'solicitudes'), where('clienteUid', '==', uid));
-    const unsub = onSnapshot(q, (snap) => {
-      const data: (Solicitud & { createdAt?: any })[] = [];
-      snap.forEach(d => data.push({ id: d.id, ...d.data() } as Solicitud & { createdAt?: any }));
-      data.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-      setSolicitudes(data);
+    const unsub = subscribeSolicitudes({ clienteUid: uid }, (data) => {
+      setSolicitudes(data as unknown as (Solicitud & { createdAt?: any })[]);
       setIsLoading(false);
     });
     return () => unsub();

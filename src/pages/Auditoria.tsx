@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShieldCheck } from 'lucide-react';
-import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebase';
+import { subscribeAuditoria } from '../services/auditoria';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
 
 const ETIQUETAS_ACCION: Record<string, string> = {
@@ -40,11 +39,10 @@ export function Auditoria() {
   const [filtroAccion, setFiltroAccion] = useState('');
 
   useEffect(() => {
-    const q = query(collection(db, 'auditoria'), orderBy('fecha', 'desc'), limit(500));
-    const unsub = onSnapshot(q, (snap) => {
-      setEntradas(snap.docs.map(d => ({ id: d.id, ...d.data() } as Entrada)));
+    const unsub = subscribeAuditoria((datos) => {
+      setEntradas(datos as unknown as Entrada[]);
       setIsLoading(false);
-    });
+    }, { limit: 500 });
     return () => unsub();
   }, []);
 

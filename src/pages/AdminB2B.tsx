@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { collection, query, onSnapshot, serverTimestamp, addDoc, orderBy } from 'firebase/firestore';
+import { subscribeInvoices, crearFacturaB2B } from '../services/b2b';
 import { subscribePaquetes } from '../services/paquetes';
 import { subscribeProfiles, createStaffProfile, updateProfileFields } from '../services/profiles';
 import { 
@@ -90,9 +89,7 @@ export function AdminB2B() {
       setLoading(false);
     });
 
-    const qInvoices = query(collection(db, 'b2b_invoices'), orderBy('createdAt', 'desc'));
-    const unsubscribeInvoices = onSnapshot(qInvoices, (snapshot) => {
-      const invoicesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const unsubscribeInvoices = subscribeInvoices({}, (invoicesData) => {
       setInvoices(invoicesData);
     });
 
@@ -156,19 +153,15 @@ export function AdminB2B() {
       const totalPeso = items.reduce((sum, item) => sum + item.peso, 0);
       const totalAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
 
-      const invoiceData = {
+      void totalPeso; // se recalcula a partir de items en el servicio
+      await crearFacturaB2B({
         partnerId: selectedPartner.id,
-        partnerName: selectedPartner.businessName,
+        partnerName: selectedPartner.businessName || '',
         month: invoiceMonth,
         items,
-        totalPeso,
         totalAmount,
         status: 'pending',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      };
-
-      await addDoc(collection(db, 'b2b_invoices'), invoiceData);
+      });
       alert("Factura generada con éxito.");
       setIsInvoiceModalOpen(false);
     } catch (error) {
