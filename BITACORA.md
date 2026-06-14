@@ -78,7 +78,7 @@ y de los pendientes para dejarla lista para producción.
 - [x] Ejecutar la migración `supabase/migrations/0003_afiliado_datos.sql` en el
       SQL Editor (añade la columna `datos jsonb` a `solicitudes_afiliado`,
       necesaria para el formulario de `/unirse`).
-- [ ] Ejecutar la migración `supabase/migrations/0004_storage_documentos.sql` en
+- [x] Ejecutar la migración `supabase/migrations/0004_storage_documentos.sql` en
       el SQL Editor (crea el bucket privado `documentos-identidad` y sus
       políticas de acceso para la subida de ID/Pasaporte de agentes).
 - [ ] Confirmar que **"Confirm email"** sigue desactivado en
@@ -91,8 +91,7 @@ y de los pendientes para dejarla lista para producción.
 - [x] **Google OAuth:** configurado y funcionando (proveedor Google habilitado
       en Supabase con credenciales de Google Cloud Console).
 - [x] **Subida de ID/Pasaporte en `/unirse`:** conectado a **Supabase Storage**
-      (bucket privado `documentos-identidad`). Falta ejecutar
-      `supabase/migrations/0004_storage_documentos.sql` en el SQL Editor.
+      (bucket privado `documentos-identidad`), migración aplicada.
 
 ### Despliegue
 
