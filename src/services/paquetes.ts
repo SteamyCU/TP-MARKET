@@ -10,11 +10,8 @@
 // el uuid (igual que en Firestore). Por eso los eventos se registran con
 // paqueteId = tracking.
 //
-// settings/negocio sigue en Firestore (colección 'settings', fase posterior).
-
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import { supabase, auth } from '../supabase';
+import { getSetting, setSetting } from './settings';
 import { CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { setEmpresa } from '../lib/empresa';
 import { registrarAuditoria } from './auditoria';
@@ -32,9 +29,8 @@ export function generarTracking(): string {
 /** Lee settings/negocio y lo combina con los valores por defecto. */
 export async function cargarConfigNegocio(): Promise<ConfigNegocio> {
   try {
-    const snap = await getDoc(doc(db, 'settings', 'negocio'));
-    if (snap.exists()) {
-      const data = snap.data();
+    const data = await getSetting<Partial<ConfigNegocio>>('negocio');
+    if (data) {
       const config: ConfigNegocio = {
         ...CONFIG_NEGOCIO_DEFAULT,
         ...data,
@@ -56,9 +52,9 @@ export async function cargarConfigNegocio(): Promise<ConfigNegocio> {
   return CONFIG_NEGOCIO_DEFAULT;
 }
 
-/** Guarda la configuración del negocio (solo admin según firestore.rules). */
+/** Guarda la configuración del negocio (solo admin según las políticas RLS). */
 export async function guardarConfigNegocio(config: ConfigNegocio): Promise<void> {
-  await setDoc(doc(db, 'settings', 'negocio'), config, { merge: true });
+  await setSetting('negocio', config as unknown as Record<string, unknown>, true);
   setEmpresa(config.empresa, config.condicionesRecibo);
 }
 

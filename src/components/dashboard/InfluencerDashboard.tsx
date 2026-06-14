@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wallet, Users, Link as LinkIcon, Copy, TrendingUp, Zap, Clock, CheckCircle2, Package, ArrowRight, Share2, Calculator, Trophy, Star, Shield, Crown } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
-import { db } from '../../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { getSetting } from '../../services/settings';
 import { subscribePaquetes } from '../../services/paquetes';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { cn } from '../../lib/utils';
@@ -34,10 +33,9 @@ export function InfluencerDashboard() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'influencer_levels');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setLevelsConfig(docSnap.data());
+        const levels = await getSetting<any>('influencer_levels');
+        if (levels) {
+          setLevelsConfig(levels);
         }
       } catch (error) {
         console.error("Error fetching influencer levels:", error);

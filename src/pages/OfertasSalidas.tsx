@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
-import { db } from '../firebase';
 import { subscribeProfiles, updateProfileFields } from '../services/profiles';
+import { getSetting, setSetting } from '../services/settings';
+import {
+  subscribeOfertas, crearOferta, eliminarOferta,
+  subscribeSalidas, crearSalida, eliminarSalida,
+} from '../services/ofertasSalidas';
 import { Calendar, Tag, Plus, Trash2, Send, Bell, Building2, Users, Star, Save, RefreshCw, Clock } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
@@ -51,19 +54,16 @@ export function OfertasSalidas() {
   const [activePriceTab, setActivePriceTab] = useState<'agentes' | 'partners' | 'influencers'>('agentes');
 
   useEffect(() => {
-    const qOfertas = query(collection(db, 'ofertas'), orderBy('fechaCreacion', 'desc'));
-    const unsubOfertas = onSnapshot(qOfertas, (snap) => {
-      setOfertas(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Oferta)));
+    const unsubOfertas = subscribeOfertas((data) => {
+      setOfertas(data as unknown as Oferta[]);
     });
 
-    const qSalidas = query(collection(db, 'salidas'), orderBy('fecha', 'asc'));
-    const unsubSalidas = onSnapshot(qSalidas, (snap) => {
-      setSalidas(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Salida)));
+    const unsubSalidas = subscribeSalidas((data) => {
+      setSalidas(data as unknown as Salida[]);
     });
 
     let unsubAgentes: () => void;
     let unsubPartners: () => void;
-    let unsubPrecios: () => void;
 
     if (role === 'admin') {
       // Fetch Agents
@@ -91,9 +91,8 @@ export function OfertasSalidas() {
       });
 
       // Fetch Global Prices
-      unsubPrecios = onSnapshot(doc(db, 'settings', 'precios'), (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
+      getSetting<{ influencer?: number; b2b_global?: number; agente_global?: number }>('precios').then((data) => {
+        if (data) {
           setInfluencerPrice(data.influencer || 6);
           setGlobalB2BPrice(data.b2b_global || 5);
           setGlobalAgentePrice(data.agente_global || 5.5);
@@ -106,7 +105,6 @@ export function OfertasSalidas() {
       unsubSalidas();
       if (unsubAgentes) unsubAgentes();
       if (unsubPartners) unsubPartners();
-      if (unsubPrecios) unsubPrecios();
     };
   }, [role]);
 
@@ -130,11 +128,11 @@ export function OfertasSalidas() {
       }
 
       // Save Global Prices
-      await updateDoc(doc(db, 'settings', 'precios'), { 
+      await setSetting('precios', {
         influencer: influencerPrice,
         b2b_global: globalB2BPrice,
         agente_global: globalAgentePrice
-      });
+      }, true);
 
       alert('Todos los precios han sido actualizados correctamente.');
     } catch (error) {
@@ -149,12 +147,11 @@ export function OfertasSalidas() {
     if (!nuevaOferta.titulo || !nuevaOferta.descripcion) return;
     setIsSubmittingOferta(true);
     try {
-      await addDoc(collection(db, 'ofertas'), {
+      await crearOferta({
         titulo: nuevaOferta.titulo,
         descripcion: nuevaOferta.descripcion,
         precio: nuevaOferta.precio ? parseFloat(nuevaOferta.precio) : null,
         creadoPor: user?.uid,
-        fechaCreacion: serverTimestamp()
       });
       setNuevaOferta({ titulo: '', descripcion: '', precio: '' });
       alert("Oferta publicada. Los clientes recibirán una notificación.");
@@ -170,13 +167,12 @@ export function OfertasSalidas() {
     if (!nuevaSalida.fecha || !nuevaSalida.destino) return;
     setIsSubmittingSalida(true);
     try {
-      await addDoc(collection(db, 'salidas'), {
+      await crearSalida({
         fecha: nuevaSalida.fecha,
         destino: nuevaSalida.destino,
         estado: nuevaSalida.estado,
         tipoSalida: nuevaSalida.tipoSalida,
         creadoPor: user?.uid,
-        fechaCreacion: serverTimestamp()
       });
       setNuevaSalida({ fecha: '', destino: '', estado: 'Programada', tipoSalida: 'aerea' });
     } catch (error) {
@@ -188,13 +184,13 @@ export function OfertasSalidas() {
 
   const handleDeleteOferta = async (id: string) => {
     if (window.confirm('¿Eliminar esta oferta?')) {
-      await deleteDoc(doc(db, 'ofertas', id));
+      await eliminarOferta(id);
     }
   };
 
   const handleDeleteSalida = async (id: string) => {
     if (window.confirm('¿Eliminar esta salida?')) {
-      await deleteDoc(doc(db, 'salidas', id));
+      await eliminarSalida(id);
     }
   };
 

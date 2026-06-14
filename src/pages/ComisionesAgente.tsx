@@ -5,8 +5,7 @@ import {
   CheckCircle2, Clock, AlertCircle, Calculator, Trophy, Star, Shield, Crown
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
-import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { getSetting } from '../services/settings';
 import { subscribePaquetes } from '../services/paquetes';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { format } from 'date-fns';
@@ -37,16 +36,13 @@ export function ComisionesAgente() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'influencer_levels');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setLevelsConfig(docSnap.data());
+        const levels = await getSetting<any>('influencer_levels');
+        if (levels) {
+          setLevelsConfig(levels);
         }
 
-        const preciosRef = doc(db, 'settings', 'precios');
-        const preciosSnap = await getDoc(preciosRef);
-        if (preciosSnap.exists()) {
-          const preciosData = preciosSnap.data();
+        const preciosData = await getSetting<{ b2b?: number; influencer?: number }>('precios');
+        if (preciosData) {
           if (userData?.role === 'partner') {
             setBasePrice(preciosData.b2b || 5);
             setSimulator(prev => ({ ...prev, precioMedioKilo: preciosData.b2b || 5 }));

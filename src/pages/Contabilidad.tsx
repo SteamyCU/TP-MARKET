@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { getSetting, setSetting } from '../services/settings';
 import { subscribeProfiles } from '../services/profiles';
 import { subscribePaquetes } from '../services/paquetes';
 import { subscribePagos, confirmarPago } from '../services/pagos';
@@ -99,9 +98,9 @@ export function Contabilidad() {
   useEffect(() => {
     // Fetch Global Price
     const fetchSettings = async () => {
-      const settingsDoc = await getDoc(doc(db, 'settings', 'global'));
-      if (settingsDoc.exists()) {
-        setGlobalPrice(settingsDoc.data().globalWholesalePrice || 0);
+      const data = await getSetting<{ globalWholesalePrice?: number }>('global');
+      if (data) {
+        setGlobalPrice(data.globalWholesalePrice || 0);
       }
     };
     fetchSettings();
@@ -149,7 +148,7 @@ export function Contabilidad() {
   const handleUpdateGlobalPrice = async () => {
     setIsUpdatingPrice(true);
     try {
-      await setDoc(doc(db, 'settings', 'global'), { globalWholesalePrice: globalPrice }, { merge: true });
+      await setSetting('global', { globalWholesalePrice: globalPrice }, true);
       alert("Precio global actualizado.");
     } catch (error) {
       console.error("Error updating global price:", error);

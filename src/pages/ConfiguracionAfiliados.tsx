@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, AlertCircle } from 'lucide-react';
-import { db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getSetting, setSetting } from '../services/settings';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { cn } from '../lib/utils';
 
@@ -19,10 +18,9 @@ export function ConfiguracionAfiliados() {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const docRef = doc(db, 'settings', 'influencer_levels');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setConfig(docSnap.data() as any);
+        const levels = await getSetting<any>('influencer_levels');
+        if (levels) {
+          setConfig(levels);
         }
       } catch (error) {
         handleFirestoreError(error, OperationType.GET, 'settings');
@@ -37,7 +35,7 @@ export function ConfiguracionAfiliados() {
     setSaving(true);
     setSuccess(false);
     try {
-      await setDoc(doc(db, 'settings', 'influencer_levels'), config);
+      await setSetting('influencer_levels', config, false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (error) {

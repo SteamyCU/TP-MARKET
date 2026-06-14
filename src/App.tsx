@@ -40,7 +40,7 @@ import { ComisionesAgente } from './pages/ComisionesAgente';
 import { ProgramaAfiliados } from './pages/ProgramaAfiliados';
 import { Unirse } from './pages/Unirse';
 import { ScrollToTop } from './components/ScrollToTop';
-import { db } from './firebase';
+import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './supabase';
 import { cn } from './lib/utils';
 import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight } from 'lucide-react';
@@ -77,26 +77,20 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
     setReferralInfo({ valid: false, message: '', type: 'info' });
     
     try {
-      const { collection, query, where, getDocs } = await import('firebase/firestore');
-      const influencersRef = collection(db, 'influencers');
-      const q = query(influencersRef, where('codigo', '==', code.toUpperCase()));
-      const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
+      const influencer = await buscarInfluencerPorCodigo(code);
+
+      if (!influencer) {
         setReferralInfo({ valid: false, message: '❌ Código no encontrado', type: 'error' });
+      } else if (!influencer.activo) {
+        setReferralInfo({ valid: false, message: 'Este código no está disponible', type: 'error' });
       } else {
-        const influencerData = querySnapshot.docs[0].data();
-        if (influencerData.activo === false) {
-          setReferralInfo({ valid: false, message: 'Este código no está disponible', type: 'error' });
-        } else {
-          const beneficio = influencerData.beneficio || { tipo: 'descuento', valor: 5 };
-          setReferralInfo({ 
-            valid: true, 
-            message: `✅ Código ${code.toUpperCase()} aplicado — Obtienes ${beneficio.valor}${beneficio.tipo === 'descuento' ? '€' : '%'} de beneficio`, 
-            type: 'success' 
-          });
-          setFormData({ ...formData, referido_por: code.toUpperCase(), beneficio_aplicado: beneficio });
-        }
+        const beneficio = influencer.beneficio;
+        setReferralInfo({
+          valid: true,
+          message: `✅ Código ${code.toUpperCase()} aplicado — Obtienes ${beneficio.valor}${beneficio.tipo === 'descuento' ? '€' : '%'} de beneficio`,
+          type: 'success'
+        });
+        setFormData({ ...formData, referido_por: code.toUpperCase(), beneficio_aplicado: beneficio });
       }
     } catch (err) {
       console.error("Error validating code:", err);
@@ -130,22 +124,9 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
 
       // If there's a valid referral, update influencer stats
       if (referralInfo.valid && formData.referido_por) {
-        const { collection, query, where, getDocs, updateDoc, increment, addDoc, serverTimestamp } = await import('firebase/firestore');
-        const influencersRef = collection(db, 'influencers');
-        const q = query(influencersRef, where('codigo', '==', formData.referido_por));
-        const querySnapshot = await getDocs(q);
-        
-        if (!querySnapshot.empty) {
-          const influencerDoc = querySnapshot.docs[0];
-          await updateDoc(influencerDoc.ref, {
-            total_referidos: increment(1)
-          });
-          
-          await addDoc(collection(db, `influencers/${influencerDoc.id}/referidos`), {
-            cliente_uid: profile.uid || auth.currentUser?.uid,
-            fecha: serverTimestamp(),
-            estado: "registrado"
-          });
+        const influencer = await buscarInfluencerPorCodigo(formData.referido_por);
+        if (influencer) {
+          await registrarReferido(influencer.id, profile.uid || auth.currentUser?.uid || null);
         }
       }
 
