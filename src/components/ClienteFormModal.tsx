@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { auth } from '../supabase';
+import { createCliente } from '../services/clientes';
 import type { Cliente } from '../types/models';
 
 interface ClienteFormModalProps {
@@ -54,14 +53,12 @@ export function ClienteFormModal({ open, onClose, onCreated, clientesExistentes 
     }
     setIsSubmitting(true);
     try {
-      const docRef = await addDoc(collection(db, 'clientes'), {
+      const nuevo = await createCliente({
         ...form,
-        agenteId: auth.currentUser?.uid || 'unknown',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        agenteId: auth.currentUser?.uid || null,
       });
       setForm(FORM_INICIAL);
-      onCreated(docRef.id);
+      onCreated(nuevo.id);
       onClose();
     } catch (err) {
       console.error('Error saving cliente:', err);

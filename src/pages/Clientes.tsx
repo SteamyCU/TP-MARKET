@@ -2,8 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard, Package, Clock, CheckCircle2, AlertCircle, Download, Upload } from 'lucide-react';
 import { db } from '../firebase';
 import { auth } from '../supabase';
-import { collection, query, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, where, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, where, orderBy, getDocs } from 'firebase/firestore';
 import { subscribeProfiles, listProfiles } from '../services/profiles';
+import {
+  subscribeClientes, createCliente, updateCliente,
+} from '../services/clientes';
+import {
+  subscribeDestinatarios, createDestinatario, deleteDestinatario,
+} from '../services/destinatarios';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
@@ -94,27 +100,16 @@ export function Clientes() {
   }, [role]);
 
   useEffect(() => {
-    const q = query(collection(db, 'clientes'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const clientesData: Cliente[] = [];
-      snapshot.forEach((doc) => {
-        clientesData.push({ id: doc.id, ...doc.data() } as Cliente);
-      });
-      setClientes(clientesData);
+    const unsubscribe = subscribeClientes({}, (clientes) => {
+      setClientes(clientes as unknown as Cliente[]);
     });
-
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     if (selectedCliente) {
-      const q = query(collection(db, 'destinatarios'), where('clienteId', '==', selectedCliente.id));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const destData: Destinatario[] = [];
-        snapshot.forEach((doc) => {
-          destData.push({ id: doc.id, ...doc.data() } as Destinatario);
-        });
-        setDestinatarios(destData);
+      const unsubscribe = subscribeDestinatarios({ clienteId: selectedCliente.id }, (data) => {
+        setDestinatarios(data as unknown as Destinatario[]);
       });
       return () => unsubscribe();
     } else {
@@ -142,13 +137,9 @@ export function Clientes() {
       }
 
       // Update all clients
-      const qClientes = query(collection(db, 'clientes'));
-      const clientesSnap = await getDocs(qClientes);
       let count = 0;
-      for (const clientDoc of clientesSnap.docs) {
-        await updateDoc(doc(db, 'clientes', clientDoc.id), {
-          agenteId: roxanaId
-        });
+      for (const cliente of clientes) {
+        await updateCliente(cliente.id, { agenteId: roxanaId });
         count++;
       }
       alert(`Se han actualizado ${count} clientes al agente Roxana Enamorado.`);
@@ -164,15 +155,13 @@ export function Clientes() {
     try {
       let count = 0;
       for (const client of parsedClients) {
-        await addDoc(collection(db, 'clientes'), {
+        await createCliente({
           nombre: client.nombre,
           documentoIdentidad: client.documentoIdentidad,
           telefonoEspana: client.telefonoEspana,
           email: client.email,
           direccion: client.direccion,
-          agenteId: auth.currentUser?.uid || 'unknown',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          agenteId: auth.currentUser?.uid || null,
         });
         count++;
         if (count % 10 === 0) console.log(`Imported ${count} clients...`);
@@ -192,12 +181,11 @@ export function Clientes() {
     try {
       const dataToSave = {
         ...clienteForm,
-        agenteId: role === 'admin' && clienteForm.agenteId ? clienteForm.agenteId : (selectedCliente?.agenteId || auth.currentUser?.uid || 'unknown'),
-        updatedAt: serverTimestamp()
+        agenteId: role === 'admin' && clienteForm.agenteId ? clienteForm.agenteId : (selectedCliente?.agenteId || auth.currentUser?.uid || null),
       };
 
       if (selectedCliente) {
-        await updateDoc(doc(db, 'clientes', selectedCliente.id), dataToSave);
+        await updateCliente(selectedCliente.id, dataToSave);
         await registrarAuditoria({
           accion: 'cambio_datos_cliente',
           entidad: 'cliente',
@@ -207,10 +195,7 @@ export function Clientes() {
           valorNuevo: `${clienteForm.nombre} · ${clienteForm.documentoIdentidad} · ${clienteForm.telefonoEspana} · ${clienteForm.email}`,
         });
       } else {
-        await addDoc(collection(db, 'clientes'), {
-          ...dataToSave,
-          createdAt: serverTimestamp()
-        });
+        await createCliente(dataToSave);
       }
       setIsClienteModalOpen(false);
       setSelectedCliente(null);
@@ -227,10 +212,9 @@ export function Clientes() {
     if (!selectedCliente) return;
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'destinatarios'), {
+      await createDestinatario({
         ...destinatarioForm,
         clienteId: selectedCliente.id,
-        createdAt: serverTimestamp()
       });
       setIsDestinatarioModalOpen(false);
       resetDestinatarioForm();
@@ -244,7 +228,7 @@ export function Clientes() {
   const handleDeleteDestinatario = async (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar este destinatario?')) {
       try {
-        await deleteDoc(doc(db, 'destinatarios', id));
+        await deleteDestinatario(id);
       } catch (error) {
         console.error("Error deleting destinatario:", error);
       }
@@ -351,24 +335,17 @@ export function Clientes() {
   };
 
   const importarClientes = async (filas: Record<string, string>[]): Promise<number> => {
-    const TAM_BATCH = 400;
-    for (let i = 0; i < filas.length; i += TAM_BATCH) {
-      const batch = writeBatch(db);
-      for (const fila of filas.slice(i, i + TAM_BATCH)) {
-        batch.set(doc(collection(db, 'clientes')), {
-          nombre: fila.nombre,
-          documentoIdentidad: fila.documentoIdentidad,
-          email: fila.email,
-          telefonoEspana: fila.telefonoEspana || '',
-          direccion: fila.direccion || '',
-          localidad: fila.localidad || '',
-          codigoPostal: fila.codigoPostal || '',
-          agenteId: auth.currentUser?.uid || 'unknown',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-      await batch.commit();
+    for (const fila of filas) {
+      await createCliente({
+        nombre: fila.nombre,
+        documentoIdentidad: fila.documentoIdentidad,
+        email: fila.email,
+        telefonoEspana: fila.telefonoEspana || '',
+        direccion: fila.direccion || '',
+        localidad: fila.localidad || '',
+        codigoPostal: fila.codigoPostal || '',
+        agenteId: auth.currentUser?.uid || null,
+      });
     }
     await registrarAuditoria({
       accion: 'importacion',
@@ -554,13 +531,18 @@ export function Clientes() {
                     </div>
                   )}
                   <div>
+                    {/* TODO (fase posterior): este campo guarda un código de influencer en
+                        texto (ej. "MARIA20"), pero la columna 'clientes.referido_por' en
+                        Supabase es uuid (FK a profiles.id). Hay que resolver el código al
+                        id del perfil del influencer antes de guardar, o cambiar el tipo de
+                        columna, para que este formulario no falle al enviar un valor. */}
                     <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Código de Influencer (Opcional)</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="Ej: MARIA20"
-                      value={clienteForm.referido_por} 
-                      onChange={e => setClienteForm({...clienteForm, referido_por: e.target.value.toUpperCase()})} 
-                      className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" 
+                      value={clienteForm.referido_por}
+                      onChange={e => setClienteForm({...clienteForm, referido_por: e.target.value.toUpperCase()})}
+                      className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none"
                     />
                   </div>
                 </div>

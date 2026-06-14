@@ -9,6 +9,7 @@ import {
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { subscribeProfiles } from '../services/profiles';
+import { subscribeClientes } from '../services/clientes';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { exportarExcel } from '../lib/excel';
@@ -31,7 +32,7 @@ export function Reportes() {
       onSnapshot(query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(1000)), s => setPaquetes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(1000)), s => setPagos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(query(collection(db, 'gastos')), s => setGastos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, 'clientes')), s => setClientes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      subscribeClientes({}, (clientes) => setClientes(clientes)),
       onSnapshot(query(collection(db, 'lotes')), s => setLotes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       subscribeProfiles({}, (profiles) => setUsuarios(profiles)),
     ];

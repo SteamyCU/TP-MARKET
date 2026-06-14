@@ -16,6 +16,8 @@ import { db } from '../firebase';
 import { auth } from '../supabase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { subscribeProfiles } from '../services/profiles';
+import { subscribeClientes } from '../services/clientes';
+import { subscribeDestinatarios } from '../services/destinatarios';
 import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { generarTracking, cargarConfigNegocio, crearPaquete } from '../services/paquetes';
 import { marcarSolicitudConvertida } from '../services/solicitudes';
@@ -136,13 +138,8 @@ export function Recepcion() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, 'clientes'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const clientesData: Cliente[] = [];
-      snapshot.forEach((doc) => {
-        clientesData.push({ id: doc.id, ...doc.data() } as Cliente);
-      });
-      setClientes(clientesData);
+    const unsubscribe = subscribeClientes({}, (clientes) => {
+      setClientes(clientes as unknown as Cliente[]);
     });
     return () => unsubscribe();
   }, []);
@@ -172,13 +169,8 @@ export function Recepcion() {
 
   useEffect(() => {
     if (selectedClienteId) {
-      const q = query(collection(db, 'destinatarios'), where('clienteId', '==', selectedClienteId));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const destData: Destinatario[] = [];
-        snapshot.forEach((doc) => {
-          destData.push({ id: doc.id, ...doc.data() } as Destinatario);
-        });
-        setDestinatarios(destData);
+      const unsubscribe = subscribeDestinatarios({ clienteId: selectedClienteId }, (data) => {
+        setDestinatarios(data as unknown as Destinatario[]);
       });
       return () => unsubscribe();
     } else {

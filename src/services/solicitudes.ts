@@ -3,23 +3,23 @@
 // paquetes reutilizando el flujo de Recepción.
 
 import {
-  collection, doc, addDoc, updateDoc, getDocs, query, where, serverTimestamp,
+  collection, doc, addDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { auth } from '../supabase';
 import { registrarAuditoria } from './auditoria';
+import { getClienteByEmail, createCliente } from './clientes';
 
 /**
- * Busca el documento de 'clientes' vinculado al usuario por email y lo crea si
- * no existe (mismo patrón que usa MisDestinatarios).
+ * Busca el cliente de Supabase vinculado al usuario por email y lo crea si no
+ * existe (mismo patrón que usa MisDestinatarios).
  */
 export async function obtenerOCrearClienteDoc(): Promise<string | null> {
   const user = auth.currentUser;
   if (!user?.email) return null;
-  const q = query(collection(db, 'clientes'), where('email', '==', user.email));
-  const snap = await getDocs(q);
-  if (!snap.empty) return snap.docs[0].id;
-  const nuevo = await addDoc(collection(db, 'clientes'), {
+  const existente = await getClienteByEmail(user.email);
+  if (existente) return existente.id;
+  const nuevo = await createCliente({
     nombre: user.displayName || user.email,
     documentoIdentidad: '',
     telefonoEspana: '',
@@ -27,9 +27,7 @@ export async function obtenerOCrearClienteDoc(): Promise<string | null> {
     direccion: '',
     localidad: '',
     codigoPostal: '',
-    agenteId: '',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    agenteId: null,
   });
   return nuevo.id;
 }

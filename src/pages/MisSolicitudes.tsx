@@ -3,6 +3,7 @@ import { Plus, X, Send, AlertCircle, CheckCircle2, PackagePlus, Info } from 'luc
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { auth } from '../supabase';
+import { subscribeDestinatarios } from '../services/destinatarios';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
@@ -40,11 +41,8 @@ export function MisSolicitudes() {
 
   useEffect(() => {
     if (!clienteId) return;
-    const q = query(collection(db, 'destinatarios'), where('clienteId', '==', clienteId));
-    const unsub = onSnapshot(q, (snap) => {
-      const data: Destinatario[] = [];
-      snap.forEach(d => data.push({ id: d.id, ...d.data() } as Destinatario));
-      setDestinatarios(data);
+    const unsub = subscribeDestinatarios({ clienteId }, (data) => {
+      setDestinatarios(data as unknown as Destinatario[]);
     });
     return () => unsub();
   }, [clienteId]);

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { createDestinatario } from '../services/destinatarios';
 import { PROVINCIAS_CUBA } from '../constants/estados';
 import type { Destinatario } from '../types/models';
 
@@ -55,13 +54,12 @@ export function DestinatarioFormModal({ open, onClose, onCreated, clienteId, des
     }
     setIsSubmitting(true);
     try {
-      const docRef = await addDoc(collection(db, 'destinatarios'), {
+      const nuevo = await createDestinatario({
         ...form,
         clienteId,
-        createdAt: serverTimestamp(),
       });
       setForm(FORM_INICIAL);
-      onCreated(docRef.id);
+      onCreated(nuevo.id);
       onClose();
     } catch (err) {
       console.error('Error saving destinatario:', err);

@@ -5,8 +5,9 @@ import { ChipEstado } from '../components/ChipEstado';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy, limit, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, limit, where } from 'firebase/firestore';
 import { subscribeProfiles, getProfile } from '../services/profiles';
+import { getClienteByEmail } from '../services/clientes';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { InfluencerDashboard } from '../components/dashboard/InfluencerDashboard';
 import { PartnerB2BDashboard } from '../components/dashboard/PartnerB2BDashboard';
@@ -154,13 +155,10 @@ export function Dashboard() {
     } else if (role === 'cliente' && user?.email) {
       const fetchClientPackages = async () => {
         try {
-          const qClient = query(collection(db, 'clientes'), where('email', '==', user.email));
-          const clientSnap = await getDocs(qClient);
-          if (!clientSnap.empty && isMounted) {
-            const clienteDoc = clientSnap.docs[0];
-            const clienteId = clienteDoc.id;
-            const clienteData = clienteDoc.data();
-            
+          const clienteData = await getClienteByEmail(user.email);
+          if (clienteData && isMounted) {
+            const clienteId = clienteData.id;
+
             if (clienteData.agenteId && clienteData.agenteId !== 'self') {
               try {
                 const agent = await getProfile(clienteData.agenteId);

@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Trash2, X, MapPin, Phone, Mail, CreditCard } from 'lucide-react';
-import { db } from '../firebase';
-import { auth } from '../supabase';
-import { collection, query, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, where, getDocs } from 'firebase/firestore';
 import { useAuth } from '../AuthContext';
+import { getClienteByEmail, createCliente } from '../services/clientes';
+import { subscribeDestinatarios, createDestinatario, deleteDestinatario } from '../services/destinatarios';
 
 interface Destinatario {
   id: string;
@@ -39,23 +38,20 @@ export function MisDestinatarios() {
   useEffect(() => {
     const fetchClienteId = async () => {
       if (!user?.email) return;
-      const q = query(collection(db, 'clientes'), where('email', '==', user.email));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        setClienteId(snapshot.docs[0].id);
+      const existente = await getClienteByEmail(user.email);
+      if (existente) {
+        setClienteId(existente.id);
       } else {
         // Auto-create cliente if it doesn't exist
-        const newClienteRef = await addDoc(collection(db, 'clientes'), {
+        const nuevo = await createCliente({
           nombre: profile?.name || user.displayName || '',
           documentoIdentidad: profile?.dni || '',
           telefonoEspana: profile?.telefono || '',
           email: user.email,
           direccion: profile?.direccion || '',
-          agenteId: 'self',
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          agenteId: null,
         });
-        setClienteId(newClienteRef.id);
+        setClienteId(nuevo.id);
       }
     };
     fetchClienteId();
@@ -63,13 +59,8 @@ export function MisDestinatarios() {
 
   useEffect(() => {
     if (clienteId) {
-      const q = query(collection(db, 'destinatarios'), where('clienteId', '==', clienteId));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const destData: Destinatario[] = [];
-        snapshot.forEach((doc) => {
-          destData.push({ id: doc.id, ...doc.data() } as Destinatario);
-        });
-        setDestinatarios(destData);
+      const unsubscribe = subscribeDestinatarios({ clienteId }, (data) => {
+        setDestinatarios(data as unknown as Destinatario[]);
       });
       return () => unsubscribe();
     }
@@ -80,10 +71,9 @@ export function MisDestinatarios() {
     if (!clienteId) return;
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'destinatarios'), {
+      await createDestinatario({
         ...formData,
         clienteId,
-        createdAt: serverTimestamp()
       });
       setIsModalOpen(false);
       setFormData({
@@ -100,7 +90,7 @@ export function MisDestinatarios() {
   const handleDelete = async (id: string) => {
     if (window.confirm('¿Estás seguro de eliminar este destinatario?')) {
       try {
-        await deleteDoc(doc(db, 'destinatarios', id));
+        await deleteDestinatario(id);
       } catch (error) {
         console.error("Error deleting destinatario:", error);
       }

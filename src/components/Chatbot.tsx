@@ -3,9 +3,8 @@ import { MessageSquare, X, Send, Bot, User } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { cn } from '../lib/utils';
 import { GoogleGenAI } from '@google/genai';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
 import { listProfiles } from '../services/profiles';
+import { getClienteByEmail } from '../services/clientes';
 import { useAuth } from '../AuthContext';
 
 interface Message {
@@ -44,13 +43,9 @@ export function Chatbot() {
 
         // If user is a client, fetch their assigned agent
         if (role === 'cliente' && user?.email) {
-          const qClient = query(collection(db, 'clientes'), where('email', '==', user.email));
-          const clientSnap = await getDocs(qClient);
-          if (!clientSnap.empty) {
-            const clientData = clientSnap.docs[0].data();
-            if (clientData.agenteId) {
-              setClientAgentId(clientData.agenteId);
-            }
+          const clientData = await getClienteByEmail(user.email);
+          if (clientData?.agenteId) {
+            setClientAgentId(clientData.agenteId);
           }
         }
       } catch (error) {

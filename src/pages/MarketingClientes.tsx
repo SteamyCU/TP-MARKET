@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
+import { subscribeClientes } from '../services/clientes';
 import { cn } from '../lib/utils';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
 import {
@@ -36,8 +37,8 @@ export function MarketingClientes() {
   const [mensaje, setMensaje] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubClientes = onSnapshot(query(collection(db, 'clientes')), (snap) => {
-      setClientes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubClientes = subscribeClientes({}, (clientes) => {
+      setClientes(clientes);
       setIsLoading(false);
     });
     const unsubPaquetes = onSnapshot(query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(1000)), (snap) => {
@@ -367,7 +368,7 @@ export function MarketingClientes() {
                   )}
                   {[...(ficha.cliente.contactos || [])].reverse().map((c, i) => {
                     const Icono = ICONO_CONTACTO[c.tipo || 'Nota'] || StickyNote;
-                    const fecha = c.fecha?.toDate ? c.fecha.toDate() : c.fecha instanceof Date ? c.fecha : null;
+                    const fecha = c.fecha?.toDate ? c.fecha.toDate() : c.fecha instanceof Date ? c.fecha : c.fecha ? new Date(c.fecha) : null;
                     return (
                       <div key={i} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl border border-tp-gray-soft">
                         <div className="w-8 h-8 rounded-full bg-tp-blue-light flex items-center justify-center text-tp-blue shrink-0">
