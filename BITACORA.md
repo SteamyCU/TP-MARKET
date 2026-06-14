@@ -3,7 +3,7 @@
 Registro de avances de la plataforma de logística ToPaquete (envíos España → Cuba)
 y de los pendientes para dejarla lista para producción.
 
-Última actualización: 2026-06-14
+Última actualización: 2026-06-14 (plataforma publicada en producción)
 
 ---
 
@@ -14,7 +14,8 @@ y de los pendientes para dejarla lista para producción.
 - **Firebase:** eliminado por completo del proyecto. La app ya no depende de Firebase.
 - **Motivo del cambio:** Firebase no carga desde Cuba (mercado principal de clientes),
   por eso toda la plataforma se migró a Supabase.
-- **Despliegue:** todavía en local (`npm run dev`), sin dominio conectado aún.
+- **Despliegue:** publicado en producción en [topaquete.com](https://topaquete.com)
+  vía Vercel (deploy desde GitHub, dominio conectado vía IONOS).
 
 ---
 
@@ -101,11 +102,25 @@ y de los pendientes para dejarla lista para producción.
 
 ### Despliegue
 
-- [ ] Conectar dominio y publicar la web (hosting + variables de entorno de producción).
+- [x] Conectar dominio y publicar la web (hosting + variables de entorno de
+      producción). Desplegado en Vercel, dominio `topaquete.com` conectado vía
+      IONOS, variables de entorno (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
+      `VITE_BOOTSTRAP_ADMIN`) configuradas, y `vercel.json` con rewrites para el
+      SPA. Redirect URLs de Supabase Auth actualizados al dominio de producción.
 - [x] **Code-splitting:** todas las páginas (`src/pages/*`) ahora se cargan con
       `React.lazy()` + `Suspense` en `App.tsx`. El chunk principal bajó de
       ~2.68 MB a ~971 kB; el resto se divide en chunks por página/funcionalidad
       que se descargan según la ruta visitada.
+
+---
+
+## Plataforma en producción
+
+- **URL:** https://topaquete.com
+- **Hosting:** Vercel (deploy automático desde GitHub, rama de producción).
+- **Backend:** Supabase (Auth + Postgres + RLS), proyecto `idcfuravemoljjxbdkeh`.
+- **Correo transaccional:** Resend (dominio `topaquete.com` verificado con SPF + DKIM),
+  conectado como SMTP propio de Supabase Auth.
 
 ---
 
