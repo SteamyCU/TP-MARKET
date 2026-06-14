@@ -1,9 +1,10 @@
 // Servicio de cobros: registra pagos adicionales sobre paquetes con deuda y
 // mantiene sincronizados importePagado/importePendiente/estadoPago del paquete.
 
-import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { auth } from '../supabase';
+import { updatePaquete } from './paquetes';
 import { registrarAuditoria } from './auditoria';
 
 export interface PaqueteConDeuda {
@@ -34,8 +35,9 @@ export async function registrarCobro({ paquete, monto, metodo, nota }: NuevoCobr
   const nuevoPagado = r2(pagadoActual + monto);
   const nuevoPendiente = r2(Math.max(pendienteActual - monto, 0));
 
-  const batch = writeBatch(db);
-  batch.set(doc(collection(db, 'pagos')), {
+  // La colección 'pagos' sigue en Firestore (fase posterior); el paquete vive
+  // en Supabase, así que se actualizan por separado.
+  await addDoc(collection(db, 'pagos'), {
     paqueteId: paquete.tracking,
     monto: r2(monto),
     metodo,
@@ -44,13 +46,11 @@ export async function registrarCobro({ paquete, monto, metodo, nota }: NuevoCobr
     agenteId: auth.currentUser?.uid || 'unknown',
     ...(nota ? { nota } : {}),
   });
-  batch.update(doc(db, 'paquetes', paquete.id), {
+  await updatePaquete(paquete.id, {
     importePagado: nuevoPagado,
     importePendiente: nuevoPendiente,
     estadoPago: nuevoPendiente <= 0 ? 'Pagado' : 'Parcial',
-    updatedAt: serverTimestamp(),
   });
-  await batch.commit();
 
   await registrarAuditoria({
     accion: 'cobro',

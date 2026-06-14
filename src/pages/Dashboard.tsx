@@ -5,9 +5,10 @@ import { ChipEstado } from '../components/ChipEstado';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy, limit, where } from 'firebase/firestore';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 import { subscribeProfiles, getProfile } from '../services/profiles';
 import { getClienteByEmail } from '../services/clientes';
+import { subscribePaquetes } from '../services/paquetes';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { InfluencerDashboard } from '../components/dashboard/InfluencerDashboard';
 import { PartnerB2BDashboard } from '../components/dashboard/PartnerB2BDashboard';
@@ -78,9 +79,7 @@ export function Dashboard() {
         }
       });
 
-      const qPaquetes = query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'));
-      unsubscribePaquetes = onSnapshot(qPaquetes, (snapshot) => {
-        const data: any[] = [];
+      unsubscribePaquetes = subscribePaquetes({}, (data) => {
         let kilos = 0;
         let b2bPkgs = 0;
         let b2bW = 0;
@@ -93,9 +92,7 @@ export function Dashboard() {
         let agComs = 0;
         let totalRev = 0;
 
-        snapshot.forEach((doc) => {
-          const p = { id: doc.id, ...doc.data() } as any;
-          data.push(p);
+        (data as any[]).forEach((p) => {
           kilos += (p.peso || 0);
           totalRev += (p.costoTotal || 0);
           
@@ -138,15 +135,7 @@ export function Dashboard() {
           }
         });
 
-        const qComisiones = query(
-          collection(db, 'paquetes'), 
-          where('referidoPor', '==', user.uid),
-          orderBy('createdAt', 'desc'),
-          limit(5)
-        );
-        onSnapshot(qComisiones, (snap) => {
-          const coms: any[] = [];
-          snap.forEach(d => coms.push({ id: d.id, ...d.data() }));
+        unsubscribePaquetes = subscribePaquetes({ referidoPor: user.uid, limit: 5 }, (coms) => {
           if (isMounted) setComisionesRecientes(coms);
         }, (error) => {
           handleFirestoreError(error, OperationType.LIST, 'paquetes (comisiones)');
@@ -171,12 +160,7 @@ export function Dashboard() {
             }
 
             if (isMounted) {
-              const qPaquetes = query(collection(db, 'paquetes'), where('clienteId', '==', clienteId), orderBy('createdAt', 'desc'));
-              unsubscribePaquetes = onSnapshot(qPaquetes, (snapshot) => {
-                const data: any[] = [];
-                snapshot.forEach((doc) => {
-                  data.push({ id: doc.id, ...doc.data() });
-                });
+              unsubscribePaquetes = subscribePaquetes({ clienteId }, (data) => {
                 if (isMounted) {
                   setPaquetes(data);
                 }

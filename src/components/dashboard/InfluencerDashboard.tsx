@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Wallet, Users, Link as LinkIcon, Copy, TrendingUp, Zap, Clock, CheckCircle2, Package, ArrowRight, Share2, Calculator, Trophy, Star, Shield, Crown } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { db } from '../../firebase';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { subscribePaquetes } from '../../services/paquetes';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { cn } from '../../lib/utils';
 
@@ -79,20 +80,10 @@ export function InfluencerDashboard() {
   useEffect(() => {
     if (authLoading || !user?.uid) return;
 
-    const q = query(
-      collection(db, 'paquetes'),
-      where('referidoPor', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(10)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: any[] = [];
+    const unsubscribe = subscribePaquetes({ referidoPor: user.uid, limit: 10 }, (data) => {
       let total = 0;
       let pending = 0;
-      snapshot.forEach((doc) => {
-        const p = { id: doc.id, ...doc.data() } as any;
-        data.push(p);
+      (data as any[]).forEach((p) => {
         if (p.estado === 'Entregado') {
           total += (p.montoComision || 0);
         } else {

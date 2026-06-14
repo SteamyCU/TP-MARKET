@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Package, Truck, Layers, AlertCircle, CheckCircle2, Box, Printer, RefreshCw, Receipt } from 'lucide-react';
-import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { subscribePaquetes } from '../services/paquetes';
 import { ChipEstado } from '../components/ChipEstado';
 import { CambioEstadoModal } from '../components/CambioEstadoModal';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
@@ -126,13 +125,8 @@ export function Logistica() {
   const prepararImpresion = (paquete: Paquete) => imprimirLista([paquete]);
 
   useEffect(() => {
-    const q = query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Paquete[] = [];
-      snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() } as Paquete);
-      });
-      setPaquetes(data);
+    const unsubscribe = subscribePaquetes({}, (data) => {
+      setPaquetes(data as unknown as Paquete[]);
       setIsLoading(false);
     });
     return () => unsubscribe();

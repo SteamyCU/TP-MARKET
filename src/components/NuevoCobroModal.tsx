@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Search, Wallet, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { db } from '../firebase';
 import { cn } from '../lib/utils';
 import { METODOS_PAGO } from '../constants/estados';
 import { registrarCobro, type PaqueteConDeuda } from '../services/pagos';
+import { subscribePaquetes } from '../services/paquetes';
 
 interface NuevoCobroModalProps {
   open: boolean;
@@ -25,11 +24,8 @@ export function NuevoCobroModal({ open, onClose, onDone }: NuevoCobroModalProps)
 
   useEffect(() => {
     if (!open) return;
-    const q = query(collection(db, 'paquetes'), where('importePendiente', '>', 0));
-    const unsub = onSnapshot(q, (snap) => {
-      const data: PaqueteConDeuda[] = [];
-      snap.forEach(d => data.push({ id: d.id, ...d.data() } as PaqueteConDeuda));
-      setPaquetesConDeuda(data);
+    const unsub = subscribePaquetes({ conDeuda: true }, (data) => {
+      setPaquetesConDeuda(data as unknown as PaqueteConDeuda[]);
     });
     return () => unsub();
   }, [open]);

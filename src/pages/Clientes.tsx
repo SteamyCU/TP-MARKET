@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard, Package, Clock, CheckCircle2, AlertCircle, Download, Upload } from 'lucide-react';
-import { db } from '../firebase';
 import { auth } from '../supabase';
-import { collection, query, onSnapshot, where, orderBy, getDocs } from 'firebase/firestore';
+import { subscribePaquetes } from '../services/paquetes';
+import { listEventos } from '../services/eventos';
 import { subscribeProfiles, listProfiles } from '../services/profiles';
 import {
   subscribeClientes, createCliente, updateCliente,
@@ -255,10 +255,7 @@ export function Clientes() {
     setSelectedCliente(cliente);
     setIsPaquetesModalOpen(true);
     
-    const q = query(collection(db, 'paquetes'), where('clienteId', '==', cliente.id), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pData: any[] = [];
-      snapshot.forEach(doc => pData.push({ id: doc.id, ...doc.data() }));
+    subscribePaquetes({ clienteId: cliente.id }, (pData) => {
       setClientePaquetes(pData);
     });
   };
@@ -271,10 +268,7 @@ export function Clientes() {
     setExpandedPaqueteId(tracking);
     
     if (!paqueteEventos[tracking]) {
-      const q = query(collection(db, 'eventos'), where('paqueteId', '==', tracking), orderBy('timestamp', 'desc'));
-      const snapshot = await getDocs(q);
-      const events: any[] = [];
-      snapshot.forEach(doc => events.push({ id: doc.id, ...doc.data() }));
+      const events = await listEventos(tracking);
       setPaqueteEventos(prev => ({ ...prev, [tracking]: events }));
     }
   };

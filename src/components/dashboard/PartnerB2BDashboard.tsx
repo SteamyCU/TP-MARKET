@@ -4,6 +4,7 @@ import { Package, Box, TrendingUp, CheckCircle2, Wallet, FileText, Key, Plus, Ar
 import { useAuth } from '../../AuthContext';
 import { db } from '../../firebase';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { subscribePaquetes } from '../../services/paquetes';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { cn } from '../../lib/utils';
 import { ChipEstado } from '../ChipEstado';
@@ -37,21 +38,8 @@ export function PartnerB2BDashboard() {
     if (authLoading || !user?.uid) return;
 
     // Fetch packages sent by this partner
-    const qPaquetes = query(
-      collection(db, 'paquetes'),
-      where('partnerId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-
-    const unsubscribePaquetes = onSnapshot(qPaquetes, (snapshot) => {
-      const data: any[] = [];
-      let kilos = 0;
-      snapshot.forEach((doc) => {
-        const p = { id: doc.id, ...doc.data() } as any;
-        data.push(p);
-        kilos += (p.peso || 0);
-      });
+    const unsubscribePaquetes = subscribePaquetes({ partnerId: user.uid, limit: 50 }, (data) => {
+      const kilos = data.reduce((sum, p) => sum + ((p.peso as number) || 0), 0);
       setPaquetes(data);
       setStats(prev => ({
         ...prev,

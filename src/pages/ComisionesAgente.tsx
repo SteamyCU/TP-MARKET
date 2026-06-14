@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { subscribePaquetes } from '../services/paquetes';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -67,17 +68,7 @@ export function ComisionesAgente() {
     if (authLoading || !user) return;
 
     // Query paquetes referred by this agent
-    const q = query(
-      collection(db, 'paquetes'),
-      where('referidoPor', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsub = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+    const unsub = subscribePaquetes({ referidoPor: user.uid }, (docs) => {
       setComisiones(docs);
       setLoading(false);
     }, (error) => {

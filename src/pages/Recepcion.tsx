@@ -12,14 +12,12 @@ import { useAuth } from '../AuthContext';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useReactToPrint } from 'react-to-print';
 import { cn } from '../lib/utils';
-import { db } from '../firebase';
 import { auth } from '../supabase';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
 import { subscribeProfiles } from '../services/profiles';
 import { subscribeClientes } from '../services/clientes';
 import { subscribeDestinatarios } from '../services/destinatarios';
 import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
-import { generarTracking, cargarConfigNegocio, crearPaquete } from '../services/paquetes';
+import { generarTracking, cargarConfigNegocio, crearPaquete, subscribePaquetes } from '../services/paquetes';
 import { marcarSolicitudConvertida } from '../services/solicitudes';
 import { exportarExcel } from '../lib/excel';
 import { ESTADOS_INICIALES, ESTADOS_PAGO, METODOS_PAGO, TIPOS_ENVIO, PROVINCIAS_CUBA, type EstadoPago } from '../constants/estados';
@@ -117,22 +115,22 @@ export function Recepcion() {
   useEffect(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const q = query(collection(db, 'paquetes'), where('createdAt', '>=', today));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pkgs = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const date = data.createdAt?.toDate() || new Date();
-        return {
-          id: doc.id,
-          tracking: data.tracking,
-          cliente: data.clienteNombre,
-          peso: data.peso ? `${data.peso} kg` : '---',
-          destino: data.destino,
-          estado: data.estado,
-          hora: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-      });
-      setPaquetesHoy(pkgs.sort((a, b) => b.id.localeCompare(a.id)));
+    const unsubscribe = subscribePaquetes({}, (paquetes) => {
+      const pkgs = paquetes
+        .filter(data => (data.createdAt?.toDate()?.getTime() || 0) >= today.getTime())
+        .map(data => {
+          const date = data.createdAt?.toDate() || new Date();
+          return {
+            id: data.id,
+            tracking: data.tracking,
+            cliente: data.clienteNombre,
+            peso: data.peso ? `${data.peso} kg` : '---',
+            destino: data.destino,
+            estado: data.estado,
+            hora: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          };
+        });
+      setPaquetesHoy(pkgs);
     });
     return () => unsubscribe();
   }, []);

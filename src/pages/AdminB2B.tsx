@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, serverTimestamp, where, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, serverTimestamp, addDoc, orderBy } from 'firebase/firestore';
+import { subscribePaquetes } from '../services/paquetes';
 import { subscribeProfiles, createStaffProfile, updateProfileFields } from '../services/profiles';
 import { 
   Building2, 
@@ -117,12 +118,10 @@ export function AdminB2B() {
     setSelectedPartner(partner);
     setIsViewPackagesModalOpen(true);
     
-    const q = query(collection(db, 'paquetes'), where('partnerId', '==', partner.id));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pkgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const unsubscribe = subscribePaquetes({ partnerId: partner.id }, (pkgs) => {
       setPartnerPackages(pkgs);
     });
-    
+
     return unsubscribe;
   };
 

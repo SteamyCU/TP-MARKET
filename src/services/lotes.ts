@@ -3,12 +3,14 @@
 // queda registrado en 'eventos' con tipoCambio 'lote'.
 
 import {
-  collection, doc, addDoc, updateDoc, writeBatch,
+  collection, doc, addDoc, updateDoc,
   serverTimestamp, arrayUnion, arrayRemove,
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { auth } from '../supabase';
 import { cambiarEstado, type PaqueteParaCambio } from './estados';
+import { updatePaquete } from './paquetes';
+import { addEvento } from './eventos';
 import { registrarAuditoria } from './auditoria';
 import type { EstadoLote } from '../constants/estados';
 
@@ -91,32 +93,29 @@ export async function agregarPaquetesALote(
 ): Promise<number> {
   if (paquetes.length === 0) return 0;
   const operadorId = auth.currentUser?.uid || 'unknown';
-  const batch = writeBatch(db);
 
-  for (const paquete of paquetes) {
-    batch.update(doc(db, 'paquetes', paquete.id), {
+  // Paquetes y eventos viven en Supabase; el lote sigue en Firestore.
+  await Promise.all(paquetes.map(async (paquete) => {
+    await updatePaquete(paquete.id, {
       loteId,
       loteCodigo,
       estado: 'Asignado a lote',
-      updatedAt: serverTimestamp(),
     });
-    batch.set(doc(collection(db, 'eventos')), {
+    await addEvento({
       paqueteId: paquete.tracking,
       estado: 'Asignado a lote',
       estadoAnterior: paquete.estado || null,
       notas: `Paquete asignado al lote ${loteCodigo}`,
       motivo: null,
       tipoCambio: 'lote',
-      timestamp: serverTimestamp(),
       operadorId,
     });
-  }
-  batch.update(doc(db, 'lotes', loteId), {
+  }));
+
+  await updateDoc(doc(db, 'lotes', loteId), {
     paqueteIds: arrayUnion(...paquetes.map(p => p.id)),
     updatedAt: serverTimestamp(),
   });
-
-  await batch.commit();
 
   await registrarAuditoria({
     accion: 'agregar_a_lote',
@@ -130,30 +129,26 @@ export async function agregarPaquetesALote(
 /** Quita un paquete del lote sin alterar su estado actual; queda registrado en el historial. */
 export async function quitarPaqueteDeLote(loteId: string, loteCodigo: string, paquete: PaqueteEnLote): Promise<void> {
   const operadorId = auth.currentUser?.uid || 'unknown';
-  const batch = writeBatch(db);
+  const nuevoEstado = paquete.estado === 'Asignado a lote' ? 'Recepción' : paquete.estado;
 
-  batch.update(doc(db, 'paquetes', paquete.id), {
+  await updatePaquete(paquete.id, {
     loteId: null,
     loteCodigo: null,
-    estado: paquete.estado === 'Asignado a lote' ? 'Recepción' : paquete.estado,
-    updatedAt: serverTimestamp(),
+    estado: nuevoEstado,
   });
-  batch.set(doc(collection(db, 'eventos')), {
+  await addEvento({
     paqueteId: paquete.tracking,
-    estado: paquete.estado === 'Asignado a lote' ? 'Recepción' : paquete.estado,
+    estado: nuevoEstado,
     estadoAnterior: paquete.estado || null,
     notas: `Paquete retirado del lote ${loteCodigo}`,
     motivo: null,
     tipoCambio: 'lote',
-    timestamp: serverTimestamp(),
     operadorId,
   });
-  batch.update(doc(db, 'lotes', loteId), {
+  await updateDoc(doc(db, 'lotes', loteId), {
     paqueteIds: arrayRemove(paquete.id),
     updatedAt: serverTimestamp(),
   });
-
-  await batch.commit();
 
   await registrarAuditoria({
     accion: 'quitar_de_lote',

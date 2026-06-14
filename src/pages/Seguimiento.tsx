@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Search, Package, Truck, CheckCircle2, Clock, Calendar, MapPin, AlertCircle, ArrowRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
-import { db } from '../firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { getPaqueteByTracking } from '../services/paquetes';
+import { listEventos } from '../services/eventos';
 
 interface TrackingEvent {
   date: string;
@@ -44,23 +44,19 @@ export function Seguimiento() {
     setResult(null);
 
     try {
-      const qPaquete = query(collection(db, 'paquetes'), where('tracking', '==', queryStr.toUpperCase()));
-      const paqueteSnap = await getDocs(qPaquete);
+      const tracking = queryStr.toUpperCase();
+      const paqueteData = await getPaqueteByTracking(tracking);
 
-      if (paqueteSnap.empty) {
+      if (!paqueteData) {
         setError(true);
         setIsLoading(false);
         return;
       }
 
-      const paqueteData = paqueteSnap.docs[0].data();
-
-      const qEventos = query(collection(db, 'eventos'), where('paqueteId', '==', queryStr.toUpperCase()), orderBy('timestamp', 'desc'));
-      const eventosSnap = await getDocs(qEventos);
+      const eventos = await listEventos(tracking);
 
       const events: TrackingEvent[] = [];
-      eventosSnap.forEach((doc) => {
-        const ev = doc.data();
+      eventos.forEach((ev) => {
         const dateObj = ev.timestamp ? ev.timestamp.toDate() : new Date();
         events.push({
           date: dateObj.toLocaleDateString(),

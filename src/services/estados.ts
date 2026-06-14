@@ -3,11 +3,11 @@
 // enriquecido en 'eventos' manteniendo el esquema existente (paqueteId =
 // tracking) y añadiendo campos aditivos: estadoAnterior, motivo y tipoCambio.
 
-import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
 import { auth } from '../supabase';
 import { ESTADOS_FINALES } from '../constants/estados';
 import { registrarAuditoria } from './auditoria';
+import { updatePaquete } from './paquetes';
+import { addEvento } from './eventos';
 
 export type TipoCambioEstado = 'individual' | 'masivo' | 'lote';
 
@@ -30,7 +30,7 @@ export interface OpcionesCambioEstado {
   detallesIncidencia?: string;
 }
 
-// Firestore limita los batches a 500 escrituras; cada paquete usa 2 (update + evento).
+// Tamaño de lote para no saturar la red con demasiadas peticiones simultáneas.
 const PAQUETES_POR_BATCH = 200;
 
 export async function cambiarEstado(
@@ -43,34 +43,31 @@ export async function cambiarEstado(
 
   for (let i = 0; i < paquetes.length; i += PAQUETES_POR_BATCH) {
     const chunk = paquetes.slice(i, i + PAQUETES_POR_BATCH);
-    const batch = writeBatch(db);
 
-    for (const paquete of chunk) {
+    // Cada paquete: actualizar su fila + registrar el evento de historial.
+    // (Supabase no tiene batches multi-tabla; se hacen escrituras por paquete.)
+    await Promise.all(chunk.map(async (paquete) => {
       const updateData: Record<string, unknown> = {
         estado: nuevoEstado,
-        updatedAt: serverTimestamp(),
       };
       if (nuevoEstado === 'Incidencia' && opciones.detallesIncidencia) {
         updateData.detallesIncidencia = opciones.detallesIncidencia;
       } else if (paquete.estado === 'Incidencia' && nuevoEstado !== 'Incidencia') {
         updateData.detallesIncidencia = '';
       }
-      batch.update(doc(db, 'paquetes', paquete.id), updateData);
+      await updatePaquete(paquete.id, updateData);
 
-      const eventoRef = doc(collection(db, 'eventos'));
-      batch.set(eventoRef, {
+      await addEvento({
         paqueteId: paquete.tracking,
         estado: nuevoEstado,
         estadoAnterior: paquete.estado || null,
         notas: opciones.nota || `Estado actualizado a ${nuevoEstado}`,
         motivo: opciones.motivo || null,
         tipoCambio: opciones.tipoCambio,
-        timestamp: serverTimestamp(),
         operadorId,
       });
-    }
+    }));
 
-    await batch.commit();
     actualizados += chunk.length;
   }
 

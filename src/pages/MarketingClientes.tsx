@@ -6,6 +6,7 @@ import {
 import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { subscribeClientes } from '../services/clientes';
+import { subscribePaquetes } from '../services/paquetes';
 import { cn } from '../lib/utils';
 import { DataTable, type ColumnaDef } from '../components/DataTable';
 import {
@@ -41,8 +42,8 @@ export function MarketingClientes() {
       setClientes(clientes);
       setIsLoading(false);
     });
-    const unsubPaquetes = onSnapshot(query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(1000)), (snap) => {
-      setPaquetes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubPaquetes = subscribePaquetes({ limit: 1000 }, (paquetes) => {
+      setPaquetes(paquetes);
     });
     const unsubPagos = onSnapshot(query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(1000)), (snap) => {
       setPagos(snap.docs.map(d => ({ id: d.id, ...d.data() })));

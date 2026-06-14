@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Box, TrendingUp, CheckCircle2, Wallet, Clock, Search, Scan, MapPin, ArrowRight, AlertCircle, Phone, User, Calendar } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
-import { db } from '../../firebase';
-import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, addDoc, getDocs } from 'firebase/firestore';
+import { subscribePaquetes, getPaqueteByTracking, updatePaquete } from '../../services/paquetes';
+import { addEvento } from '../../services/eventos';
 import { handleFirestoreError, OperationType } from '../../lib/firestore-errors';
 import { cn } from '../../lib/utils';
 import { ChipEstado } from '../ChipEstado';
@@ -24,20 +24,12 @@ export function PuntoPackDashboard() {
     if (!user?.uid) return;
 
     // Fetch packages currently at this pickup point
-    const qCustodia = query(
-      collection(db, 'paquetes'),
-      where('destino', '==', profile?.direccion || ''), // Assuming destino is the point address for now
-      where('estado', '==', 'En Punto Pack'),
-      orderBy('updatedAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(qCustodia, (snapshot) => {
-      const data: any[] = [];
-      snapshot.forEach((doc) => {
-        data.push({ id: doc.id, ...doc.data() });
-      });
+    const unsubscribe = subscribePaquetes({
+      destino: profile?.direccion || '', // Assuming destino is the point address for now
+      estado: 'En Punto Pack',
+    }, (data) => {
       setPaquetesEnCustodia(data);
-      
+
       // Calculate earnings (mock logic based on the spec)
       const received = data.length + 15; // Mocking some history
       const delivered = 12; // Mocking some history
@@ -68,10 +60,8 @@ export function PuntoPackDashboard() {
     
     try {
       // Find the package by tracking
-      const q = query(collection(db, 'paquetes'), where('tracking', '==', scanInput.trim()));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        const p = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
+      const p = await getPaqueteByTracking(scanInput.trim());
+      if (p) {
         setScanResult(p);
       } else {
         setScanResult({ error: 'Paquete no encontrado' });
@@ -84,23 +74,20 @@ export function PuntoPackDashboard() {
     }
   };
 
-  const confirmReception = async (paqueteId: string) => {
+  const confirmReception = async (paquete: any) => {
     try {
-      const pRef = doc(db, 'paquetes', paqueteId);
-      await updateDoc(pRef, {
+      await updatePaquete(paquete.id, {
         estado: 'En Punto Pack',
-        updatedAt: serverTimestamp(),
-        puntoPackId: user?.uid
       });
-      
-      await addDoc(collection(db, 'eventos'), {
-        paqueteId,
+
+      // El evento referencia al paquete por su tracking (paquete_id = tracking).
+      await addEvento({
+        paqueteId: paquete.tracking,
         estado: 'En Punto Pack',
         notas: `Paquete recibido en punto de entrega: ${profile?.name}`,
-        timestamp: serverTimestamp(),
-        operadorId: user?.uid
+        operadorId: user?.uid,
       });
-      
+
       setScanResult(null);
       setScanInput('');
     } catch (error) {
@@ -108,22 +95,19 @@ export function PuntoPackDashboard() {
     }
   };
 
-  const confirmDelivery = async (paqueteId: string) => {
+  const confirmDelivery = async (paquete: any) => {
     try {
-      const pRef = doc(db, 'paquetes', paqueteId);
-      await updateDoc(pRef, {
+      await updatePaquete(paquete.id, {
         estado: 'Entregado',
-        updatedAt: serverTimestamp()
       });
-      
-      await addDoc(collection(db, 'eventos'), {
-        paqueteId,
+
+      await addEvento({
+        paqueteId: paquete.tracking,
         estado: 'Entregado',
         notas: `Paquete entregado al destinatario final en punto de entrega: ${profile?.name}`,
-        timestamp: serverTimestamp(),
-        operadorId: user?.uid
+        operadorId: user?.uid,
       });
-      
+
       setScanResult(null);
       setScanInput('');
     } catch (error) {
@@ -224,7 +208,7 @@ export function PuntoPackDashboard() {
                 <div className="flex gap-3">
                   {scanResult.estado !== 'En Punto Pack' && scanResult.estado !== 'Entregado' && (
                     <button 
-                      onClick={() => confirmReception(scanResult.id)}
+                      onClick={() => confirmReception(scanResult)}
                       className="flex-1 bg-tp-blue text-white py-4 rounded-2xl font-bold hover:bg-[#004a78] transition-all"
                     >
                       CONFIRMAR RECEPCIÓN EN PUNTO
@@ -232,7 +216,7 @@ export function PuntoPackDashboard() {
                   )}
                   {scanResult.estado === 'En Punto Pack' && (
                     <button 
-                      onClick={() => confirmDelivery(scanResult.id)}
+                      onClick={() => confirmDelivery(scanResult)}
                       className="flex-1 bg-green-600 text-white py-4 rounded-2xl font-bold hover:bg-green-700 transition-all"
                     >
                       CONFIRMAR ENTREGA AL CLIENTE
@@ -287,7 +271,7 @@ export function PuntoPackDashboard() {
                       <td className="px-6 py-4 text-tp-blue/70">{p.destinatarioNombre}</td>
                       <td className="px-6 py-4 text-right">
                         <button 
-                          onClick={() => confirmDelivery(p.id)}
+                          onClick={() => confirmDelivery(p)}
                           className="text-tp-blue hover:text-tp-red font-bold transition-colors"
                         >
                           Entregar

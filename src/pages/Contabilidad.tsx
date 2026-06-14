@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, setDoc, getDoc, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { subscribeProfiles } from '../services/profiles';
+import { subscribePaquetes } from '../services/paquetes';
 import { 
   Calculator, 
   TrendingUp, 
@@ -116,9 +117,8 @@ export function Contabilidad() {
     });
 
     // Fetch Paquetes
-    const qPaquetes = query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(500));
-    const unsubPaquetes = onSnapshot(qPaquetes, (snap) => {
-      setPaquetes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubPaquetes = subscribePaquetes({ limit: 500 }, (paquetes) => {
+      setPaquetes(paquetes);
     });
 
     // Gastos operativos
@@ -129,8 +129,8 @@ export function Contabilidad() {
     });
 
     // Deuda pendiente real (todos los paquetes con importe pendiente)
-    const unsubDeuda = onSnapshot(query(collection(db, 'paquetes'), where('importePendiente', '>', 0)), (snap) => {
-      setPaquetesConDeuda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubDeuda = subscribePaquetes({ conDeuda: true }, (paquetes) => {
+      setPaquetesConDeuda(paquetes);
     });
 
     return () => {

@@ -10,6 +10,7 @@ import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestor
 import { db } from '../firebase';
 import { subscribeProfiles } from '../services/profiles';
 import { subscribeClientes } from '../services/clientes';
+import { subscribePaquetes } from '../services/paquetes';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { exportarExcel } from '../lib/excel';
@@ -29,7 +30,7 @@ export function Reportes() {
 
   useEffect(() => {
     const subs = [
-      onSnapshot(query(collection(db, 'paquetes'), orderBy('createdAt', 'desc'), limit(1000)), s => setPaquetes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      subscribePaquetes({ limit: 1000 }, (paquetes) => setPaquetes(paquetes)),
       onSnapshot(query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(1000)), s => setPagos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       onSnapshot(query(collection(db, 'gastos')), s => setGastos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
       subscribeClientes({}, (clientes) => setClientes(clientes)),
