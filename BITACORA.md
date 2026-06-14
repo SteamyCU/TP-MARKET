@@ -36,6 +36,7 @@ y de los pendientes para dejarla lista para producción.
 | 11 | Limpieza del sistema de roles con `contabilidad` y `logistica` |
 | 12 | Auditoría inmutable con visor para administración |
 | **13** | **Migración completa a Supabase** (ver desglose abajo) |
+| 15 | Sistema de tarifas dinámicas: precios editables desde el panel y calculadora pública conectada en vivo |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -46,6 +47,32 @@ y de los pendientes para dejarla lista para producción.
   auditoría, facturas B2B, settings, ofertas/salidas, afiliados e influencers.
 - **13.4** Eliminación total de Firebase (código, dependencia npm y archivos de config).
 - **13.5** Storage para documentos de identidad de agentes (`0004_storage_documentos.sql`).
+
+### Fase 15 · Sistema de tarifas dinámicas
+
+- **Tablas Supabase** (`0006_tarifas.sql`):
+  - `tarifas_envio`: precio base por modalidad (`regular`/`express`) y tramo de
+    peso (`peso_min`/`peso_max`, `peso_max = null` = sin límite), con `precio_kg`
+    y `activo`. Datos iniciales: Regular 1-999kg a 5.00€/kg, Express 1-999kg a 8.00€/kg.
+  - `tarifas_transporte_cuba`: recargo por transporte provincial (`provincias text[]`,
+    `precio_kg`, `activo`). Cobertura: La Habana (0.00€/kg, base) + 14 provincias
+    agrupadas en 4 tramos (1.30€/kg, 1.40€/kg, 1.50€/kg, 1.60€/kg). Isla de la
+    Juventud queda fuera (sin cobertura).
+  - RLS: lectura pública (`using (true)`, necesaria para la calculadora de la
+    landing sin login), escritura solo `admin`.
+- **Servicio** `src/services/tarifas.ts`: `getTarifasEnvio`, `getTarifasTransporte`,
+  `calcularPrecio` (precio base + recargo provincial según peso/modalidad/provincia),
+  `upsertTarifaEnvio/Transporte`, `deleteTarifaEnvio/Transporte`, y constante
+  `PROVINCIAS_CUBA` con las 15 provincias con cobertura.
+- **Panel admin** (`OfertasSalidas.tsx`, sección "Tarifas y Precios", solo admin):
+  tablas editables de tramos de envío (Regular/Express) y grupos provinciales,
+  con modales (`TarifaEnvioFormModal`, `TarifaTransporteFormModal`) para
+  crear/editar/eliminar; los cambios se guardan en Supabase al instante.
+- **Calculadora de la landing** (`Landing.tsx`): carga las tarifas desde Supabase
+  al entrar (con spinner de carga), el selector de provincia y el slider de peso
+  son dinámicos según las tarifas activas, y muestra el desglose del precio
+  (base + transporte Cuba = total). Si no hay tarifa para el tramo/provincia,
+  muestra "Consultar precio".
 
 ### Arreglos posteriores del flujo de acceso
 

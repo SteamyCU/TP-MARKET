@@ -6,7 +6,13 @@ import {
   subscribeOfertas, crearOferta, eliminarOferta,
   subscribeSalidas, crearSalida, eliminarSalida,
 } from '../services/ofertasSalidas';
-import { Calendar, Tag, Plus, Trash2, Send, Bell, Building2, Users, Star, Save, RefreshCw, Clock } from 'lucide-react';
+import {
+  getTarifasEnvio, getTarifasTransporte, deleteTarifaEnvio, deleteTarifaTransporte,
+  TarifaEnvio, TarifaTransporteCuba,
+} from '../services/tarifas';
+import { TarifaEnvioFormModal } from '../components/TarifaEnvioFormModal';
+import { TarifaTransporteFormModal } from '../components/TarifaTransporteFormModal';
+import { Calendar, Tag, Plus, Trash2, Send, Bell, Building2, Users, Star, Save, RefreshCw, Clock, Pencil, MapPin, Truck } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
@@ -53,6 +59,28 @@ export function OfertasSalidas() {
   const [isSavingPrecios, setIsSavingPrecios] = useState(false);
   const [activePriceTab, setActivePriceTab] = useState<'agentes' | 'partners' | 'influencers'>('agentes');
 
+  // Tarifas y Precios (sistema de tarifas dinámicas)
+  const [tarifasEnvio, setTarifasEnvio] = useState<TarifaEnvio[]>([]);
+  const [tarifasTransporte, setTarifasTransporte] = useState<TarifaTransporteCuba[]>([]);
+  const [loadingTarifas, setLoadingTarifas] = useState(true);
+  const [envioModalOpen, setEnvioModalOpen] = useState(false);
+  const [envioModalTarifa, setEnvioModalTarifa] = useState<TarifaEnvio | null>(null);
+  const [transporteModalOpen, setTransporteModalOpen] = useState(false);
+  const [transporteModalTarifa, setTransporteModalTarifa] = useState<TarifaTransporteCuba | null>(null);
+
+  const reloadTarifas = async () => {
+    setLoadingTarifas(true);
+    try {
+      const [envio, transporte] = await Promise.all([getTarifasEnvio(), getTarifasTransporte()]);
+      setTarifasEnvio(envio);
+      setTarifasTransporte(transporte);
+    } catch (error) {
+      console.error('Error cargando tarifas:', error);
+    } finally {
+      setLoadingTarifas(false);
+    }
+  };
+
   useEffect(() => {
     const unsubOfertas = subscribeOfertas((data) => {
       setOfertas(data as unknown as Oferta[]);
@@ -98,6 +126,9 @@ export function OfertasSalidas() {
           setGlobalAgentePrice(data.agente_global || 5.5);
         }
       });
+
+      // Fetch Tarifas de envío y transporte
+      reloadTarifas();
     }
 
     return () => {
@@ -196,6 +227,28 @@ export function OfertasSalidas() {
 
   const handleNotifySalida = () => {
     alert("Se ha enviado un correo a todos los clientes con la actualización de las salidas.");
+  };
+
+  const handleDeleteTarifaEnvio = async (id: string) => {
+    if (!window.confirm('¿Eliminar este tramo de precio?')) return;
+    try {
+      await deleteTarifaEnvio(id);
+      await reloadTarifas();
+    } catch (error) {
+      console.error('Error eliminando tarifa de envío:', error);
+      alert('No se pudo eliminar el tramo.');
+    }
+  };
+
+  const handleDeleteTarifaTransporte = async (id: string) => {
+    if (!window.confirm('¿Eliminar este grupo provincial?')) return;
+    try {
+      await deleteTarifaTransporte(id);
+      await reloadTarifas();
+    } catch (error) {
+      console.error('Error eliminando tarifa de transporte:', error);
+      alert('No se pudo eliminar el grupo.');
+    }
   };
 
   const canEditOfertas = role === 'agente';
@@ -437,6 +490,173 @@ export function OfertasSalidas() {
                   </AnimatePresence>
                 </div>
               </div>
+
+              {/* Tarifas y Precios */}
+              <div className="space-y-8">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-tp-blue text-white rounded-[1.25rem] flex items-center justify-center shadow-xl shadow-tp-blue/20">
+                    <Truck className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-tp-blue">Tarifas y Precios</h2>
+                    <p className="text-[10px] text-tp-blue/40 font-black uppercase tracking-widest">Calculadora pública de la landing</p>
+                  </div>
+                </div>
+
+                {loadingTarifas ? (
+                  <div className="bg-white p-16 rounded-[3rem] border-2 border-tp-gray-soft border-dashed text-center">
+                    <RefreshCw className="w-10 h-10 text-tp-blue/20 mx-auto mb-4 animate-spin" />
+                    <p className="text-tp-blue/40 italic font-bold">Cargando tarifas...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Sección A: Precios de Envío */}
+                    <div className="bg-white rounded-[2.5rem] border border-tp-gray-soft shadow-xl overflow-hidden">
+                      <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+                        <h3 className="font-black text-tp-blue text-lg">Precios de Envío (Regular / Express)</h3>
+                        <button
+                          onClick={() => { setEnvioModalTarifa(null); setEnvioModalOpen(true); }}
+                          className="flex items-center gap-2 text-xs bg-tp-red text-white px-5 py-2.5 rounded-full font-black hover:bg-[#D91F33] transition-all shadow-sm active:scale-95"
+                        >
+                          <Plus className="w-4 h-4" /> Añadir tramo
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-[10px] font-black text-tp-blue/40 uppercase tracking-widest bg-gray-50">
+                              <th className="px-6 py-3">Modalidad</th>
+                              <th className="px-6 py-3">Peso mínimo (kg)</th>
+                              <th className="px-6 py-3">Peso máximo (kg)</th>
+                              <th className="px-6 py-3">€/kg</th>
+                              <th className="px-6 py-3">Estado</th>
+                              <th className="px-6 py-3 text-right">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tarifasEnvio.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="px-6 py-8 text-center text-tp-blue/40 italic font-bold">No hay tramos configurados.</td>
+                              </tr>
+                            ) : (
+                              tarifasEnvio.map(tarifa => (
+                                <tr key={tarifa.id} className="border-t border-tp-gray-soft hover:bg-gray-50/50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <span className={cn(
+                                      "text-[10px] font-black uppercase px-3 py-1 rounded-full border-2 tracking-widest",
+                                      tarifa.modalidad === 'express'
+                                        ? "border-tp-red text-tp-red bg-tp-red/5"
+                                        : "border-tp-blue text-tp-blue bg-tp-blue/5"
+                                    )}>
+                                      {tarifa.modalidad === 'express' ? 'Express' : 'Regular'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-tp-blue">{tarifa.peso_min}</td>
+                                  <td className="px-6 py-4 font-bold text-tp-blue">{tarifa.peso_max === null ? 'Sin límite' : tarifa.peso_max}</td>
+                                  <td className="px-6 py-4 font-black text-tp-blue">€{tarifa.precio_kg.toFixed(2)}</td>
+                                  <td className="px-6 py-4">
+                                    {tarifa.activo ? (
+                                      <span className="text-[10px] font-black uppercase text-green-600">Activo</span>
+                                    ) : (
+                                      <span className="text-[10px] font-black uppercase text-tp-blue/30">Inactivo</span>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        onClick={() => { setEnvioModalTarifa(tarifa); setEnvioModalOpen(true); }}
+                                        className="p-2 text-tp-blue/40 hover:text-tp-blue hover:bg-tp-blue-light/30 rounded-lg transition-colors"
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteTarifaEnvio(tarifa.id)}
+                                        className="p-2 text-tp-blue/40 hover:text-tp-red hover:bg-tp-red/5 rounded-lg transition-colors"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Sección B: Transporte Provincial Cuba */}
+                    <div className="bg-white rounded-[2.5rem] border border-tp-gray-soft shadow-xl overflow-hidden">
+                      <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+                        <h3 className="font-black text-tp-blue text-lg">Transporte Provincial Cuba</h3>
+                        <button
+                          onClick={() => { setTransporteModalTarifa(null); setTransporteModalOpen(true); }}
+                          className="flex items-center gap-2 text-xs bg-tp-red text-white px-5 py-2.5 rounded-full font-black hover:bg-[#D91F33] transition-all shadow-sm active:scale-95"
+                        >
+                          <Plus className="w-4 h-4" /> Añadir grupo
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-[10px] font-black text-tp-blue/40 uppercase tracking-widest bg-gray-50">
+                              <th className="px-6 py-3">Provincias</th>
+                              <th className="px-6 py-3">€/kg recargo</th>
+                              <th className="px-6 py-3">Estado</th>
+                              <th className="px-6 py-3 text-right">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {tarifasTransporte.length === 0 ? (
+                              <tr>
+                                <td colSpan={4} className="px-6 py-8 text-center text-tp-blue/40 italic font-bold">No hay grupos configurados.</td>
+                              </tr>
+                            ) : (
+                              tarifasTransporte.map(grupo => (
+                                <tr key={grupo.id} className="border-t border-tp-gray-soft hover:bg-gray-50/50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex flex-wrap gap-1.5 max-w-md">
+                                      {grupo.provincias.map(provincia => (
+                                        <span key={provincia} className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-tp-blue-light text-tp-blue tracking-wide">
+                                          {provincia}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 font-black text-tp-blue">€{grupo.precio_kg.toFixed(2)}</td>
+                                  <td className="px-6 py-4">
+                                    {grupo.activo ? (
+                                      <span className="text-[10px] font-black uppercase text-green-600">Activo</span>
+                                    ) : (
+                                      <span className="text-[10px] font-black uppercase text-tp-blue/30">Inactivo</span>
+                                    )}
+                                  </td>
+                                  <td className="px-6 py-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        onClick={() => { setTransporteModalTarifa(grupo); setTransporteModalOpen(true); }}
+                                        className="p-2 text-tp-blue/40 hover:text-tp-blue hover:bg-tp-blue-light/30 rounded-lg transition-colors"
+                                      >
+                                        <Pencil className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteTarifaTransporte(grupo.id)}
+                                        className="p-2 text-tp-blue/40 hover:text-tp-red hover:bg-tp-red/5 rounded-lg transition-colors"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </motion.div>
           ) : (
 
@@ -598,6 +818,19 @@ export function OfertasSalidas() {
           </div>
         </div>
       </div>
+
+      <TarifaEnvioFormModal
+        open={envioModalOpen}
+        tarifa={envioModalTarifa}
+        onClose={() => setEnvioModalOpen(false)}
+        onSaved={reloadTarifas}
+      />
+      <TarifaTransporteFormModal
+        open={transporteModalOpen}
+        tarifa={transporteModalTarifa}
+        onClose={() => setTransporteModalOpen(false)}
+        onSaved={reloadTarifas}
+      />
     </div>
   );
 }

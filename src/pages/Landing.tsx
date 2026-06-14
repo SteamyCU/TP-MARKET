@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Calculator, Package, ArrowRight, Plane, ShieldCheck, Clock, 
-  Ship, HelpCircle, ChevronDown, CheckCircle2, Users, 
-  TrendingUp, Star, Quote, Facebook, Instagram, Twitter, 
-  Mail, Phone, MapPin, Globe, UserPlus, Newspaper, Zap
+import {
+  Calculator, Package, ArrowRight, Plane, ShieldCheck, Clock,
+  Ship, HelpCircle, ChevronDown, CheckCircle2, Users,
+  TrendingUp, Star, Quote, Facebook, Instagram, Twitter,
+  Mail, Phone, MapPin, Globe, UserPlus, Newspaper, Zap, Loader2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import {
+  getTarifasEnvio, getTarifasTransporte, calcularPrecio,
+  TarifaEnvio, TarifaTransporteCuba,
+} from '../services/tarifas';
 
 const faqs = [
   {
@@ -79,8 +83,43 @@ export function Landing() {
   const [calcTipo, setCalcTipo] = useState('Normal');
   const [calcModo, setCalcModo] = useState<'Regular' | 'Express'>('Regular');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const precioPorKilo = 5.00; // Default public price
-  const recargoExpress = 1.5; // Recargo estimado del servicio aéreo Express
+
+  const [tarifasEnvio, setTarifasEnvio] = useState<TarifaEnvio[]>([]);
+  const [tarifasTransporte, setTarifasTransporte] = useState<TarifaTransporteCuba[]>([]);
+  const [loadingTarifas, setLoadingTarifas] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([getTarifasEnvio(), getTarifasTransporte()])
+      .then(([envio, transporte]) => {
+        if (!active) return;
+        setTarifasEnvio(envio);
+        setTarifasTransporte(transporte);
+        const activos = transporte.filter(g => g.activo);
+        if (activos.length > 0 && !activos.some(g => g.provincias.includes(calcDestino))) {
+          setCalcDestino(activos[0].provincias[0]);
+        }
+      })
+      .catch((error) => console.error('Error cargando tarifas:', error))
+      .finally(() => { if (active) setLoadingTarifas(false); });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const provinciasDisponibles = useMemo(
+    () => tarifasTransporte.filter(g => g.activo).flatMap(g => g.provincias),
+    [tarifasTransporte]
+  );
+
+  const pesoMaximo = useMemo(() => {
+    const maximos = tarifasEnvio.filter(t => t.activo && t.peso_max !== null).map(t => t.peso_max as number);
+    return maximos.length > 0 ? Math.max(...maximos) : 100;
+  }, [tarifasEnvio]);
+
+  const calculo = useMemo(
+    () => calcularPrecio(calcPeso, calcModo === 'Express' ? 'express' : 'regular', calcDestino, tarifasEnvio, tarifasTransporte),
+    [calcPeso, calcModo, calcDestino, tarifasEnvio, tarifasTransporte]
+  );
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -193,43 +232,48 @@ export function Landing() {
                 </div>
               </div>
 
+              {loadingTarifas ? (
+                <div className="py-16 flex flex-col items-center justify-center gap-4 text-tp-blue/40">
+                  <Loader2 className="w-10 h-10 animate-spin" />
+                  <span className="text-xs font-black uppercase tracking-widest">Cargando tarifas...</span>
+                </div>
+              ) : (
+              <>
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <label className="text-xs font-black text-tp-blue/40 uppercase tracking-widest">Peso del Envío</label>
                   <span className="text-tp-blue font-black text-lg">{calcPeso} kg</span>
                 </div>
-                <input 
-                  type="range" 
-                  min="1" max="100" step="0.5"
+                <input
+                  type="range"
+                  min="1" max={pesoMaximo} step="0.5"
                   value={calcPeso}
                   onChange={(e) => setCalcPeso(parseFloat(e.target.value) || 0)}
                   className="w-full h-2 bg-tp-gray-soft rounded-lg appearance-none cursor-pointer accent-tp-red"
                 />
                 <div className="flex justify-between mt-2 text-[10px] font-bold text-tp-blue/30 uppercase">
                   <span>1 kg</span>
-                  <span>50 kg</span>
-                  <span>Sin límite</span>
+                  <span>{Math.round(pesoMaximo / 2)} kg</span>
+                  <span>{pesoMaximo} kg</span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-black text-tp-blue/40 uppercase tracking-widest mb-2">Provincia Destino</label>
-                  <select 
+                  <select
                     value={calcDestino}
                     onChange={(e) => setCalcDestino(e.target.value)}
                     className="w-full px-4 py-3 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold text-tp-blue appearance-none"
                   >
-                    <option value="La Habana">La Habana</option>
-                    <option value="Santiago de Cuba">Santiago de Cuba</option>
-                    <option value="Matanzas">Matanzas</option>
-                    <option value="Holguín">Holguín</option>
-                    <option value="Otras Provincias">Otras Provincias</option>
+                    {provinciasDisponibles.map((provincia) => (
+                      <option key={provincia} value={provincia}>{provincia}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-black text-tp-blue/40 uppercase tracking-widest mb-2">Tipo de Carga</label>
-                  <select 
+                  <select
                     value={calcTipo}
                     onChange={(e) => setCalcTipo(e.target.value)}
                     className="w-full px-4 py-3 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold text-tp-blue appearance-none"
@@ -243,19 +287,43 @@ export function Landing() {
               </div>
 
               <div className="pt-8 border-t border-tp-gray-soft">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex flex-col">
-                    <span className="text-tp-blue/40 text-xs font-black uppercase tracking-widest">Costo Estimado</span>
-                    <span className="text-tp-blue/60 text-[10px] font-bold">*Sujeto a tarifa de agente</span>
+                {calculo ? (
+                  <div className="mb-6 space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-tp-blue/50 font-bold">Precio base: {calculo.pesoKg}kg × €{calculo.precioKgBase.toFixed(2)}/kg</span>
+                      <span className="font-black text-tp-blue">€{calculo.precioBase.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-tp-blue/50 font-bold">Transporte Cuba: {calculo.pesoKg}kg × €{calculo.recargoProvincialKg.toFixed(2)}/kg</span>
+                      <span className="font-black text-tp-blue">€{calculo.recargoProvincial.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-4 mt-2 border-t border-tp-gray-soft">
+                      <div className="flex flex-col">
+                        <span className="text-tp-blue/40 text-xs font-black uppercase tracking-widest">Total Estimado</span>
+                        <span className="text-tp-blue/60 text-[10px] font-bold">*Sujeto a tarifa de agente</span>
+                      </div>
+                      <div className="text-5xl font-black text-tp-blue tracking-tighter">
+                        €{calculo.total.toFixed(2)}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-5xl font-black text-tp-blue tracking-tighter">
-                    €{(calcPeso * precioPorKilo * (calcModo === 'Express' ? recargoExpress : 1)).toFixed(2)}
+                ) : (
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex flex-col">
+                      <span className="text-tp-blue/40 text-xs font-black uppercase tracking-widest">Costo Estimado</span>
+                      <span className="text-tp-blue/60 text-[10px] font-bold">*Sujeto a tarifa de agente</span>
+                    </div>
+                    <div className="text-3xl font-black text-tp-blue tracking-tighter">
+                      Consultar precio
+                    </div>
                   </div>
-                </div>
+                )}
                 <button onClick={() => navigate('/login?mode=register')} className="w-full bg-tp-red text-white py-5 rounded-2xl font-black text-lg hover:bg-[#D91F33] transition-all shadow-lg shadow-tp-red/20 flex items-center justify-center gap-3 group">
                   CREAR MI ENVÍO <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
+              </>
+              )}
             </div>
           </div>
         </div>
