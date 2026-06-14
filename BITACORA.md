@@ -102,8 +102,10 @@ y de los pendientes para dejarla lista para producción.
 ### Despliegue
 
 - [ ] Conectar dominio y publicar la web (hosting + variables de entorno de producción).
-- [ ] Revisar el tamaño del bundle (`> 500 kB`): considerar `code-splitting`
-      con `import()` dinámico o `manualChunks`.
+- [x] **Code-splitting:** todas las páginas (`src/pages/*`) ahora se cargan con
+      `React.lazy()` + `Suspense` en `App.tsx`. El chunk principal bajó de
+      ~2.68 MB a ~971 kB; el resto se divide en chunks por página/funcionalidad
+      que se descargan según la ruta visitada.
 
 ---
 

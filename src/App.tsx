@@ -1,44 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { Layout } from './components/Layout';
-import { Landing } from './pages/Landing';
-import { Dashboard } from './pages/Dashboard';
-import { Recepcion } from './pages/Recepcion';
-import { Seguimiento } from './pages/Seguimiento';
-import { Perfil } from './pages/Perfil';
-import { Usuarios } from './pages/Usuarios';
-import { Reportes } from './pages/Reportes';
-import { Pagos } from './pages/Pagos';
-import { Contabilidad } from './pages/Contabilidad';
-import { ConfiguracionAfiliados } from './pages/ConfiguracionAfiliados';
-import { RedAfiliados } from './pages/RedAfiliados';
-import { Clientes } from './pages/Clientes';
-import { Logistica } from './pages/Logistica';
-import { MisDestinatarios } from './pages/MisDestinatarios';
-import { MisSolicitudes } from './pages/MisSolicitudes';
-import { Solicitudes } from './pages/Solicitudes';
-import { MarketingClientes } from './pages/MarketingClientes';
-import { Configuracion } from './pages/Configuracion';
-import { Auditoria } from './pages/Auditoria';
-import { Calculadora } from './pages/Calculadora';
-import { OfertasSalidas } from './pages/OfertasSalidas';
-import { AdminB2B } from './pages/AdminB2B';
-import { SerAgente } from './pages/SerAgente';
-import { SerAgenteFreelance } from './pages/SerAgenteFreelance';
-import { SerInfluencer } from './pages/SerInfluencer';
-import { SerPartner } from './pages/SerPartner';
-import { SobreNosotros } from './pages/SobreNosotros';
-import { TerminosCondiciones } from './pages/TerminosCondiciones';
-import { PoliticaPrivacidad } from './pages/PoliticaPrivacidad';
-import { EnviosAereos } from './pages/EnviosAereos';
-import { EnviosMaritimos } from './pages/EnviosMaritimos';
-import { CargaMiscelanea } from './pages/CargaMiscelanea';
-import { EnvioElectrodomesticos } from './pages/EnvioElectrodomesticos';
-import { MedicinasExentas } from './pages/MedicinasExentas';
-import { ComisionesAgente } from './pages/ComisionesAgente';
-import { ProgramaAfiliados } from './pages/ProgramaAfiliados';
-import { Unirse } from './pages/Unirse';
 import { ScrollToTop } from './components/ScrollToTop';
 import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
@@ -913,13 +876,61 @@ function ResetPassword() {
 
 import { PublicLayout } from './components/PublicLayout';
 
-import { Negocios } from './pages/Negocios';
+const lazyPage = <T extends Record<string, React.ComponentType<any>>>(
+  importFn: () => Promise<T>,
+  name: keyof T,
+) => React.lazy(() => importFn().then((m) => ({ default: m[name] })));
+
+const Landing = lazyPage(() => import('./pages/Landing'), 'Landing');
+const Dashboard = lazyPage(() => import('./pages/Dashboard'), 'Dashboard');
+const Recepcion = lazyPage(() => import('./pages/Recepcion'), 'Recepcion');
+const Seguimiento = lazyPage(() => import('./pages/Seguimiento'), 'Seguimiento');
+const Perfil = lazyPage(() => import('./pages/Perfil'), 'Perfil');
+const Usuarios = lazyPage(() => import('./pages/Usuarios'), 'Usuarios');
+const Reportes = lazyPage(() => import('./pages/Reportes'), 'Reportes');
+const Pagos = lazyPage(() => import('./pages/Pagos'), 'Pagos');
+const Contabilidad = lazyPage(() => import('./pages/Contabilidad'), 'Contabilidad');
+const ConfiguracionAfiliados = lazyPage(() => import('./pages/ConfiguracionAfiliados'), 'ConfiguracionAfiliados');
+const RedAfiliados = lazyPage(() => import('./pages/RedAfiliados'), 'RedAfiliados');
+const Clientes = lazyPage(() => import('./pages/Clientes'), 'Clientes');
+const Logistica = lazyPage(() => import('./pages/Logistica'), 'Logistica');
+const MisDestinatarios = lazyPage(() => import('./pages/MisDestinatarios'), 'MisDestinatarios');
+const MisSolicitudes = lazyPage(() => import('./pages/MisSolicitudes'), 'MisSolicitudes');
+const Solicitudes = lazyPage(() => import('./pages/Solicitudes'), 'Solicitudes');
+const MarketingClientes = lazyPage(() => import('./pages/MarketingClientes'), 'MarketingClientes');
+const Configuracion = lazyPage(() => import('./pages/Configuracion'), 'Configuracion');
+const Auditoria = lazyPage(() => import('./pages/Auditoria'), 'Auditoria');
+const Calculadora = lazyPage(() => import('./pages/Calculadora'), 'Calculadora');
+const OfertasSalidas = lazyPage(() => import('./pages/OfertasSalidas'), 'OfertasSalidas');
+const AdminB2B = lazyPage(() => import('./pages/AdminB2B'), 'AdminB2B');
+const SerAgente = lazyPage(() => import('./pages/SerAgente'), 'SerAgente');
+const SerAgenteFreelance = lazyPage(() => import('./pages/SerAgenteFreelance'), 'SerAgenteFreelance');
+const SerInfluencer = lazyPage(() => import('./pages/SerInfluencer'), 'SerInfluencer');
+const SerPartner = lazyPage(() => import('./pages/SerPartner'), 'SerPartner');
+const SobreNosotros = lazyPage(() => import('./pages/SobreNosotros'), 'SobreNosotros');
+const TerminosCondiciones = lazyPage(() => import('./pages/TerminosCondiciones'), 'TerminosCondiciones');
+const PoliticaPrivacidad = lazyPage(() => import('./pages/PoliticaPrivacidad'), 'PoliticaPrivacidad');
+const EnviosAereos = lazyPage(() => import('./pages/EnviosAereos'), 'EnviosAereos');
+const EnviosMaritimos = lazyPage(() => import('./pages/EnviosMaritimos'), 'EnviosMaritimos');
+const CargaMiscelanea = lazyPage(() => import('./pages/CargaMiscelanea'), 'CargaMiscelanea');
+const EnvioElectrodomesticos = lazyPage(() => import('./pages/EnvioElectrodomesticos'), 'EnvioElectrodomesticos');
+const MedicinasExentas = lazyPage(() => import('./pages/MedicinasExentas'), 'MedicinasExentas');
+const ComisionesAgente = lazyPage(() => import('./pages/ComisionesAgente'), 'ComisionesAgente');
+const Unirse = lazyPage(() => import('./pages/Unirse'), 'Unirse');
+const Negocios = lazyPage(() => import('./pages/Negocios'), 'Negocios');
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-tp-blue-light/30">
+    <div className="w-10 h-10 border-4 border-tp-blue/20 border-t-tp-blue rounded-full animate-spin" />
+  </div>
+);
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
           <Route path="/ser-agente" element={<PublicLayout><SerAgente /></PublicLayout>} />
@@ -965,6 +976,7 @@ export default function App() {
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );
