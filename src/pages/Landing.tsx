@@ -106,6 +106,12 @@ export function Landing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (calcModo === 'Express' && calcDestino !== 'La Habana') {
+      setCalcDestino('La Habana');
+    }
+  }, [calcModo, calcDestino]);
+
   const provinciasDisponibles = useMemo(
     () => tarifasTransporte.filter(g => g.activo).flatMap(g => g.provincias),
     [tarifasTransporte]
@@ -264,12 +270,18 @@ export function Landing() {
                   <select
                     value={calcDestino}
                     onChange={(e) => setCalcDestino(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold text-tp-blue appearance-none"
+                    disabled={calcModo === 'Express'}
+                    className="w-full px-4 py-3 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold text-tp-blue appearance-none disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {provinciasDisponibles.map((provincia) => (
+                    {(calcModo === 'Express' ? ['La Habana'] : provinciasDisponibles).map((provincia) => (
                       <option key={provincia} value={provincia}>{provincia}</option>
                     ))}
                   </select>
+                  {calcModo === 'Express' && (
+                    <p className="mt-2 text-[10px] font-bold text-tp-red">
+                      El envío Express solo está disponible para La Habana.
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-black text-tp-blue/40 uppercase tracking-widest mb-2">Tipo de Carga</label>

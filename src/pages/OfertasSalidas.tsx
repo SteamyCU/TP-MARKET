@@ -462,25 +462,26 @@ export function OfertasSalidas() {
                       )}
 
                       {activePriceTab === 'influencers' && (
-                        <div className="max-w-lg mx-auto py-12 text-center space-y-8">
-                          <motion.div 
-                            animate={{ rotate: [0, 10, -10, 0] }}
-                            transition={{ repeat: Infinity, duration: 5 }}
-                            className="w-24 h-24 bg-tp-red/10 text-tp-red rounded-[2.5rem] flex items-center justify-center mx-auto shadow-inner"
-                          >
-                            <Star className="w-12 h-12" />
-                          </motion.div>
-                          <div>
-                            <h3 className="text-3xl font-black text-tp-blue mb-4 tracking-tight">Tarifa Base Influencers</h3>
-                            <p className="text-tp-blue/60 mb-8 font-medium">Este precio se aplica automáticamente a todos los influencers registrados en el programa de afiliados.</p>
-                            <div className="relative w-64 mx-auto">
-                              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-tp-blue/30 font-black text-2xl">€</span>
-                              <input 
-                                type="number" 
+                        <div className="max-w-xl mx-auto">
+                          <div className="flex items-center justify-between p-5 bg-gray-50 rounded-[2rem] border border-tp-gray-soft hover:border-tp-red/30 transition-all group">
+                            <div className="flex items-center gap-4">
+                              <div className="w-12 h-12 bg-tp-red/10 text-tp-red rounded-2xl flex items-center justify-center shadow-lg shadow-tp-red/10 group-hover:scale-110 transition-transform">
+                                <Star className="w-6 h-6" />
+                              </div>
+                              <div>
+                                <p className="font-black text-tp-blue">Tarifa Base Influencers</p>
+                                <p className="text-[10px] text-tp-blue/40 font-bold uppercase tracking-widest">Aplica a todos los influencers</p>
+                              </div>
+                            </div>
+                            <div className="relative w-32">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-tp-blue/30 font-black text-sm">€</span>
+                              <input
+                                type="number"
                                 step="0.01"
                                 value={influencerPrice}
                                 onChange={e => setInfluencerPrice(Number(e.target.value))}
-                                className="w-full pl-12 pr-6 py-6 text-center bg-gray-50 border-4 border-white focus:border-tp-red/10 rounded-[2rem] focus:outline-none font-black text-4xl text-tp-blue shadow-2xl transition-all"
+                                className="w-full pl-8 pr-4 py-3 text-right bg-white border-2 border-transparent focus:border-tp-red/20 rounded-2xl focus:outline-none font-black text-tp-blue transition-all shadow-sm"
+                                placeholder="0.00"
                               />
                             </div>
                           </div>
