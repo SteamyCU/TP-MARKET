@@ -119,10 +119,11 @@ y de los pendientes para dejarla lista para producción.
 - [x] **Campo `provincia` (España) en Cliente:** nuevo campo opcional para el
       remitente, necesario para el manifiesto de exportación a España.
       Migración `0005_cliente_provincia.sql` (columna `provincia text` en
-      `clientes`), añadido a `types/models.ts`, `services/clientes.ts`
-      (lectura/escritura), y al formulario de cliente en `Clientes.tsx` y en
-      el modal "Nuevo Cliente" de Recepción (`ClienteFormModal.tsx`), entre
-      Localidad y Código Postal. Label: "Provincia (España)".
+      `clientes`) aplicada en Supabase, añadido a `types/models.ts`,
+      `services/clientes.ts` (lectura/escritura), y al formulario de cliente
+      en `Clientes.tsx` y en el modal "Nuevo Cliente" de Recepción
+      (`ClienteFormModal.tsx`), entre Localidad y Código Postal.
+      Label: "Provincia (España)".
 
 ---
 
