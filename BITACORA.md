@@ -116,6 +116,13 @@ y de los pendientes para dejarla lista para producción.
       `react-markdown`) ahora se cargan también con `React.lazy()`. El chunk
       principal —el que descarga cualquier visitante, incluido la página de
       inicio— bajó de ~971 kB a ~535 kB (gzip: ~254 kB → ~153 kB).
+- [x] **Campo `provincia` (España) en Cliente:** nuevo campo opcional para el
+      remitente, necesario para el manifiesto de exportación a España.
+      Migración `0005_cliente_provincia.sql` (columna `provincia text` en
+      `clientes`), añadido a `types/models.ts`, `services/clientes.ts`
+      (lectura/escritura), y al formulario de cliente en `Clientes.tsx` y en
+      el modal "Nuevo Cliente" de Recepción (`ClienteFormModal.tsx`), entre
+      Localidad y Código Postal. Label: "Provincia (España)".
 
 ---
 

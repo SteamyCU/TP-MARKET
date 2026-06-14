@@ -26,6 +26,7 @@ interface Cliente {
   email: string;
   codigoPostal: string;
   localidad: string;
+  provincia?: string;
   direccion: string;
   agenteId: string;
   referido_por?: string;
@@ -66,6 +67,7 @@ export function Clientes() {
     email: '',
     codigoPostal: '',
     localidad: '',
+    provincia: '',
     direccion: '',
     agenteId: '',
     referido_por: ''
@@ -244,6 +246,7 @@ export function Clientes() {
       email: cliente.email,
       codigoPostal: cliente.codigoPostal,
       localidad: cliente.localidad,
+      provincia: cliente.provincia || '',
       direccion: cliente.direccion,
       agenteId: cliente.agenteId || '',
       referido_por: cliente.referido_por || ''
@@ -281,6 +284,7 @@ export function Clientes() {
       email: '',
       codigoPostal: '',
       localidad: '',
+      provincia: '',
       direccion: '',
       agenteId: '',
       referido_por: ''
@@ -314,6 +318,7 @@ export function Clientes() {
       'Teléfono': c.telefonoEspana,
       'Dirección': c.direccion,
       Localidad: c.localidad,
+      'Provincia': c.provincia || '',
       'Código Postal': c.codigoPostal,
       Agente: agentes[c.agenteId] || c.agenteId || '',
     })));
@@ -337,6 +342,7 @@ export function Clientes() {
         telefonoEspana: fila.telefonoEspana || '',
         direccion: fila.direccion || '',
         localidad: fila.localidad || '',
+        provincia: fila.provincia || '',
         codigoPostal: fila.codigoPostal || '',
         agenteId: auth.currentUser?.uid || null,
       });
@@ -490,7 +496,7 @@ export function Clientes() {
                     <input type="tel" value={clienteForm.telefonoEspana} onChange={e => setClienteForm({...clienteForm, telefonoEspana: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Correo Electrónico *</label>
                     <input type="email" required value={clienteForm.email} onChange={e => setClienteForm({...clienteForm, email: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
@@ -498,6 +504,10 @@ export function Clientes() {
                   <div>
                     <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Código Postal</label>
                     <input type="text" value={clienteForm.codigoPostal} onChange={e => setClienteForm({...clienteForm, codigoPostal: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia (España)</label>
+                    <input type="text" placeholder="Madrid, Barcelona, Valencia..." value={clienteForm.provincia} onChange={e => setClienteForm({...clienteForm, provincia: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Localidad</label>
@@ -772,6 +782,7 @@ export function Clientes() {
           { key: 'telefonoEspana', label: 'Teléfono', ejemplo: '+34 600 000 000' },
           { key: 'direccion', label: 'Dirección', requerido: true, ejemplo: 'Calle Mayor 1, Madrid' },
           { key: 'localidad', label: 'Localidad', ejemplo: 'Madrid' },
+          { key: 'provincia', label: 'Provincia (España)', ejemplo: 'Madrid, Barcelona, Valencia...' },
           { key: 'codigoPostal', label: 'Código Postal', ejemplo: '28001' },
         ]}
         validarFila={(fila) => {

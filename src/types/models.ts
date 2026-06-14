@@ -13,6 +13,7 @@ export interface Cliente {
   email: string;
   codigoPostal?: string;
   localidad?: string;
+  provincia?: string;
   direccion?: string;
   observaciones?: string;
   agenteId?: string;

@@ -15,6 +15,7 @@ export interface ClienteRow {
   telefono_espana: string | null;
   direccion: string | null;
   localidad: string | null;
+  provincia: string | null;
   codigo_postal: string | null;
   agente_id: string | null;
   referido_por: string | null;
@@ -33,6 +34,7 @@ export type FlatCliente = {
   telefonoEspana: string | null;
   direccion: string | null;
   localidad: string | null;
+  provincia: string | null;
   codigoPostal: string | null;
   agenteId: string | null;
   referidoPor?: string | null;
@@ -56,6 +58,7 @@ export function rowToCliente(row: ClienteRow): FlatCliente {
     telefonoEspana: row.telefono_espana,
     direccion: row.direccion,
     localidad: row.localidad,
+    provincia: row.provincia,
     codigoPostal: row.codigo_postal,
     agenteId: row.agente_id,
     referidoPor: row.referido_por,
@@ -79,6 +82,7 @@ function flatFieldsToColumns(fields: Record<string, unknown>): Record<string, un
     telefonoEspana: 'telefono_espana',
     direccion: 'direccion',
     localidad: 'localidad',
+    provincia: 'provincia',
     codigoPostal: 'codigo_postal',
     agenteId: 'agente_id',
     referidoPor: 'referido_por',

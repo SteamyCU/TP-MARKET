@@ -20,6 +20,7 @@ const FORM_INICIAL = {
   email: '',
   codigoPostal: '',
   localidad: '',
+  provincia: '',
   direccion: '',
   observaciones: '',
 };
@@ -117,10 +118,14 @@ export function ClienteFormModal({ open, onClose, onCreated, clientesExistentes 
             <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Dirección *</label>
             <textarea required rows={2} value={form.direccion} onChange={e => setForm({ ...form, direccion: e.target.value })} className={`${inputClass} resize-none`}></textarea>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Población / Localidad</label>
               <input type="text" value={form.localidad} onChange={e => setForm({ ...form, localidad: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia (España)</label>
+              <input type="text" placeholder="Madrid, Barcelona, Valencia..." value={form.provincia} onChange={e => setForm({ ...form, provincia: e.target.value })} className={inputClass} />
             </div>
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Código Postal</label>
