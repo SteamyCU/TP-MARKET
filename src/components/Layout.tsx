@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
-import { Chatbot } from './Chatbot';
 import { cargarConfigNegocio } from '../services/paquetes';
+
+const Chatbot = React.lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -32,7 +33,9 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
-      <Chatbot />
+      <Suspense fallback={null}>
+        <Chatbot />
+      </Suspense>
     </div>
   );
 }

@@ -111,6 +111,11 @@ y de los pendientes para dejarla lista para producción.
       `React.lazy()` + `Suspense` en `App.tsx`. El chunk principal bajó de
       ~2.68 MB a ~971 kB; el resto se divide en chunks por página/funcionalidad
       que se descargan según la ruta visitada.
+- [x] **Optimización de carga para Cuba (conexiones lentas):** el `Layout`
+      del dashboard y el `Chatbot` (que cargaba `@google/genai` +
+      `react-markdown`) ahora se cargan también con `React.lazy()`. El chunk
+      principal —el que descarga cualquier visitante, incluido la página de
+      inicio— bajó de ~971 kB a ~535 kB (gzip: ~254 kB → ~153 kB).
 
 ---
 

@@ -1,7 +1,6 @@
 import React, { useState, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
-import { Layout } from './components/Layout';
 import { ScrollToTop } from './components/ScrollToTop';
 import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
@@ -918,6 +917,7 @@ const MedicinasExentas = lazyPage(() => import('./pages/MedicinasExentas'), 'Med
 const ComisionesAgente = lazyPage(() => import('./pages/ComisionesAgente'), 'ComisionesAgente');
 const Unirse = lazyPage(() => import('./pages/Unirse'), 'Unirse');
 const Negocios = lazyPage(() => import('./pages/Negocios'), 'Negocios');
+const Layout = lazyPage(() => import('./components/Layout'), 'Layout');
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-tp-blue-light/30">
