@@ -81,7 +81,7 @@ y de los pendientes para dejarla lista para producción.
 - [x] Ejecutar la migración `supabase/migrations/0004_storage_documentos.sql` en
       el SQL Editor (crea el bucket privado `documentos-identidad` y sus
       políticas de acceso para la subida de ID/Pasaporte de agentes).
-- [ ] Confirmar que **"Confirm email"** sigue desactivado en
+- [x] Confirmar que **"Confirm email"** sigue desactivado en
       Authentication → Providers → Email (si no, los registros nuevos quedan sin confirmar).
 - [ ] Configurar **SMTP propio** (p. ej. Resend) para evitar el límite de
       envío de correos de Supabase (~2-4/hora en el plan gratuito) antes de producción.
