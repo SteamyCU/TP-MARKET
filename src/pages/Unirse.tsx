@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { loginWithGoogle, loginWithEmail, registerWithEmail } from '../supabase';
-import { crearSolicitudAfiliado } from '../services/afiliados';
+import { crearSolicitudAfiliado, subirDocumentoIdentidad } from '../services/afiliados';
 import { cn } from '../lib/utils';
 
 type Step = 'role' | 'auth' | 'form' | 'success';
@@ -41,6 +41,11 @@ export function Unirse() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Documento de identidad (solo Agente)
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -126,20 +131,33 @@ export function Unirse() {
     e.preventDefault();
     if (!user) return;
 
+    if (selectedRole === 'agente' && !idFile) {
+      setSubmitError('Sube una foto de tu ID o pasaporte para continuar.');
+      return;
+    }
+
+    setSubmitError(null);
     setIsSubmitting(true);
     try {
       const { nombre, telefono, ...resto } = formData;
+      const datos: Record<string, unknown> = { ...resto };
+
+      if (idFile) {
+        datos.documentoIdentidad = await subirDocumentoIdentidad(user.uid, idFile);
+      }
+
       await crearSolicitudAfiliado({
         uid: user.uid,
         email: user.email,
         role: selectedRole || '',
         nombre,
         telefono,
-        datos: resto,
+        datos,
       });
       setStep('success');
     } catch (error) {
       console.error("Error submitting application:", error);
+      setSubmitError('Ocurrió un error al enviar la solicitud. Inténtalo de nuevo.');
     } finally {
       setIsSubmitting(false);
     }
@@ -454,8 +472,23 @@ export function Unirse() {
                           <Upload className="w-8 h-8 text-tp-blue mb-2" />
                           <p className="text-sm font-bold text-tp-blue">Sube una foto de tu ID / Pasaporte (Frontal) *</p>
                           <p className="text-xs text-tp-blue/50 mt-1">Necesario para verificar tu identidad como agente oficial.</p>
-                          <input type="file" className="hidden" />
-                          <button type="button" className="mt-4 px-6 py-2 bg-tp-blue text-white rounded-xl font-bold text-xs">Seleccionar Archivo</button>
+                          {idFile && (
+                            <p className="text-xs font-bold text-green-600 mt-2">✓ {idFile.name}</p>
+                          )}
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*,.pdf"
+                            className="hidden"
+                            onChange={(e) => setIdFile(e.target.files?.[0] || null)}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="mt-4 px-6 py-2 bg-tp-blue text-white rounded-xl font-bold text-xs"
+                          >
+                            {idFile ? 'Cambiar Archivo' : 'Seleccionar Archivo'}
+                          </button>
                         </div>
                       </div>
                     </>
@@ -556,7 +589,13 @@ export function Unirse() {
                   </p>
                 </div>
 
-                <button 
+                {submitError && (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-tp-red text-sm font-bold text-center">
+                    {submitError}
+                  </div>
+                )}
+
+                <button
                   type="submit"
                   disabled={isSubmitting}
                   className="w-full bg-tp-blue text-white py-5 rounded-2xl font-black text-lg hover:bg-[#004a78] transition-all shadow-xl shadow-tp-blue/20 flex items-center justify-center gap-3"

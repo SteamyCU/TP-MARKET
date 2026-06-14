@@ -44,14 +44,20 @@ y de los pendientes para dejarla lista para producción.
   clientes, destinatarios, paquetes, eventos, pagos, lotes, gastos, solicitudes,
   auditoría, facturas B2B, settings, ofertas/salidas, afiliados e influencers.
 - **13.4** Eliminación total de Firebase (código, dependencia npm y archivos de config).
+- **13.5** Storage para documentos de identidad de agentes (`0004_storage_documentos.sql`).
 
 ### Arreglos posteriores del flujo de acceso
 
-- Mensaje claro cuando el acceso con Google no está configurado.
+- Acceso con Google configurado y funcionando (proveedor habilitado en Supabase).
 - Registro de **partners / puntos de entrega**: `/login?mode=register&role=partner`
   ahora asigna correctamente `role='partner'` (antes quedaban como `cliente`).
 - Formulario de email en `/unirse` (alta de agentes/influencers): ahora permite
   crear cuenta o iniciar sesión con email/contraseña (antes estaba inerte).
+- Registro: campo de contraseña con opción de verla y confirmación (repetir
+  contraseña) antes de enviar, distinto del formulario de login.
+- `/unirse` (alta de Agente): la subida de ID/Pasaporte ahora sube el archivo
+  al bucket privado `documentos-identidad` de Supabase Storage y guarda la
+  ruta en `solicitudes_afiliado.datos.documentoIdentidad`.
 
 ### Roles del sistema
 
@@ -72,6 +78,9 @@ y de los pendientes para dejarla lista para producción.
 - [x] Ejecutar la migración `supabase/migrations/0003_afiliado_datos.sql` en el
       SQL Editor (añade la columna `datos jsonb` a `solicitudes_afiliado`,
       necesaria para el formulario de `/unirse`).
+- [ ] Ejecutar la migración `supabase/migrations/0004_storage_documentos.sql` en
+      el SQL Editor (crea el bucket privado `documentos-identidad` y sus
+      políticas de acceso para la subida de ID/Pasaporte de agentes).
 - [ ] Confirmar que **"Confirm email"** sigue desactivado en
       Authentication → Providers → Email (si no, los registros nuevos quedan sin confirmar).
 - [ ] Configurar **SMTP propio** (p. ej. Resend) para evitar el límite de
@@ -81,8 +90,9 @@ y de los pendientes para dejarla lista para producción.
 
 - [x] **Google OAuth:** configurado y funcionando (proveedor Google habilitado
       en Supabase con credenciales de Google Cloud Console).
-- [ ] **Subida de ID/Pasaporte en `/unirse`:** el `input type="file"` del alta de
-      agente es un stub. Falta conectar **Supabase Storage** para guardar el documento.
+- [x] **Subida de ID/Pasaporte en `/unirse`:** conectado a **Supabase Storage**
+      (bucket privado `documentos-identidad`). Falta ejecutar
+      `supabase/migrations/0004_storage_documentos.sql` en el SQL Editor.
 
 ### Despliegue
 

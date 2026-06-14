@@ -31,6 +31,21 @@ export async function crearSolicitudAfiliado(input: NuevaSolicitudAfiliado): Pro
   if (error) throw error;
 }
 
+/**
+ * Sube el documento de identidad (ID/Pasaporte) de un solicitante de Agente al
+ * bucket privado 'documentos-identidad', dentro de la carpeta del propio usuario
+ * (uid). Devuelve la ruta interna del archivo para guardarla en 'datos.documentoIdentidad'.
+ */
+export async function subirDocumentoIdentidad(uid: string, file: File): Promise<string> {
+  const extension = file.name.split('.').pop() || 'jpg';
+  const path = `${uid}/documento-identidad-${Date.now()}.${extension}`;
+  const { error } = await supabase.storage.from('documentos-identidad').upload(path, file, {
+    upsert: true,
+  });
+  if (error) throw error;
+  return path;
+}
+
 // --------------------------- REFERIDOS / INFLUENCERS -----------------------
 
 export interface BeneficioReferido {
