@@ -209,31 +209,25 @@ export function Landing() {
                     type="button"
                     onClick={() => setCalcModo('Regular')}
                     className={cn(
-                      "px-4 py-3 rounded-xl font-black text-left transition-all border",
+                      "px-4 py-3 rounded-xl font-black text-center transition-all border",
                       calcModo === 'Regular'
                         ? "bg-tp-blue text-white border-tp-blue shadow-md"
                         : "bg-gray-50 text-tp-blue border-tp-gray-soft hover:border-tp-blue/30"
                     )}
                   >
                     Regular
-                    <span className={cn("block text-[10px] font-bold normal-case mt-0.5", calcModo === 'Regular' ? "text-white/70" : "text-tp-blue/40")}>
-                      Marítimo · 30-45 días
-                    </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setCalcModo('Express')}
                     className={cn(
-                      "px-4 py-3 rounded-xl font-black text-left transition-all border",
+                      "px-4 py-3 rounded-xl font-black text-center transition-all border",
                       calcModo === 'Express'
                         ? "bg-tp-red text-white border-tp-red shadow-md"
                         : "bg-gray-50 text-tp-blue border-tp-gray-soft hover:border-tp-blue/30"
                     )}
                   >
                     Express
-                    <span className={cn("block text-[10px] font-bold normal-case mt-0.5", calcModo === 'Express' ? "text-white/70" : "text-tp-blue/40")}>
-                      Aéreo · 7-15 días
-                    </span>
                   </button>
                 </div>
               </div>
@@ -278,8 +272,9 @@ export function Landing() {
                     ))}
                   </select>
                   {calcModo === 'Express' && (
-                    <p className="mt-2 text-[10px] font-bold text-tp-red">
-                      El envío Express solo está disponible para La Habana.
+                    <p className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-amber-600">
+                      <Zap className="w-3.5 h-3.5 shrink-0" />
+                      El envío Express solo está disponible a La Habana.
                     </p>
                   )}
                 </div>

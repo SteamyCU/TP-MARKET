@@ -12,7 +12,7 @@ import {
 } from '../services/tarifas';
 import { TarifaEnvioFormModal } from '../components/TarifaEnvioFormModal';
 import { TarifaTransporteFormModal } from '../components/TarifaTransporteFormModal';
-import { Calendar, Tag, Plus, Trash2, Send, Bell, Building2, Users, Star, Save, RefreshCw, Clock, Pencil, MapPin, Truck } from 'lucide-react';
+import { Calendar, Tag, Plus, Trash2, Send, Bell, Building2, Users, Star, Save, RefreshCw, Clock, Pencil, MapPin, Truck, LucideIcon } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 
@@ -35,6 +35,42 @@ interface Salida {
   tipoSalida: 'aerea' | 'express';
   creadoPor: string;
   fechaCreacion: any;
+}
+
+interface TarifaBaseCardProps {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  value: number;
+  onChange: (value: number) => void;
+}
+
+/** Tarjeta compacta y reutilizable para una tarifa base (€/kg) por rol. */
+function TarifaBaseCard({ icon: Icon, title, subtitle, value, onChange }: TarifaBaseCardProps) {
+  return (
+    <div className="flex items-center justify-between p-5 bg-gray-50 rounded-[2rem] border border-tp-gray-soft hover:border-tp-red/30 transition-all group">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 bg-tp-red/10 text-tp-red rounded-2xl flex items-center justify-center shadow-lg shadow-tp-red/10 group-hover:scale-110 transition-transform">
+          <Icon className="w-6 h-6" />
+        </div>
+        <div>
+          <p className="font-black text-tp-blue">{title}</p>
+          <p className="text-[10px] text-tp-blue/40 font-bold uppercase tracking-widest">{subtitle}</p>
+        </div>
+      </div>
+      <div className="relative w-32">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-tp-blue/30 font-black text-sm">€</span>
+        <input
+          type="number"
+          step="0.01"
+          value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          className="w-full pl-8 pr-4 py-3 text-right bg-white border-2 border-transparent focus:border-tp-red/20 rounded-2xl focus:outline-none font-black text-tp-blue transition-all shadow-sm"
+          placeholder="0.00"
+        />
+      </div>
+    </div>
+  );
 }
 
 export function OfertasSalidas() {
@@ -325,47 +361,47 @@ export function OfertasSalidas() {
               </div>
 
               {/* Global Price Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-5 rounded-2xl border border-tp-gray-soft shadow-sm flex items-center justify-between group hover:border-tp-blue/20 transition-all hover:shadow-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-tp-blue-light text-tp-blue rounded-xl flex items-center justify-center group-hover:rotate-6 transition-transform">
-                      <Building2 className="w-5 h-5" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white h-20 px-4 rounded-xl border border-tp-gray-soft shadow-sm flex items-center justify-between gap-3 hover:border-tp-blue/20 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 bg-tp-blue-light text-tp-blue rounded-lg flex items-center justify-center shrink-0">
+                      <Building2 className="w-4 h-4" />
                     </div>
-                    <div>
-                      <h3 className="font-bold text-tp-blue text-base">B2B Global</h3>
-                      <p className="text-[10px] text-tp-blue/40 font-bold uppercase tracking-tighter">Precio Mayorista</p>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-tp-blue text-xs truncate">B2B Global</h3>
+                      <p className="text-[9px] text-tp-blue/40 font-bold uppercase tracking-tighter truncate">Precio Mayorista</p>
                     </div>
                   </div>
-                  <div className="relative w-28">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-tp-blue/30 font-bold text-xs">€</span>
-                    <input 
-                      type="number" 
+                  <div className="relative w-24 shrink-0">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tp-blue/30 font-bold text-xs">€</span>
+                    <input
+                      type="number"
                       step="0.01"
                       value={globalB2BPrice}
                       onChange={e => setGlobalB2BPrice(Number(e.target.value))}
-                      className="w-full pl-7 pr-3 py-2 text-right bg-gray-50 border-2 border-transparent focus:border-tp-blue/20 rounded-lg focus:outline-none font-bold text-lg text-tp-blue transition-all"
+                      className="w-full pl-6 pr-2 py-1.5 text-right bg-gray-50 border-2 border-transparent focus:border-tp-blue/20 rounded-lg focus:outline-none font-bold text-sm text-tp-blue transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-2xl border border-tp-gray-soft shadow-sm flex items-center justify-between group hover:border-tp-red/20 transition-all hover:shadow-xl">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-tp-red/10 text-tp-red rounded-xl flex items-center justify-center group-hover:-rotate-6 transition-transform">
-                      <Users className="w-5 h-5" />
+                <div className="bg-white h-20 px-4 rounded-xl border border-tp-gray-soft shadow-sm flex items-center justify-between gap-3 hover:border-tp-red/20 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 bg-tp-red/10 text-tp-red rounded-lg flex items-center justify-center shrink-0">
+                      <Users className="w-4 h-4" />
                     </div>
-                    <div>
-                      <h3 className="font-bold text-tp-blue text-base">Red Externa</h3>
-                      <p className="text-[10px] text-tp-blue/40 font-bold uppercase tracking-tighter">Agentes/Influencers</p>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-tp-blue text-xs truncate">Red Externa</h3>
+                      <p className="text-[9px] text-tp-blue/40 font-bold uppercase tracking-tighter truncate">Agentes/Influencers</p>
                     </div>
                   </div>
-                  <div className="relative w-28">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-tp-blue/30 font-bold text-xs">€</span>
-                    <input 
-                      type="number" 
+                  <div className="relative w-24 shrink-0">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-tp-blue/30 font-bold text-xs">€</span>
+                    <input
+                      type="number"
                       step="0.01"
                       value={globalAgentePrice}
                       onChange={e => setGlobalAgentePrice(Number(e.target.value))}
-                      className="w-full pl-7 pr-3 py-2 text-right bg-gray-50 border-2 border-transparent focus:border-tp-red/20 rounded-lg focus:outline-none font-bold text-lg text-tp-blue transition-all"
+                      className="w-full pl-6 pr-2 py-1.5 text-right bg-gray-50 border-2 border-transparent focus:border-tp-red/20 rounded-lg focus:outline-none font-bold text-sm text-tp-blue transition-all"
                     />
                   </div>
                 </div>
@@ -404,7 +440,15 @@ export function OfertasSalidas() {
                       transition={{ duration: 0.3 }}
                     >
                       {activePriceTab === 'agentes' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                          <TarifaBaseCard
+                            icon={Users}
+                            title="Tarifa Base Agentes"
+                            subtitle="Aplica a agentes sin tarifa personalizada"
+                            value={globalAgentePrice}
+                            onChange={setGlobalAgentePrice}
+                          />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {agentes.map(agente => (
                             <div key={agente.id} className="flex items-center justify-between p-5 bg-gray-50 rounded-[2rem] border border-tp-gray-soft hover:border-tp-blue/30 transition-all group">
                               <div className="flex items-center gap-4">
@@ -429,11 +473,20 @@ export function OfertasSalidas() {
                               </div>
                             </div>
                           ))}
+                          </div>
                         </div>
                       )}
 
                       {activePriceTab === 'partners' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                          <TarifaBaseCard
+                            icon={Building2}
+                            title="Tarifa Base Partners B2B"
+                            subtitle="Aplica a partners sin tarifa personalizada"
+                            value={globalB2BPrice}
+                            onChange={setGlobalB2BPrice}
+                          />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {partners.map(partner => (
                             <div key={partner.id} className="flex items-center justify-between p-5 bg-gray-50 rounded-[2rem] border border-tp-gray-soft hover:border-tp-blue/30 transition-all group">
                               <div className="flex items-center gap-4">
@@ -458,34 +511,18 @@ export function OfertasSalidas() {
                               </div>
                             </div>
                           ))}
+                          </div>
                         </div>
                       )}
 
                       {activePriceTab === 'influencers' && (
-                        <div className="max-w-xl mx-auto">
-                          <div className="flex items-center justify-between p-5 bg-gray-50 rounded-[2rem] border border-tp-gray-soft hover:border-tp-red/30 transition-all group">
-                            <div className="flex items-center gap-4">
-                              <div className="w-12 h-12 bg-tp-red/10 text-tp-red rounded-2xl flex items-center justify-center shadow-lg shadow-tp-red/10 group-hover:scale-110 transition-transform">
-                                <Star className="w-6 h-6" />
-                              </div>
-                              <div>
-                                <p className="font-black text-tp-blue">Tarifa Base Influencers</p>
-                                <p className="text-[10px] text-tp-blue/40 font-bold uppercase tracking-widest">Aplica a todos los influencers</p>
-                              </div>
-                            </div>
-                            <div className="relative w-32">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-tp-blue/30 font-black text-sm">€</span>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={influencerPrice}
-                                onChange={e => setInfluencerPrice(Number(e.target.value))}
-                                className="w-full pl-8 pr-4 py-3 text-right bg-white border-2 border-transparent focus:border-tp-red/20 rounded-2xl focus:outline-none font-black text-tp-blue transition-all shadow-sm"
-                                placeholder="0.00"
-                              />
-                            </div>
-                          </div>
-                        </div>
+                        <TarifaBaseCard
+                          icon={Star}
+                          title="Tarifa Base Influencers"
+                          subtitle="Aplica a todos los influencers"
+                          value={influencerPrice}
+                          onChange={setInfluencerPrice}
+                        />
                       )}
                     </motion.div>
                   </AnimatePresence>
