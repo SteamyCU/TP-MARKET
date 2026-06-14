@@ -83,8 +83,10 @@ y de los pendientes para dejarla lista para producción.
       políticas de acceso para la subida de ID/Pasaporte de agentes).
 - [x] Confirmar que **"Confirm email"** sigue desactivado en
       Authentication → Providers → Email (si no, los registros nuevos quedan sin confirmar).
-- [ ] Configurar **SMTP propio** (p. ej. Resend) para evitar el límite de
-      envío de correos de Supabase (~2-4/hora en el plan gratuito) antes de producción.
+- [x] Configurar **SMTP propio** (Resend) para evitar el límite de envío de
+      correos de Supabase (~2-4/hora en el plan gratuito). Dominio
+      `topaquete.com` verificado en Resend (SPF + DKIM) y SMTP de Resend
+      conectado en Authentication → SMTP Settings de Supabase.
 
 ### Funcionalidad pendiente en código
 
@@ -92,6 +94,10 @@ y de los pendientes para dejarla lista para producción.
       en Supabase con credenciales de Google Cloud Console).
 - [x] **Subida de ID/Pasaporte en `/unirse`:** conectado a **Supabase Storage**
       (bucket privado `documentos-identidad`), migración aplicada.
+- [x] **Recuperación de contraseña:** enlace "¿Olvidaste tu contraseña?" en
+      `/login` (`mode=forgot`) que envía un correo de recuperación vía
+      `supabase.auth.resetPasswordForEmail`, y página `/reset-password` para
+      definir la nueva contraseña (`supabase.auth.updateUser`).
 
 ### Despliegue
 

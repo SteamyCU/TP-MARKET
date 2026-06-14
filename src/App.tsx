@@ -41,7 +41,7 @@ import { ProgramaAfiliados } from './pages/ProgramaAfiliados';
 import { Unirse } from './pages/Unirse';
 import { ScrollToTop } from './components/ScrollToTop';
 import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
-import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail } from './supabase';
+import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
 import { cn } from './lib/utils';
 import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
@@ -484,13 +484,15 @@ function Login() {
   const navigate = useNavigate();
   const mode = searchParams.get('mode') || 'login';
   const isLogin = mode === 'login';
-  
+  const isForgot = mode === 'forgot';
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   React.useEffect(() => {
     const refCode = searchParams.get('ref');
@@ -519,6 +521,29 @@ function Login() {
     } catch (err: any) {
       console.error("Login error:", err);
       setError('No se pudo iniciar el acceso con Google. Por favor, inténtalo de nuevo o usa tu correo y contraseña.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      setError('Por favor, escribe tu correo electrónico.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    clearError();
+
+    try {
+      const { error: resetError } = await resetPasswordForEmail(email);
+      if (resetError) throw resetError;
+      setResetSent(true);
+    } catch (err: any) {
+      console.error("Reset password error:", err);
+      setError('Ocurrió un error al enviar el correo. Verifica el correo e intenta de nuevo.');
     } finally {
       setIsLoading(false);
     }
@@ -587,10 +612,12 @@ function Login() {
             <span className="text-tp-red">P</span>
           </div>
           <h1 className="text-3xl font-black text-tp-blue tracking-tight mb-2">
-            {isLogin ? '¡Hola de nuevo!' : 'Crea tu cuenta'}
+            {isForgot ? '¿Olvidaste tu contraseña?' : isLogin ? '¡Hola de nuevo!' : 'Crea tu cuenta'}
           </h1>
           <p className="text-tp-blue/60 font-medium">
-            {isLogin ? 'Accede a tu panel de control de To Paquete.' : 'Empieza a enviar paquetes a Cuba hoy mismo.'}
+            {isForgot
+              ? 'Escribe tu correo y te enviaremos un enlace para restablecerla.'
+              : isLogin ? 'Accede a tu panel de control de To Paquete.' : 'Empieza a enviar paquetes a Cuba hoy mismo.'}
           </p>
         </div>
 
@@ -601,8 +628,36 @@ function Login() {
           </div>
         )}
 
+        {isForgot ? (
+          resetSent ? (
+            <div className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3 text-green-700 animate-in fade-in slide-in-from-top-2">
+              <CheckCircle2 className="w-5 h-5 shrink-0" />
+              <p className="text-sm font-bold">
+                Si existe una cuenta con ese correo, te hemos enviado un enlace para restablecer tu contraseña. Revisa tu bandeja de entrada (y la carpeta de spam).
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <input
+                type="email"
+                placeholder="Tu correo electrónico"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="w-full px-6 py-4 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
+              />
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-tp-blue text-white py-4 rounded-2xl font-black hover:bg-[#004a78] transition-all shadow-lg shadow-tp-blue/20 disabled:opacity-50"
+              >
+                {isLoading ? 'Enviando...' : 'Enviar enlace de recuperación'}
+              </button>
+            </form>
+          )
+        ) : (
         <div className="space-y-4">
-          <button 
+          <button
             onClick={handleLogin}
             disabled={isLoading}
             className="w-full flex items-center justify-center gap-4 bg-white border-2 border-tp-gray-soft py-4 rounded-2xl font-black text-tp-blue hover:bg-gray-50 transition-all disabled:opacity-50"
@@ -621,8 +676,8 @@ function Login() {
           </div>
 
           <form onSubmit={handleEmailAuth} className="space-y-4">
-            <input 
-              type="email" 
+            <input
+              type="email"
               placeholder="Tu correo electrónico"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -667,6 +722,17 @@ function Login() {
                 </button>
               </div>
             )}
+            {isLogin && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => navigate('/login?mode=forgot')}
+                  className="text-sm font-bold text-tp-blue/40 hover:text-tp-red transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+            )}
             <button
               type="submit"
               disabled={isLoading}
@@ -676,29 +742,170 @@ function Login() {
             </button>
           </form>
         </div>
+        )}
 
         <div className="mt-10 text-center space-y-4">
           <p className="text-sm font-bold text-tp-blue/40">
-            {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
-            <button 
-              onClick={() => navigate(`/login?mode=${isLogin ? 'register' : 'login'}`)}
-              className="ml-2 text-tp-red hover:underline"
-            >
-              {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
-            </button>
+            {isForgot ? (
+              <button
+                onClick={() => navigate('/login?mode=login')}
+                className="text-tp-red hover:underline"
+              >
+                Volver a iniciar sesión
+              </button>
+            ) : (
+              <>
+                {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
+                <button
+                  onClick={() => navigate(`/login?mode=${isLogin ? 'register' : 'login'}`)}
+                  className="ml-2 text-tp-red hover:underline"
+                >
+                  {isLogin ? 'Regístrate aquí' : 'Inicia sesión'}
+                </button>
+              </>
+            )}
           </p>
-          
-          <div className="pt-6 border-t border-tp-gray-soft">
-            <p className="text-xs font-black text-tp-blue/30 uppercase tracking-widest mb-3">¿Eres Agente o Influencer?</p>
-            <button 
-              onClick={() => navigate('/unirse')}
-              className="inline-flex items-center gap-2 text-tp-blue font-black hover:text-tp-red transition-colors group"
+
+          {!isForgot && (
+            <div className="pt-6 border-t border-tp-gray-soft">
+              <p className="text-xs font-black text-tp-blue/30 uppercase tracking-widest mb-3">¿Eres Agente o Influencer?</p>
+              <button
+                onClick={() => navigate('/unirse')}
+                className="inline-flex items-center gap-2 text-tp-blue font-black hover:text-tp-red transition-colors group"
+              >
+                ÚNETE AL PROGRAMA DE AFILIADOS
+                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResetPassword() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden. Vuelve a escribirlas.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await updatePassword(password);
+      setSuccess(true);
+      setTimeout(() => navigate('/dashboard'), 2000);
+    } catch (err: any) {
+      console.error("Update password error:", err);
+      setError('Ocurrió un error al actualizar la contraseña. Intenta de nuevo.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-tp-blue-light/30 p-4">
+      <div className="max-w-md w-full bg-white rounded-[40px] border border-tp-gray-soft p-10 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+        <div className="text-center mb-10">
+          <div className="text-5xl font-black italic tracking-tighter flex justify-center mb-6">
+            <span className="text-tp-blue">T</span>
+            <span className="text-tp-red">P</span>
+          </div>
+          <h1 className="text-3xl font-black text-tp-blue tracking-tight mb-2">Nueva contraseña</h1>
+          <p className="text-tp-blue/60 font-medium">Escribe tu nueva contraseña para continuar.</p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-tp-red animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <p className="text-sm font-bold">{error}</p>
+          </div>
+        )}
+
+        {success ? (
+          <div className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3 text-green-700 animate-in fade-in slide-in-from-top-2">
+            <CheckCircle2 className="w-5 h-5 shrink-0" />
+            <p className="text-sm font-bold">¡Contraseña actualizada! Te llevamos a tu panel...</p>
+          </div>
+        ) : loading ? (
+          <p className="text-center text-tp-blue/40 font-bold">Cargando...</p>
+        ) : !user ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-tp-red">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <p className="text-sm font-bold">Este enlace no es válido o ha expirado. Solicita uno nuevo.</p>
+            </div>
+            <button
+              onClick={() => navigate('/login?mode=forgot')}
+              className="w-full bg-tp-blue text-white py-4 rounded-2xl font-black hover:bg-[#004a78] transition-all shadow-lg shadow-tp-blue/20"
             >
-              ÚNETE AL PROGRAMA DE AFILIADOS
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              Solicitar nuevo enlace
             </button>
           </div>
-        </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Nueva contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full px-6 py-4 pr-14 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-tp-blue/40 hover:text-tp-blue transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Repite la nueva contraseña"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                className="w-full px-6 py-4 pr-14 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                className="absolute right-5 top-1/2 -translate-y-1/2 text-tp-blue/40 hover:text-tp-blue transition-colors"
+              >
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-tp-blue text-white py-4 rounded-2xl font-black hover:bg-[#004a78] transition-all shadow-lg shadow-tp-blue/20 disabled:opacity-50"
+            >
+              {isLoading ? 'Guardando...' : 'Guardar nueva contraseña'}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
@@ -729,6 +936,7 @@ export default function App() {
           <Route path="/medicinas-exentas" element={<PublicLayout><MedicinasExentas /></PublicLayout>} />
           <Route path="/unirse" element={<Unirse />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="recepcion" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner', 'logistica']}><Recepcion /></RoleRoute>} />
