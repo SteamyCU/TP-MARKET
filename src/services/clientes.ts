@@ -139,6 +139,18 @@ export function subscribeClientes(
   };
 }
 
+/** Carga varios clientes por id (usado para exportaciones que necesitan datos completos). */
+export async function listClientesByIds(ids: string[]): Promise<FlatCliente[]> {
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (unicos.length === 0) return [];
+  const { data, error } = await supabase.from('clientes').select('*').in('id', unicos);
+  if (error) {
+    console.error('Error cargando clientes por id:', error.message);
+    return [];
+  }
+  return (data as ClienteRow[]).map(rowToCliente);
+}
+
 export async function getCliente(id: string): Promise<FlatCliente | null> {
   const { data, error } = await supabase.from('clientes').select('*').eq('id', id).maybeSingle();
   if (error || !data) return null;

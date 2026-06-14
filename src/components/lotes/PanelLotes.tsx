@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Plus, Search, X, Printer, Download, Truck, Lock, PackageCheck,
-  AlertTriangle, CheckCircle2, Boxes, RefreshCw, Trash2,
+  AlertTriangle, CheckCircle2, Boxes, RefreshCw, Trash2, FileSpreadsheet,
 } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { cn } from '../../lib/utils';
@@ -9,6 +9,7 @@ import { exportarCSV } from '../../lib/csv';
 import { ChipEstado } from '../ChipEstado';
 import { CambioEstadoModal } from '../CambioEstadoModal';
 import { LoteFormModal } from './LoteFormModal';
+import { ExportarPacktrackModal } from './ExportarPacktrackModal';
 import { ManifiestoLote } from './ManifiestoLote';
 import { HojaEntrega } from '../documentos/HojaEntrega';
 import {
@@ -21,9 +22,15 @@ import type { Lote } from '../../types/models';
 export interface PaquetePanel extends PaqueteEnLote {
   destino?: string;
   contenido?: string;
+  descripcion?: string | null;
+  clienteId?: string | null;
   clienteNombre?: string;
+  destinatarioId?: string | null;
   destinatarioNombre?: string;
   destinatarioDocumento?: string;
+  destinatarioDireccion?: string;
+  destinatarioTelefono?: string;
+  precioAplicado?: number | null;
   loteId?: string | null;
   loteCodigo?: string | null;
 }
@@ -40,6 +47,7 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
   const [busqueda, setBusqueda] = useState('');
   const [seleccionAgregar, setSeleccionAgregar] = useState<Set<string>>(new Set());
   const [isCambioEstadoPaquetesOpen, setIsCambioEstadoPaquetesOpen] = useState(false);
+  const [isExportarPacktrackOpen, setIsExportarPacktrackOpen] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
 
@@ -263,6 +271,9 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
                     <button onClick={handleExportar} disabled={paquetesDelLote.length === 0} className="px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl font-bold text-xs inline-flex items-center gap-1.5 hover:bg-tp-gray-soft transition-colors disabled:opacity-50">
                       <Download className="w-4 h-4" /> Exportar CSV
                     </button>
+                    <button onClick={() => setIsExportarPacktrackOpen(true)} disabled={paquetesDelLote.length === 0} className="px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl font-bold text-xs inline-flex items-center gap-1.5 hover:bg-tp-gray-soft transition-colors disabled:opacity-50">
+                      <FileSpreadsheet className="w-4 h-4" /> Exportar para PackTrack
+                    </button>
                     {paquetesDelLote.length > 0 && (
                       <button onClick={() => setIsCambioEstadoPaquetesOpen(true)} disabled={isWorking} className="px-3 py-2 bg-tp-blue-light text-tp-blue rounded-xl font-bold text-xs inline-flex items-center gap-1.5 hover:bg-tp-gray-soft transition-colors disabled:opacity-50">
                         <RefreshCw className="w-4 h-4" /> Estado Paquetes
@@ -402,6 +413,16 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
         tipoCambio="lote"
         onDone={(estado, n) => notificar('ok', `${n} paquetes del lote actualizados a "${estado}".`)}
       />
+
+      {/* Modal exportar para PackTrack */}
+      {lote && (
+        <ExportarPacktrackModal
+          open={isExportarPacktrackOpen}
+          onClose={() => setIsExportarPacktrackOpen(false)}
+          lote={lote}
+          paquetes={paquetesDelLote}
+        />
+      )}
 
       {/* Modal agregar paquetes */}
       {isAgregarOpen && lote && (

@@ -20,8 +20,10 @@ interface Paquete {
   destino: string;
   estado: string;
   contenido: string;
+  descripcion?: string | null;
   detallesIncidencia?: string;
   createdAt: any;
+  clienteId?: string | null;
   clienteNombre?: string;
   clienteTelefono?: string;
   destinatarioNombre?: string;
@@ -37,6 +39,7 @@ interface Paquete {
   volumenCm3?: number | null;
   valorDeclarado?: number | null;
   precioFinal?: number | null;
+  precioAplicado?: number | null;
   loteId?: string | null;
   loteCodigo?: string | null;
 }

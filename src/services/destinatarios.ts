@@ -108,6 +108,18 @@ export function subscribeDestinatarios(
   };
 }
 
+/** Carga varios destinatarios por id (usado para exportaciones que necesitan datos completos). */
+export async function listDestinatariosByIds(ids: string[]): Promise<FlatDestinatario[]> {
+  const unicos = [...new Set(ids.filter(Boolean))];
+  if (unicos.length === 0) return [];
+  const { data, error } = await supabase.from('destinatarios').select('*').in('id', unicos);
+  if (error) {
+    console.error('Error cargando destinatarios por id:', error.message);
+    return [];
+  }
+  return (data as DestinatarioRow[]).map(rowToDestinatario);
+}
+
 export async function getDestinatario(id: string): Promise<FlatDestinatario | null> {
   const { data, error } = await supabase.from('destinatarios').select('*').eq('id', id).maybeSingle();
   if (error || !data) return null;
