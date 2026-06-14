@@ -18,7 +18,7 @@ import {
   MessageCircle
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
-import { loginWithGoogle } from '../supabase';
+import { loginWithGoogle, loginWithEmail, registerWithEmail } from '../supabase';
 import { crearSolicitudAfiliado } from '../services/afiliados';
 import { cn } from '../lib/utils';
 
@@ -34,6 +34,13 @@ export function Unirse() {
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
+
+  // Email auth state (registro/login dentro del flujo de /unirse)
+  const [authMode, setAuthMode] = useState<'register' | 'login'>('register');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -76,6 +83,42 @@ export function Unirse() {
       // Step will change via useEffect
     } catch (error) {
       console.error("Error signing in:", error);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setAuthError('Completa tu correo y contraseña.');
+      return;
+    }
+
+    setIsAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (authMode === 'register') {
+        await registerWithEmail(email, password);
+      } else {
+        await loginWithEmail(email, password);
+      }
+      // Step will change a 'form' via el useEffect que detecta `user`
+    } catch (err: any) {
+      console.error("Email auth error:", err);
+      const msg: string = err?.message || '';
+      if (msg.includes('already registered') || msg.includes('already in use')) {
+        setAuthError('Este correo ya está registrado. Inicia sesión en su lugar.');
+        setAuthMode('login');
+      } else if (msg.includes('Invalid login credentials')) {
+        setAuthError('Correo o contraseña incorrectos.');
+      } else if (msg.includes('Password should be at least')) {
+        setAuthError('La contraseña debe tener al menos 6 caracteres.');
+      } else if (msg.includes('security purposes') || msg.includes('after')) {
+        setAuthError('Por seguridad, espera un minuto antes de volver a intentarlo.');
+      } else {
+        setAuthError('Ocurrió un error. Verifica tus datos e intenta de nuevo.');
+      }
+    } finally {
+      setIsAuthLoading(false);
     }
   };
 
@@ -266,16 +309,47 @@ export function Unirse() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <input 
-                  type="email" 
+              {authError && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl text-tp-red text-sm font-bold">
+                  {authError}
+                </div>
+              )}
+
+              <form onSubmit={handleEmailAuth} className="space-y-4">
+                <input
+                  type="email"
                   placeholder="Tu correo electrónico"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                   className="w-full px-6 py-4 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
                 />
-                <button className="w-full bg-tp-blue text-white py-4 rounded-2xl font-black hover:bg-[#004a78] transition-all shadow-lg shadow-tp-blue/20">
-                  Continuar con Email
+                <input
+                  type="password"
+                  placeholder="Tu contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full px-6 py-4 bg-gray-50 border border-tp-gray-soft rounded-2xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 font-bold"
+                />
+                <button
+                  type="submit"
+                  disabled={isAuthLoading}
+                  className="w-full bg-tp-blue text-white py-4 rounded-2xl font-black hover:bg-[#004a78] transition-all shadow-lg shadow-tp-blue/20 disabled:opacity-50"
+                >
+                  {isAuthLoading
+                    ? 'Procesando...'
+                    : authMode === 'register' ? 'Crear cuenta con Email' : 'Acceder con Email'}
                 </button>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => { setAuthMode(authMode === 'register' ? 'login' : 'register'); setAuthError(null); }}
+                  className="w-full text-center text-sm font-bold text-tp-blue/60 hover:text-tp-blue transition-colors"
+                >
+                  {authMode === 'register' ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+                </button>
+              </form>
             </motion.div>
           )}
 

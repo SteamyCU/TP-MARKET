@@ -495,6 +495,10 @@ function Login() {
     if (refCode) {
       localStorage.setItem('pending_ref', refCode);
     }
+    const roleParam = searchParams.get('role');
+    if (roleParam && ['agente', 'influencer', 'partner', 'cliente'].includes(roleParam)) {
+      localStorage.setItem('pending_role', roleParam);
+    }
   }, [searchParams]);
 
   React.useEffect(() => {
