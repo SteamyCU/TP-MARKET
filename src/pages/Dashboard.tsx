@@ -4,11 +4,10 @@ import { Package, AlertCircle, CheckCircle2, Clock, ArrowRight, Users, Wallet, S
 import { ChipEstado } from '../components/ChipEstado';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
-import { db } from '../firebase';
-import { collection, query, onSnapshot } from 'firebase/firestore';
 import { subscribeProfiles, getProfile } from '../services/profiles';
 import { getClienteByEmail } from '../services/clientes';
 import { subscribePaquetes } from '../services/paquetes';
+import { subscribeLotes } from '../services/lotes';
 import { handleFirestoreError, OperationType } from '../lib/firestore-errors';
 import { InfluencerDashboard } from '../components/dashboard/InfluencerDashboard';
 import { PartnerB2BDashboard } from '../components/dashboard/PartnerB2BDashboard';
@@ -53,8 +52,8 @@ export function Dashboard() {
     let unsubscribeLotes: (() => void) | undefined;
 
     if (role === 'admin') {
-      unsubscribeLotes = onSnapshot(query(collection(db, 'lotes')), (snap) => {
-        if (isMounted) setLotes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      unsubscribeLotes = subscribeLotes({}, (data) => {
+        if (isMounted) setLotes(data);
       });
       // Fetch all users for stats
       unsubscribeUsers = subscribeProfiles({}, (profiles) => {

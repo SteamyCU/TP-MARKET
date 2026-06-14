@@ -12,13 +12,14 @@
 //
 // settings/negocio sigue en Firestore (colección 'settings', fase posterior).
 
-import { doc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { supabase, auth } from '../supabase';
 import { CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { setEmpresa } from '../lib/empresa';
 import { registrarAuditoria } from './auditoria';
 import { addEvento } from './eventos';
+import { addPago } from './pagos';
 import type { EntregaPaquete, MedidasPaquete } from '../types/models';
 import type { EstadoPago } from '../constants/estados';
 
@@ -454,9 +455,9 @@ export async function crearPaquete(input: NuevoPaqueteInput): Promise<string> {
   }
   const nuevoId = (created as { id: string }).id;
 
-  // Pago inicial (la colección 'pagos' sigue en Firestore; fase posterior).
+  // Pago inicial (tabla 'pagos' en Supabase, paqueteId = tracking).
   if (importePagado > 0) {
-    await addDoc(collection(db, 'pagos'), {
+    await addPago({
       paqueteId: input.tracking,
       monto: importePagado,
       metodo: input.metodoPago,

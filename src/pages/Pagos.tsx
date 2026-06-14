@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
+import { subscribePagos } from '../services/pagos';
 import { Wallet, CreditCard, Banknote, Download, CheckCircle2, Clock, Printer } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -61,16 +60,10 @@ export function Pagos() {
   };
 
   useEffect(() => {
-    const q = query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(500));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const pagosData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Pago[];
-      setPagos(pagosData);
+    const unsubscribe = subscribePagos({ limit: 500 }, (pagosData) => {
+      setPagos(pagosData as unknown as Pago[]);
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 

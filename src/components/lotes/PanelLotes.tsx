@@ -3,9 +3,7 @@ import {
   Plus, Search, X, Printer, Download, Truck, Lock, PackageCheck,
   AlertTriangle, CheckCircle2, Boxes, RefreshCw, Trash2,
 } from 'lucide-react';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { useReactToPrint } from 'react-to-print';
-import { db } from '../../firebase';
 import { cn } from '../../lib/utils';
 import { exportarCSV } from '../../lib/csv';
 import { ChipEstado } from '../ChipEstado';
@@ -15,7 +13,7 @@ import { ManifiestoLote } from './ManifiestoLote';
 import { HojaEntrega } from '../documentos/HojaEntrega';
 import {
   agregarPaquetesALote, quitarPaqueteDeLote, cambiarEstadoLote,
-  guardarTotalesLote, calcularTotalesLote, type PaqueteEnLote,
+  guardarTotalesLote, calcularTotalesLote, subscribeLotes, type PaqueteEnLote,
 } from '../../services/lotes';
 import { ESTADOS_FINALES } from '../../constants/estados';
 import type { Lote } from '../../types/models';
@@ -51,11 +49,8 @@ export function PanelLotes({ paquetes }: PanelLotesProps) {
   const imprimirHojaEntrega = useReactToPrint({ contentRef: hojaEntregaRef });
 
   useEffect(() => {
-    const q = query(collection(db, 'lotes'), orderBy('createdAt', 'desc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data: Lote[] = [];
-      snapshot.forEach(doc => data.push({ id: doc.id, ...doc.data() } as Lote));
-      setLotes(data);
+    const unsubscribe = subscribeLotes({}, (data) => {
+      setLotes(data as unknown as Lote[]);
     });
     return () => unsubscribe();
   }, []);

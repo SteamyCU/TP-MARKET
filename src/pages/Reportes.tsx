@@ -6,11 +6,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { collection, query, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import { db } from '../firebase';
 import { subscribeProfiles } from '../services/profiles';
 import { subscribeClientes } from '../services/clientes';
 import { subscribePaquetes } from '../services/paquetes';
+import { subscribePagos } from '../services/pagos';
+import { subscribeGastos } from '../services/gastos';
+import { subscribeLotes } from '../services/lotes';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
 import { exportarExcel } from '../lib/excel';
@@ -31,10 +32,10 @@ export function Reportes() {
   useEffect(() => {
     const subs = [
       subscribePaquetes({ limit: 1000 }, (paquetes) => setPaquetes(paquetes)),
-      onSnapshot(query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(1000)), s => setPagos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
-      onSnapshot(query(collection(db, 'gastos')), s => setGastos(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      subscribePagos({ limit: 1000 }, (data) => setPagos(data)),
+      subscribeGastos((data) => setGastos(data)),
       subscribeClientes({}, (clientes) => setClientes(clientes)),
-      onSnapshot(query(collection(db, 'lotes')), s => setLotes(s.docs.map(d => ({ id: d.id, ...d.data() })))),
+      subscribeLotes({}, (data) => setLotes(data)),
       subscribeProfiles({}, (profiles) => setUsuarios(profiles)),
     ];
     return () => subs.forEach(u => u());

@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Receipt, AlertCircle } from 'lucide-react';
-import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { db } from '../firebase';
 import { cn } from '../lib/utils';
 import { CATEGORIAS_GASTO } from '../constants/estados';
 import { registrarGasto } from '../services/gastos';
+import { subscribeLotes } from '../services/lotes';
 
 interface GastoFormModalProps {
   open: boolean;
@@ -31,11 +30,8 @@ export function GastoFormModal({ open, onClose, onCreated }: GastoFormModalProps
 
   useEffect(() => {
     if (!open) return;
-    const q = query(collection(db, 'lotes'), where('estado', 'in', ['Abierto', 'Cerrado', 'En Tránsito']));
-    const unsub = onSnapshot(q, (snap) => {
-      const data: { id: string; codigo: string; ruta?: string }[] = [];
-      snap.forEach(d => data.push({ id: d.id, codigo: d.data().codigo, ruta: d.data().ruta }));
-      setLotes(data);
+    const unsub = subscribeLotes({ estados: ['Abierto', 'Cerrado', 'En Tránsito'] }, (data) => {
+      setLotes(data.map(l => ({ id: l.id, codigo: l.codigo, ruta: l.ruta || undefined })));
     });
     return () => unsub();
   }, [open]);

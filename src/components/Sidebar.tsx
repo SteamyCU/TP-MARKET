@@ -22,10 +22,9 @@ import {
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { db } from '../firebase';
 import { logout } from '../supabase';
 import { useAuth } from '../AuthContext';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { subscribePagosPendientesCount } from '../services/pagos';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -38,9 +37,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   useEffect(() => {
     if (role === 'admin') {
-      const q = query(collection(db, 'pagos'), where('estado', '==', 'Pendiente'));
-      const unsub = onSnapshot(q, (snap) => {
-        setPendingPayments(snap.size);
+      const unsub = subscribePagosPendientesCount((count) => {
+        setPendingPayments(count);
       });
       return () => unsub();
     }

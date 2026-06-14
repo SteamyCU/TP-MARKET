@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { collection, query, onSnapshot, orderBy, limit, doc, updateDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { subscribeProfiles } from '../services/profiles';
 import { subscribePaquetes } from '../services/paquetes';
+import { subscribePagos, confirmarPago } from '../services/pagos';
+import { subscribeGastos } from '../services/gastos';
 import { 
   Calculator, 
   TrendingUp, 
@@ -56,7 +58,7 @@ const COLORS = ['#00314F', '#EE293B', '#004a78', '#D91F33', '#64748B'];
 const toDateSafe = (f: any): Date | null => (f?.toDate ? f.toDate() : f instanceof Date ? f : null);
 
 export function Contabilidad() {
-  const { user, role } = useAuth();
+  const { role } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const agentIdParam = searchParams.get('agente');
   
@@ -110,9 +112,8 @@ export function Contabilidad() {
     });
 
     // Fetch Pagos
-    const qPagos = query(collection(db, 'pagos'), orderBy('fecha', 'desc'), limit(500));
-    const unsubPagos = onSnapshot(qPagos, (snap) => {
-      setPagos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const unsubPagos = subscribePagos({ limit: 500 }, (data) => {
+      setPagos(data);
       setLoading(false);
     });
 
@@ -122,9 +123,7 @@ export function Contabilidad() {
     });
 
     // Gastos operativos
-    const unsubGastos = onSnapshot(query(collection(db, 'gastos')), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-      data.sort((a, b) => (toDateSafe(b.fecha)?.getTime() || 0) - (toDateSafe(a.fecha)?.getTime() || 0));
+    const unsubGastos = subscribeGastos((data) => {
       setGastos(data);
     });
 
@@ -161,11 +160,7 @@ export function Contabilidad() {
 
   const handleConfirmPayment = async (pagoId: string) => {
     try {
-      await updateDoc(doc(db, 'pagos', pagoId), {
-        estado: 'Confirmado',
-        confirmadoPor: user?.uid,
-        fechaConfirmacion: serverTimestamp()
-      });
+      await confirmarPago(pagoId);
     } catch (error) {
       console.error("Error confirming payment:", error);
     }
