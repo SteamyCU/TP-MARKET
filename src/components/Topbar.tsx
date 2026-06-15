@@ -126,7 +126,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
                 <div className="py-2">
                   {afiliadosPend > 0 && (
                     <button
-                      onClick={() => irA('/dashboard/negocios?tab=altas')}
+                      onClick={() => irA('/dashboard/solicitudes-afiliados')}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-tp-blue-light/30 transition-colors text-left"
                     >
                       <div className="w-9 h-9 rounded-xl bg-tp-red/10 text-tp-red flex items-center justify-center shrink-0">

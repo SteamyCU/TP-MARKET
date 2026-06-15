@@ -919,6 +919,7 @@ const MedicinasExentas = lazyPage(() => import('./pages/MedicinasExentas'), 'Med
 const ComisionesAgente = lazyPage(() => import('./pages/ComisionesAgente'), 'ComisionesAgente');
 const Unirse = lazyPage(() => import('./pages/Unirse'), 'Unirse');
 const Negocios = lazyPage(() => import('./pages/Negocios'), 'Negocios');
+const SolicitudesAfiliados = lazyPage(() => import('./pages/SolicitudesAfiliados'), 'SolicitudesAfiliados');
 const Layout = lazyPage(() => import('./components/Layout'), 'Layout');
 
 const PageLoader = () => (
@@ -957,6 +958,7 @@ export default function App() {
             <Route path="recepcion" element={<RoleRoute allowedRoles={['admin', 'agente', 'partner', 'logistica']}><Recepcion /></RoleRoute>} />
             <Route path="perfil" element={<Perfil />} />
             <Route path="negocios" element={<RoleRoute allowedRoles={['admin']}><Negocios /></RoleRoute>} />
+            <Route path="solicitudes-afiliados" element={<RoleRoute allowedRoles={['admin']}><SolicitudesAfiliados /></RoleRoute>} />
             <Route path="usuarios" element={<RoleRoute allowedRoles={['admin']}><Usuarios /></RoleRoute>} />
             <Route path="b2b" element={<RoleRoute allowedRoles={['admin']}><AdminB2B /></RoleRoute>} />
             <Route path="clientes" element={<RoleRoute allowedRoles={['admin', 'agente']}><Clientes /></RoleRoute>} />

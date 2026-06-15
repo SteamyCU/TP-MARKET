@@ -19,12 +19,14 @@ import {
   Send,
   Megaphone,
   Shield,
+  UserPlus,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { logout } from '../supabase';
 import { useAuth } from '../AuthContext';
 import { subscribePagosPendientesCount } from '../services/pagos';
+import { contarSolicitudesAfiliadoPendientes } from '../services/afiliados';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -34,6 +36,7 @@ interface SidebarProps {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { role, profile } = useAuth();
   const [pendingPayments, setPendingPayments] = useState(0);
+  const [pendingAfiliados, setPendingAfiliados] = useState(0);
 
   useEffect(() => {
     if (role === 'admin') {
@@ -44,9 +47,28 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   }, [role]);
 
+  useEffect(() => {
+    if (role !== 'admin') return;
+    let active = true;
+    const cargar = () => {
+      contarSolicitudesAfiliadoPendientes()
+        .then(count => { if (active) setPendingAfiliados(count); })
+        .catch(err => console.error('Error cargando solicitudes de afiliados:', err));
+    };
+    cargar();
+    const intervalo = setInterval(cargar, 60000);
+    return () => { active = false; clearInterval(intervalo); };
+  }, [role]);
+
   const adminItems = [
     { name: 'Dashboard Global', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Negocios', path: '/dashboard/negocios', icon: Building2 },
+    {
+      name: 'Solicitudes Afiliados',
+      path: '/dashboard/solicitudes-afiliados',
+      icon: UserPlus,
+      badge: pendingAfiliados > 0 ? pendingAfiliados : null,
+    },
     { name: 'Gestión Clientes', path: '/dashboard/clientes', icon: Users },
     { name: 'Marketing Clientes', path: '/dashboard/marketing', icon: Megaphone },
     { name: 'Solicitudes', path: '/dashboard/solicitudes', icon: Inbox },

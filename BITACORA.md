@@ -40,6 +40,7 @@ y de los pendientes para dejarla lista para producción.
 | 16 | Páginas públicas de modelos de negocio (Partner, Franquicia, Punto de Entrega) con formularios de contacto |
 | 17 | Precios Express por tipo de contenido (kg/unidad) en panel y calculadoras |
 | 18 | Panel de altas de afiliados (aprobar Agente/Influencer) y campana de notificaciones del admin |
+| 19 | Página dedicada de gestión de solicitudes de Agentes/Influencers con tabla, subtabs, modales y revocación |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -235,3 +236,24 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 - **Flujo Partner B2B:** una empresa solicita colaboración desde la página pública
   `/ser-partner` (formulario que guarda en `contactos_partners` con
   `tipo_solicitud='partner'`); el admin la ve en Negocios → "Solicitudes Web".
+
+### Fase 19 · Página dedicada de gestión de solicitudes de Agentes/Influencers
+
+- **Nueva ruta `/dashboard/solicitudes-afiliados`** (solo `admin`, vía `RoleRoute`):
+  `SolicitudesAfiliados.tsx` deja de ser una pestaña dentro de "Negocios" y pasa a
+  ser una página propia con su entrada en el menú lateral ("Solicitudes Afiliados",
+  con badge rojo del número de pendientes, refrescado cada 60s).
+- **Tabla** con columnas Fecha, Nombre, Tipo (Agente/Influencer), Red Social/Canal,
+  Seguidores, País, Estado y Acciones; fila expandible con email, WhatsApp, enlace
+  de perfil, resto de campos de `datos` y enlace al documento de identidad.
+- **Subtabs** por tipo de solicitud (Todos los tipos / Agentes / Influencers) además
+  del filtro por estado (Todas / Pendientes / Aprobadas / Rechazadas).
+- **Modales de confirmación:** "Aprobar" muestra el rol que se va a asignar antes de
+  confirmar; "Rechazar" permite indicar un motivo opcional que se guarda en
+  `datos.motivo_rechazo` y se muestra en el detalle de la solicitud.
+- **Nuevas acciones:** "Revocar" (aprobada → pendiente) y "Revisar de nuevo"
+  (rechazada → pendiente), usando `volverAPendienteSolicitudAfiliado` en
+  `src/services/afiliados.ts`. `rechazarSolicitudAfiliado` ahora acepta un motivo
+  opcional.
+- La campana de notificaciones del admin (`Topbar.tsx`) enlaza ahora directamente a
+  `/dashboard/solicitudes-afiliados` en lugar de `/dashboard/negocios?tab=altas`.

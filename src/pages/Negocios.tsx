@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Users, Building2, Star, ChevronRight, Inbox, UserPlus } from 'lucide-react';
+import { Users, Building2, Star, ChevronRight, Inbox } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Usuarios } from './Usuarios';
 import { AdminB2B } from './AdminB2B';
 import { ConfiguracionAfiliados } from './ConfiguracionAfiliados';
 import { SolicitudesB2B } from './SolicitudesB2B';
-import { SolicitudesAfiliados } from './SolicitudesAfiliados';
 
-type TabId = 'agentes' | 'b2b' | 'afiliados' | 'altas' | 'solicitudes';
+type TabId = 'agentes' | 'b2b' | 'afiliados' | 'solicitudes';
 
 export function Negocios() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -17,7 +16,7 @@ export function Negocios() {
   // Permite abrir una pestaña concreta vía ?tab= (lo usa la campana de avisos).
   useEffect(() => {
     const tab = searchParams.get('tab') as TabId | null;
-    if (tab && ['agentes', 'b2b', 'afiliados', 'altas', 'solicitudes'].includes(tab)) {
+    if (tab && ['agentes', 'b2b', 'afiliados', 'solicitudes'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -31,7 +30,6 @@ export function Negocios() {
   };
 
   const tabs = [
-    { id: 'altas', label: 'Altas de Afiliados', icon: UserPlus, description: 'Aprobar solicitudes de Agente e Influencer' },
     { id: 'agentes', label: 'Agentes Freelance', icon: Users, description: 'Gestión de agentes y sus oficinas' },
     { id: 'b2b', label: 'Partners B2B', icon: Building2, description: 'Directorio de socios y facturación' },
     { id: 'afiliados', label: 'Influencers / Afiliados', icon: Star, description: 'Configuración de niveles y comisiones' },
@@ -48,7 +46,7 @@ export function Negocios() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -89,7 +87,6 @@ export function Negocios() {
 
       {/* Tab Content */}
       <div className="mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {activeTab === 'altas' && <SolicitudesAfiliados />}
         {activeTab === 'agentes' && <Usuarios />}
         {activeTab === 'b2b' && <AdminB2B />}
         {activeTab === 'afiliados' && <ConfiguracionAfiliados />}

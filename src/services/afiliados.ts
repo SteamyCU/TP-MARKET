@@ -88,10 +88,25 @@ export async function aprobarSolicitudAfiliado(solicitud: SolicitudAfiliado): Pr
   if (error) throw error;
 }
 
-export async function rechazarSolicitudAfiliado(id: string): Promise<void> {
+export async function rechazarSolicitudAfiliado(solicitud: SolicitudAfiliado, motivo?: string): Promise<void> {
+  const datos = motivo
+    ? { ...solicitud.datos, motivo_rechazo: motivo }
+    : solicitud.datos;
   const { error } = await supabase
     .from('solicitudes_afiliado')
-    .update({ status: 'rechazado' })
+    .update({ status: 'rechazado', datos })
+    .eq('id', solicitud.id);
+  if (error) throw error;
+}
+
+/**
+ * Devuelve una solicitud aprobada o rechazada al estado 'pendiente' para que
+ * el admin pueda revisarla de nuevo (Revocar / Revisar de nuevo).
+ */
+export async function volverAPendienteSolicitudAfiliado(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('solicitudes_afiliado')
+    .update({ status: 'pendiente' })
     .eq('id', id);
   if (error) throw error;
 }
