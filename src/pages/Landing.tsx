@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
-  getTarifasEnvio, getTarifasTransporte, calcularPrecio,
-  TarifaEnvio, TarifaTransporteCuba,
+  getTarifasEnvio, getTarifasTransporte, getTarifasExpressContenido, calcularPrecio, calcularPrecioExpressContenido,
+  EXPRESS_CONTENIDO_POR_TIPO, TarifaEnvio, TarifaTransporteCuba, TarifaExpressContenido,
 } from '../services/tarifas';
 
 const faqs = [
@@ -79,6 +79,7 @@ const testimonials = [
 export function Landing() {
   const navigate = useNavigate();
   const [calcPeso, setCalcPeso] = useState(5);
+  const [calcCantidad, setCalcCantidad] = useState(1);
   const [calcDestino, setCalcDestino] = useState('La Habana');
   const [calcTipo, setCalcTipo] = useState('Normal');
   const [calcModo, setCalcModo] = useState<'Regular' | 'Express'>('Regular');
@@ -86,15 +87,17 @@ export function Landing() {
 
   const [tarifasEnvio, setTarifasEnvio] = useState<TarifaEnvio[]>([]);
   const [tarifasTransporte, setTarifasTransporte] = useState<TarifaTransporteCuba[]>([]);
+  const [tarifasExpressContenido, setTarifasExpressContenido] = useState<TarifaExpressContenido[]>([]);
   const [loadingTarifas, setLoadingTarifas] = useState(true);
 
   useEffect(() => {
     let active = true;
-    Promise.all([getTarifasEnvio(), getTarifasTransporte()])
-      .then(([envio, transporte]) => {
+    Promise.all([getTarifasEnvio(), getTarifasTransporte(), getTarifasExpressContenido()])
+      .then(([envio, transporte, expressContenido]) => {
         if (!active) return;
         setTarifasEnvio(envio);
         setTarifasTransporte(transporte);
+        setTarifasExpressContenido(expressContenido);
         const activos = transporte.filter(g => g.activo);
         if (activos.length > 0 && !activos.some(g => g.provincias.includes(calcDestino))) {
           setCalcDestino(activos[0].provincias[0]);
@@ -123,9 +126,16 @@ export function Landing() {
   }, [tarifasEnvio]);
 
   const calculo = useMemo(
-    () => calcularPrecio(calcPeso, calcModo === 'Express' ? 'express' : 'regular', calcDestino, tarifasEnvio, tarifasTransporte),
-    [calcPeso, calcModo, calcDestino, tarifasEnvio, tarifasTransporte]
+    () => calcularPrecio(calcPeso, 'regular', calcDestino, tarifasEnvio, tarifasTransporte),
+    [calcPeso, calcDestino, tarifasEnvio, tarifasTransporte]
   );
+
+  const calculoExpress = useMemo(
+    () => calcularPrecioExpressContenido(EXPRESS_CONTENIDO_POR_TIPO[calcTipo], calcPeso, calcCantidad, tarifasExpressContenido),
+    [calcTipo, calcPeso, calcCantidad, tarifasExpressContenido]
+  );
+
+  const expressPorUnidad = calcModo === 'Express' && calculoExpress?.tipoPrecio === 'unidad';
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -239,24 +249,45 @@ export function Landing() {
                 </div>
               ) : (
               <>
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <label className="text-xs font-black text-tp-blue/40 uppercase tracking-widest">Peso del Envío</label>
-                  <span className="text-tp-blue font-black text-lg">{calcPeso} kg</span>
+              {expressPorUnidad ? (
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-black text-tp-blue/40 uppercase tracking-widest">Cantidad de unidades</label>
+                    <span className="text-tp-blue font-black text-lg">{calcCantidad} ud.</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1" max="20" step="1"
+                    value={calcCantidad}
+                    onChange={(e) => setCalcCantidad(parseInt(e.target.value) || 1)}
+                    className="w-full h-2 bg-tp-gray-soft rounded-lg appearance-none cursor-pointer accent-tp-red"
+                  />
+                  <div className="flex justify-between mt-2 text-[10px] font-bold text-tp-blue/30 uppercase">
+                    <span>1 ud.</span>
+                    <span>10 ud.</span>
+                    <span>20 ud.</span>
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="1" max={pesoMaximo} step="0.5"
-                  value={calcPeso}
-                  onChange={(e) => setCalcPeso(parseFloat(e.target.value) || 0)}
-                  className="w-full h-2 bg-tp-gray-soft rounded-lg appearance-none cursor-pointer accent-tp-red"
-                />
-                <div className="flex justify-between mt-2 text-[10px] font-bold text-tp-blue/30 uppercase">
-                  <span>1 kg</span>
-                  <span>{Math.round(pesoMaximo / 2)} kg</span>
-                  <span>{pesoMaximo} kg</span>
+              ) : (
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="text-xs font-black text-tp-blue/40 uppercase tracking-widest">Peso del Envío</label>
+                    <span className="text-tp-blue font-black text-lg">{calcPeso} kg</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1" max={pesoMaximo} step="0.5"
+                    value={calcPeso}
+                    onChange={(e) => setCalcPeso(parseFloat(e.target.value) || 0)}
+                    className="w-full h-2 bg-tp-gray-soft rounded-lg appearance-none cursor-pointer accent-tp-red"
+                  />
+                  <div className="flex justify-between mt-2 text-[10px] font-bold text-tp-blue/30 uppercase">
+                    <span>1 kg</span>
+                    <span>{Math.round(pesoMaximo / 2)} kg</span>
+                    <span>{pesoMaximo} kg</span>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
@@ -288,13 +319,46 @@ export function Landing() {
                     <option value="Normal">Miscelánea</option>
                     <option value="Bateria">Baterías / Motores</option>
                     <option value="Movil">Equipos Electrónicos</option>
+                    <option value="Laptop">Laptop / Ordenador</option>
                     <option value="Medicinas">Medicinas (Exento)</option>
                   </select>
                 </div>
               </div>
 
               <div className="pt-8 border-t border-tp-gray-soft">
-                {calculo ? (
+                {calcModo === 'Express' ? (
+                  calculoExpress ? (
+                    <div className="mb-6 space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-tp-blue/50 font-bold">
+                          {calculoExpress.tipoPrecio === 'unidad'
+                            ? `${calculoExpress.cantidad} ud. × €${calculoExpress.precioUnitario.toFixed(2)}/ud.`
+                            : `${calculoExpress.cantidad}kg × €${calculoExpress.precioUnitario.toFixed(2)}/kg`}
+                        </span>
+                        <span className="font-black text-tp-blue">€{calculoExpress.total.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-4 mt-2 border-t border-tp-gray-soft">
+                        <div className="flex flex-col">
+                          <span className="text-tp-blue/40 text-xs font-black uppercase tracking-widest">Total Estimado</span>
+                          <span className="text-tp-blue/60 text-[10px] font-bold">*Sujeto a tarifa de agente</span>
+                        </div>
+                        <div className="text-5xl font-black text-tp-blue tracking-tighter">
+                          €{calculoExpress.total.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="flex flex-col">
+                        <span className="text-tp-blue/40 text-xs font-black uppercase tracking-widest">Costo Estimado</span>
+                        <span className="text-tp-blue/60 text-[10px] font-bold">*Sujeto a tarifa de agente</span>
+                      </div>
+                      <div className="text-3xl font-black text-tp-blue tracking-tighter">
+                        Consultar precio
+                      </div>
+                    </div>
+                  )
+                ) : calculo ? (
                   <div className="mb-6 space-y-2">
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-tp-blue/50 font-bold">Precio base: {calculo.pesoKg}kg × €{calculo.precioKgBase.toFixed(2)}/kg</span>
