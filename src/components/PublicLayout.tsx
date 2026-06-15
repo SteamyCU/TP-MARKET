@@ -43,7 +43,31 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="hidden md:flex items-center gap-6 text-sm font-bold text-tp-blue/70">
             <button onClick={() => navigate('/#calculadora')} className="hover:text-tp-red transition-colors">Calculadora</button>
             <button onClick={() => navigate('/#faq')} className="hover:text-tp-red transition-colors">FAQ</button>
-            <button onClick={() => navigate('/unirse')} className="hover:text-tp-red transition-colors">Negocio</button>
+            <div className="relative group">
+              <button className="flex items-center gap-1 hover:text-tp-red transition-colors">
+                Negocio <ChevronDown className="w-4 h-4 group-hover:rotate-180 transition-transform" />
+              </button>
+              <div className="absolute right-0 top-full pt-3 hidden group-hover:block">
+                <div className="bg-white rounded-2xl shadow-xl border border-tp-gray-soft py-2 w-60">
+                  {[
+                    { label: 'Modelos de Negocio', path: '/ser-agente' },
+                    { label: 'Partner Logístico', path: '/ser-partner' },
+                    { label: 'Franquicia', path: '/franquicia' },
+                    { label: 'Punto de Entrega', path: '/punto-de-entrega' },
+                    { label: 'Influencer', path: '/ser-influencer' },
+                    { label: 'Únete como Agente', path: '/unirse' },
+                  ].map((item) => (
+                    <button
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="block w-full text-left px-5 py-2.5 text-tp-blue/70 hover:text-tp-red hover:bg-gray-50 transition-colors"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('/login?mode=login')} className="text-tp-blue font-bold hover:text-tp-red transition-colors text-sm px-4 py-2">

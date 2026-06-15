@@ -906,6 +906,8 @@ const SerAgente = lazyPage(() => import('./pages/SerAgente'), 'SerAgente');
 const SerAgenteFreelance = lazyPage(() => import('./pages/SerAgenteFreelance'), 'SerAgenteFreelance');
 const SerInfluencer = lazyPage(() => import('./pages/SerInfluencer'), 'SerInfluencer');
 const SerPartner = lazyPage(() => import('./pages/SerPartner'), 'SerPartner');
+const Franquicia = lazyPage(() => import('./pages/Franquicia'), 'Franquicia');
+const PuntoDeEntrega = lazyPage(() => import('./pages/PuntoDeEntrega'), 'PuntoDeEntrega');
 const SobreNosotros = lazyPage(() => import('./pages/SobreNosotros'), 'SobreNosotros');
 const TerminosCondiciones = lazyPage(() => import('./pages/TerminosCondiciones'), 'TerminosCondiciones');
 const PoliticaPrivacidad = lazyPage(() => import('./pages/PoliticaPrivacidad'), 'PoliticaPrivacidad');
@@ -937,6 +939,8 @@ export default function App() {
           <Route path="/ser-agente-freelance" element={<PublicLayout><SerAgenteFreelance /></PublicLayout>} />
           <Route path="/ser-influencer" element={<PublicLayout><SerInfluencer /></PublicLayout>} />
           <Route path="/ser-partner" element={<PublicLayout><SerPartner /></PublicLayout>} />
+          <Route path="/franquicia" element={<PublicLayout><Franquicia /></PublicLayout>} />
+          <Route path="/punto-de-entrega" element={<PublicLayout><PuntoDeEntrega /></PublicLayout>} />
           <Route path="/sobre-nosotros" element={<PublicLayout><SobreNosotros /></PublicLayout>} />
           <Route path="/terminos-condiciones" element={<PublicLayout><TerminosCondiciones /></PublicLayout>} />
           <Route path="/politica-privacidad" element={<PublicLayout><PoliticaPrivacidad /></PublicLayout>} />
