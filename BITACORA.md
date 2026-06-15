@@ -146,6 +146,10 @@ y de los pendientes para dejarla lista para producción.
       correos de Supabase (~2-4/hora en el plan gratuito). Dominio
       `topaquete.com` verificado en Resend (SPF + DKIM) y SMTP de Resend
       conectado en Authentication → SMTP Settings de Supabase.
+- [x] Ejecutar las migraciones `supabase/migrations/0008_contactos_partners.sql`
+      y `0009_contactos_partners_extra.sql` en el SQL Editor (crean la tabla
+      `contactos_partners` con sus políticas RLS y los campos `ciudad`/`datos`
+      para los formularios de Partner, Franquicia y Punto de Entrega).
 
 ### Funcionalidad pendiente en código
 
