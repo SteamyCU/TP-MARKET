@@ -37,6 +37,7 @@ y de los pendientes para dejarla lista para producción.
 | 12 | Auditoría inmutable con visor para administración |
 | **13** | **Migración completa a Supabase** (ver desglose abajo) |
 | 15 | Sistema de tarifas dinámicas: precios editables desde el panel y calculadora pública conectada en vivo |
+| 16 | Páginas públicas de modelos de negocio (Partner, Franquicia, Punto de Entrega) con formularios de contacto |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -73,6 +74,31 @@ y de los pendientes para dejarla lista para producción.
   son dinámicos según las tarifas activas, y muestra el desglose del precio
   (base + transporte Cuba = total). Si no hay tarifa para el tramo/provincia,
   muestra "Consultar precio".
+
+### Fase 16 · Páginas públicas de modelos de negocio
+
+- **Tabla Supabase `contactos_partners`** (`0008_contactos_partners.sql`) para las
+  solicitudes de los tres modelos de negocio, distinguidas por `tipo_solicitud`
+  (`partner`, `franquicia`, `punto_de_entrega`). RLS: inserción pública (anon,
+  los formularios los rellenan visitantes sin login), lectura/gestión solo admin.
+  Ampliada en `0009_contactos_partners_extra.sql` con `ciudad` y `datos jsonb`
+  (preguntas específicas de cada formulario: local disponible, experiencia,
+  báscula); `empresa` pasa a opcional porque la franquicia no lo recoge.
+- **Servicio** `src/services/contactosPartners.ts`: `crearContactoPartner`,
+  común a los tres formularios.
+- **`/ser-partner`** (`SerPartner.tsx`): rediseño enfocado al modelo Partner
+  (empresas que usan nuestra logística con su propia marca). 6 secciones + 
+  formulario de contacto que guarda con `tipo_solicitud = 'partner'`.
+- **`/franquicia`** (`Franquicia.tsx`): franquicia bajo la marca ToPaquete.
+  Hero, tabla comparativa Punto de Entrega/Partner/Franquicia, qué incluye,
+  para quién es, proceso en 4 pasos y formulario (`tipo_solicitud = 'franquicia'`).
+- **`/punto-de-entrega`** (`PuntoDeEntrega.tsx`): negocios existentes que añaden
+  la recepción de paquetes como servicio. 7 secciones (qué es, para qué negocios,
+  cómo funciona, requisitos, beneficios) y formulario
+  (`tipo_solicitud = 'punto_de_entrega'`).
+- **Navbar público** (`PublicLayout.tsx`): el ítem "Negocio" pasa a ser un
+  desplegable con Modelos de Negocio, Partner Logístico, Franquicia, Punto de
+  Entrega, Influencer y Únete como Agente.
 
 ### Arreglos posteriores del flujo de acceso
 
