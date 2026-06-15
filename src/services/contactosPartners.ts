@@ -37,3 +37,36 @@ export async function crearContactoPartner(input: NuevoContactoPartner): Promise
   });
   if (error) throw error;
 }
+
+// ----------------------------- Lectura (admin) -----------------------------
+
+export interface ContactoPartner {
+  id: string;
+  nombre: string;
+  empresa: string | null;
+  email: string;
+  telefono: string;
+  ciudad: string | null;
+  tipo_negocio: string | null;
+  volumen_estimado: string | null;
+  tiene_local: boolean | null;
+  mensaje: string | null;
+  tipo_solicitud: TipoSolicitud;
+  datos: Record<string, unknown>;
+  atendido: boolean;
+  created_at: string;
+}
+
+export async function getContactosPartners(): Promise<ContactoPartner[]> {
+  const { data, error } = await supabase
+    .from('contactos_partners')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []) as ContactoPartner[];
+}
+
+export async function marcarContactoAtendido(id: string, atendido: boolean): Promise<void> {
+  const { error } = await supabase.from('contactos_partners').update({ atendido }).eq('id', id);
+  if (error) throw error;
+}

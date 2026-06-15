@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
-import { Users, Building2, Star, ChevronRight } from 'lucide-react';
+import { Users, Building2, Star, ChevronRight, Inbox } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Usuarios } from './Usuarios';
 import { AdminB2B } from './AdminB2B';
 import { ConfiguracionAfiliados } from './ConfiguracionAfiliados';
+import { SolicitudesB2B } from './SolicitudesB2B';
 
 export function Negocios() {
-  const [activeTab, setActiveTab] = useState<'agentes' | 'b2b' | 'afiliados'>('agentes');
+  const [activeTab, setActiveTab] = useState<'agentes' | 'b2b' | 'afiliados' | 'solicitudes'>('agentes');
 
   const tabs = [
     { id: 'agentes', label: 'Agentes Freelance', icon: Users, description: 'Gestión de agentes y sus oficinas' },
     { id: 'b2b', label: 'Partners B2B', icon: Building2, description: 'Directorio de socios y facturación' },
     { id: 'afiliados', label: 'Influencers / Afiliados', icon: Star, description: 'Configuración de niveles y comisiones' },
+    { id: 'solicitudes', label: 'Solicitudes Web', icon: Inbox, description: 'Leads de Partner, Franquicia y Punto de Entrega' },
   ];
 
   return (
@@ -24,7 +26,7 @@ export function Negocios() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -68,6 +70,7 @@ export function Negocios() {
         {activeTab === 'agentes' && <Usuarios />}
         {activeTab === 'b2b' && <AdminB2B />}
         {activeTab === 'afiliados' && <ConfiguracionAfiliados />}
+        {activeTab === 'solicitudes' && <SolicitudesB2B />}
       </div>
     </div>
   );

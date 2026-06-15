@@ -99,6 +99,11 @@ y de los pendientes para dejarla lista para producción.
 - **Navbar público** (`PublicLayout.tsx`): el ítem "Negocio" pasa a ser un
   desplegable con Modelos de Negocio, Partner Logístico, Franquicia, Punto de
   Entrega, Influencer y Únete como Agente.
+- **Panel admin** (`SolicitudesB2B.tsx`, nueva pestaña "Solicitudes Web" en
+  `Negocios.tsx`): lista todas las solicitudes de `contactos_partners` con
+  filtros por tipo (Partner/Franquicia/Punto de Entrega) y por estado, detalle
+  expandible (email, teléfono, mensaje y datos específicos) y botón para marcar
+  como atendido/reabrir. Solo accesible para admin.
 
 ### Arreglos posteriores del flujo de acceso
 
