@@ -334,7 +334,7 @@ export function OfertasSalidas() {
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-5">
         {/* Top Section: Central de Precios (Admin) or Ofertas (Others) */}
         <div className="space-y-5">
           {role === 'admin' ? (
@@ -766,45 +766,47 @@ export function OfertasSalidas() {
             </motion.div>
           ) : (
 
-            <div className="space-y-4">
+            <div className="space-y-3">
                 {ofertas.length === 0 ? (
-                  <div className="bg-white p-8 rounded-2xl border-2 border-tp-gray-soft border-dashed text-center">
-                    <Tag className="w-10 h-10 text-tp-blue/10 mx-auto mb-3" />
-                    <p className="text-tp-blue/40 italic font-bold text-sm">No hay ofertas disponibles en este momento.</p>
+                  <div className="bg-white p-6 rounded-2xl border-2 border-tp-gray-soft border-dashed text-center">
+                    <Tag className="w-8 h-8 text-tp-blue/10 mx-auto mb-2" />
+                    <p className="text-tp-blue/40 italic font-bold text-xs">No hay ofertas disponibles en este momento.</p>
                   </div>
                 ) : (
-                  ofertas.map((oferta, i) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {ofertas.map((oferta, i) => (
                     <motion.div
                       key={oferta.id}
                       initial={{ opacity: 0, x: -30 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.1 }}
-                      className="bg-white p-5 rounded-2xl border border-tp-gray-soft shadow-sm relative group hover:shadow-xl hover:border-tp-red/20 transition-all overflow-hidden"
+                      transition={{ delay: i * 0.05 }}
+                      className="bg-white p-4 rounded-xl border border-tp-gray-soft shadow-sm relative group hover:shadow-lg hover:border-tp-red/20 transition-all overflow-hidden"
                     >
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-tp-red/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
+                      <div className="absolute top-0 right-0 w-24 h-24 bg-tp-red/5 rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
 
                       {canEditOfertas && (
-                        <button onClick={() => handleDeleteOferta(oferta.id)} className="absolute top-4 right-4 text-tp-blue/10 hover:text-tp-red transition-colors z-10">
-                          <Trash2 className="w-5 h-5" />
+                        <button onClick={() => handleDeleteOferta(oferta.id)} className="absolute top-3 right-3 text-tp-blue/10 hover:text-tp-red transition-colors z-10">
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
 
-                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-3 relative z-10">
-                        <div className="space-y-1">
-                          <h3 className="font-black text-xl text-tp-blue group-hover:text-tp-red transition-colors tracking-tight">{oferta.titulo}</h3>
-                          <div className="flex items-center gap-3 text-[10px] font-black text-tp-blue/30 uppercase tracking-[0.2em]">
-                            <Clock className="w-4 h-4" /> {new Date(oferta.fechaCreacion?.seconds * 1000).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      <div className="flex items-start justify-between gap-3 mb-2 relative z-10">
+                        <div className="space-y-1 min-w-0">
+                          <h3 className="font-black text-base text-tp-blue group-hover:text-tp-red transition-colors tracking-tight truncate">{oferta.titulo}</h3>
+                          <div className="flex items-center gap-2 text-[9px] font-black text-tp-blue/30 uppercase tracking-[0.2em]">
+                            <Clock className="w-3 h-3" /> {new Date(oferta.fechaCreacion?.seconds * 1000).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </div>
                         </div>
                         {oferta.precio && (
-                          <div className="bg-tp-red text-white px-5 py-2 rounded-xl font-black text-lg shadow-lg shadow-tp-red/20 self-start sm:self-auto">
+                          <div className="bg-tp-red text-white px-3 py-1.5 rounded-lg font-black text-sm shadow-lg shadow-tp-red/20 shrink-0">
                             €{oferta.precio}
                           </div>
                         )}
                       </div>
-                      <p className="text-tp-blue/60 leading-relaxed font-medium text-sm relative z-10">{oferta.descripcion}</p>
+                      <p className="text-tp-blue/60 leading-relaxed font-medium text-xs relative z-10">{oferta.descripcion}</p>
                     </motion.div>
-                  ))
+                  ))}
+                  </div>
                 )}
               </div>
             )}
@@ -875,11 +877,11 @@ export function OfertasSalidas() {
             </form>
           )}
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {salidas.length === 0 ? (
-              <div className="bg-white p-8 rounded-2xl border-2 border-tp-gray-soft border-dashed text-center">
-                <Calendar className="w-10 h-10 text-tp-blue/10 mx-auto mb-3" />
-                <p className="text-tp-blue/40 italic font-bold text-sm">No hay salidas programadas.</p>
+              <div className="bg-white p-6 rounded-2xl border-2 border-tp-gray-soft border-dashed text-center">
+                <Calendar className="w-8 h-8 text-tp-blue/10 mx-auto mb-2" />
+                <p className="text-tp-blue/40 italic font-bold text-xs">No hay salidas programadas.</p>
               </div>
             ) : (
               salidas.map((salida, i) => (
@@ -887,25 +889,25 @@ export function OfertasSalidas() {
                   key={salida.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="bg-white p-4 rounded-xl border border-tp-gray-soft shadow-sm flex items-center justify-between group hover:border-tp-blue/40 transition-all hover:shadow-lg"
+                  transition={{ delay: i * 0.05 }}
+                  className="bg-white p-3 rounded-xl border border-tp-gray-soft shadow-sm flex items-center justify-between group hover:border-tp-blue/40 transition-all hover:shadow-md"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="bg-tp-blue text-white w-12 h-12 rounded-xl flex flex-col items-center justify-center font-black shadow-lg shadow-tp-blue/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                      <span className="text-[9px] uppercase opacity-60 tracking-widest">{new Date(salida.fecha).toLocaleString('es', { month: 'short' })}</span>
-                      <span className="text-lg leading-none">{new Date(salida.fecha).getDate()}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-tp-blue text-white w-10 h-10 rounded-lg flex flex-col items-center justify-center font-black shadow-md shadow-tp-blue/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                      <span className="text-[8px] uppercase opacity-60 tracking-widest">{new Date(salida.fecha).toLocaleString('es', { month: 'short' })}</span>
+                      <span className="text-sm leading-none">{new Date(salida.fecha).getDate()}</span>
                     </div>
                     <div>
-                      <h4 className="font-black text-tp-blue text-base group-hover:text-tp-red transition-colors">{salida.destino}</h4>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <div className="flex items-center gap-2 px-3 py-1 bg-tp-blue-light text-tp-blue rounded-full text-[10px] font-black uppercase tracking-widest">
-                          <div className="w-2 h-2 bg-tp-blue rounded-full animate-pulse"></div>
+                      <h4 className="font-black text-tp-blue text-sm group-hover:text-tp-red transition-colors">{salida.destino}</h4>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-tp-blue-light text-tp-blue rounded-full text-[9px] font-black uppercase tracking-widest">
+                          <div className="w-1.5 h-1.5 bg-tp-blue rounded-full animate-pulse"></div>
                           {salida.estado}
                         </div>
                         <span className={cn(
-                          "text-[10px] font-black uppercase px-3 py-1 rounded-full border-2 tracking-widest",
-                          salida.tipoSalida === 'express' 
-                            ? "border-tp-red text-tp-red bg-tp-red/5" 
+                          "text-[9px] font-black uppercase px-2 py-0.5 rounded-full border tracking-widest",
+                          salida.tipoSalida === 'express'
+                            ? "border-tp-red text-tp-red bg-tp-red/5"
                             : "border-tp-blue text-tp-blue bg-tp-blue/5"
                         )}>
                           {salida.tipoSalida === 'express' ? 'Express' : 'Aérea'}
@@ -914,8 +916,8 @@ export function OfertasSalidas() {
                     </div>
                   </div>
                   {canEditSalidas && (
-                    <button onClick={() => handleDeleteSalida(salida.id)} className="text-tp-blue/10 hover:text-tp-red p-3 transition-colors">
-                      <Trash2 className="w-6 h-6" />
+                    <button onClick={() => handleDeleteSalida(salida.id)} className="text-tp-blue/10 hover:text-tp-red p-2 transition-colors">
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   )}
                 </motion.div>
