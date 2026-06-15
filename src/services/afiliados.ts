@@ -31,6 +31,87 @@ export async function crearSolicitudAfiliado(input: NuevaSolicitudAfiliado): Pro
   if (error) throw error;
 }
 
+// --------------------- LECTURA Y GESTIÓN (admin) ---------------------------
+
+export type StatusSolicitudAfiliado = 'pendiente' | 'aprobado' | 'rechazado';
+
+export interface SolicitudAfiliado {
+  id: string;
+  uid: string | null;
+  email: string | null;
+  nombre: string | null;
+  telefono: string | null;
+  role_solicitado: string;
+  status: StatusSolicitudAfiliado;
+  datos: Record<string, unknown>;
+  created_at: string;
+}
+
+export async function getSolicitudesAfiliado(): Promise<SolicitudAfiliado[]> {
+  const { data, error } = await supabase
+    .from('solicitudes_afiliado')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []) as SolicitudAfiliado[];
+}
+
+export async function contarSolicitudesAfiliadoPendientes(): Promise<number> {
+  const { count, error } = await supabase
+    .from('solicitudes_afiliado')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'pendiente');
+  if (error) throw error;
+  return count || 0;
+}
+
+/**
+ * Aprueba una solicitud: promueve el perfil del solicitante al rol pedido
+ * (agente/influencer), copia sus datos del formulario al perfil y marca la
+ * solicitud como 'aprobado'. Requiere que el solicitante tenga un perfil (uid).
+ */
+export async function aprobarSolicitudAfiliado(solicitud: SolicitudAfiliado): Promise<void> {
+  if (!solicitud.uid) {
+    throw new Error('La solicitud no tiene un usuario vinculado.');
+  }
+  const { nombre, telefono, role_solicitado, datos } = solicitud;
+  await updateProfileFields(solicitud.uid, {
+    role: role_solicitado,
+    ...(nombre ? { name: nombre } : {}),
+    ...(telefono ? { telefono } : {}),
+    ...datos,
+  });
+  const { error } = await supabase
+    .from('solicitudes_afiliado')
+    .update({ status: 'aprobado' })
+    .eq('id', solicitud.id);
+  if (error) throw error;
+}
+
+export async function rechazarSolicitudAfiliado(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('solicitudes_afiliado')
+    .update({ status: 'rechazado' })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * URL temporal firmada para ver el documento de identidad subido por un
+ * solicitante de Agente (bucket privado). Devuelve null si no hay documento.
+ */
+export async function getUrlDocumentoIdentidad(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from('documentos-identidad')
+    .createSignedUrl(path, 60 * 10);
+  if (error) {
+    console.error('Error firmando documento de identidad:', error.message);
+    return null;
+  }
+  return data?.signedUrl ?? null;
+}
+
+
 /**
  * Sube el documento de identidad (ID/Pasaporte) de un solicitante de Agente al
  * bucket privado 'documentos-identidad', dentro de la carpeta del propio usuario

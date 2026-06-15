@@ -70,3 +70,12 @@ export async function marcarContactoAtendido(id: string, atendido: boolean): Pro
   const { error } = await supabase.from('contactos_partners').update({ atendido }).eq('id', id);
   if (error) throw error;
 }
+
+export async function contarContactosPartnersPendientes(): Promise<number> {
+  const { count, error } = await supabase
+    .from('contactos_partners')
+    .select('id', { count: 'exact', head: true })
+    .eq('atendido', false);
+  if (error) throw error;
+  return count || 0;
+}

@@ -38,6 +38,8 @@ y de los pendientes para dejarla lista para producción.
 | **13** | **Migración completa a Supabase** (ver desglose abajo) |
 | 15 | Sistema de tarifas dinámicas: precios editables desde el panel y calculadora pública conectada en vivo |
 | 16 | Páginas públicas de modelos de negocio (Partner, Franquicia, Punto de Entrega) con formularios de contacto |
+| 17 | Precios Express por tipo de contenido (kg/unidad) en panel y calculadoras |
+| 18 | Panel de altas de afiliados (aprobar Agente/Influencer) y campana de notificaciones del admin |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -209,3 +211,27 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 
 > `.env.local` está en `.gitignore`: no se sube al repo y debe crearse a mano en
 > cada máquina/entorno.
+
+### Fase 18 · Altas de afiliados y notificaciones del admin
+
+- **Problema corregido:** las solicitudes de Agente/Influencer enviadas desde
+  `/unirse` se guardaban en la tabla `solicitudes_afiliado`, pero **ninguna vista
+  del admin las leía** (la pestaña "Solicitudes Web" solo mostraba los leads de
+  `contactos_partners`: Partner, Franquicia y Punto de Entrega). Por eso el admin
+  veía la bandeja vacía aunque en Supabase sí estaban las filas.
+- **Servicio** `src/services/afiliados.ts`: nuevas funciones `getSolicitudesAfiliado`,
+  `contarSolicitudesAfiliadoPendientes`, `aprobarSolicitudAfiliado` (promueve el
+  perfil del solicitante al rol pedido y copia los datos del formulario al perfil),
+  `rechazarSolicitudAfiliado` y `getUrlDocumentoIdentidad` (URL firmada del ID/pasaporte).
+- **Nueva pestaña admin** `SolicitudesAfiliados.tsx` dentro de `Negocios.tsx`
+  ("Altas de Afiliados"): lista las solicitudes con filtro por estado
+  (pendiente/aprobada/rechazada), botones **Aprobar / Rechazar**, detalle expandible
+  (contacto, país/ciudad, red social, seguidores…) y enlace al documento de identidad.
+  Al aprobar, el usuario obtiene el rol de agente/influencer y ya puede entrar al panel.
+- **Campana de notificaciones** (`Topbar.tsx`): para el admin muestra un badge con el
+  total de solicitudes pendientes (afiliados + leads B2B) y un menú desplegable que
+  enlaza a la pestaña correspondiente (`?tab=altas` / `?tab=solicitudes`). Se refresca
+  cada 60s. Antes era un botón estático con un punto rojo decorativo.
+- **Flujo Partner B2B:** una empresa solicita colaboración desde la página pública
+  `/ser-partner` (formulario que guarda en `contactos_partners` con
+  `tipo_solicitud='partner'`); el admin la ve en Negocios → "Solicitudes Web".
