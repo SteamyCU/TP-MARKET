@@ -138,7 +138,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Dashboard Influencer', path: '/dashboard', icon: LayoutDashboard, badge: null },
     { name: 'Mis Ganancias', path: '/dashboard/comisiones', icon: Wallet, badge: null },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3, badge: null },
-    { name: 'Mi Red', path: '/dashboard/red', icon: Users, badge: null },
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
   ];
 

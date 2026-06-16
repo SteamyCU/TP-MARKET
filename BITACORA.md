@@ -42,6 +42,7 @@ y de los pendientes para dejarla lista para producción.
 | 18 | Panel de altas de afiliados (aprobar Agente/Influencer) y campana de notificaciones del admin |
 | 19 | Página dedicada de gestión de solicitudes de Agentes/Influencers con tabla, subtabs, modales y revocación |
 | 20 | Módulo de incidencias: registro propio con tipo/prioridad/estado, asignación, resolución e historial |
+| 21 | Rediseño del sistema de Influencer: promoción pasiva, comisión por cliente nuevo referido y estado de actividad en tiempo real |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -291,3 +292,36 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 
 > **Acción manual pendiente en Supabase:** ejecutar `0011_incidencias.sql` en el
 > SQL Editor para crear la tabla `incidencias` y sus políticas RLS.
+
+### Fase 21 · Rediseño del sistema de Influencer
+
+- **Modelo diferenciado del de Agente:** el influencer solo hace promoción pasiva
+  (comparte un código/enlace de descuento). No gestiona clientes ni tiene red de
+  sub-afiliados. ToPaquete se encarga de toda la operación.
+- **Regla de comisión:** solo cuentan los clientes **nuevos** que se registran con
+  su código (quedan vinculados vía `profiles.extra->>'referidoPor'`). Una vez
+  referido, el influencer cobra comisión de **todos** los envíos futuros de ese
+  cliente, indefinidamente, **mientras esté "activo"**.
+- **Estado de actividad (ventana móvil de 90 días):** "activo" = ha traído al menos
+  1 cliente nuevo en los últimos `ventanaActividadDias`. Si pasa la ventana sin
+  traer ninguno, pasa a "inactivo" y deja de generar comisión en **toda** su cartera
+  hasta reactivarse. La comisión de cada envío se evalúa con el estado de actividad
+  del influencer en el momento de ese envío (sin retroactividad).
+- **Migración** `0012_influencer_referidos.sql`: tras revisar `0001_schema.sql`, se
+  comprobó que `profiles.referidoPor` ya vive en `extra` y `created_at` ya existe,
+  así que **no se añaden columnas**. Solo añade un índice sobre `extra->>'referidoPor'`
+  y siembra `settings/influencer_config` (`comisionPct: 0.05`, `ventanaActividadDias: 90`).
+- **Servicio** `src/services/influencers.ts`: `getClientesReferidos`,
+  `getEstadoActividadInfluencer`, `getComisionesInfluencer` y `getResumenInfluencer`
+  (carga combinada). La cartera se reconstruye encadenando
+  `profiles → clientes.user_id → clientes.id → paquetes.cliente_id`.
+- **Dashboard rediseñado** (`InfluencerDashboard.tsx`): banner de actividad
+  (verde/ámbar con fecha límite y días restantes), card "Tu enlace de promoción"
+  con copiar, 4 stats (clientes nuevos, kg gestionados del mes, comisión del mes,
+  comisión total) y tabla de clientes referidos con badge Nuevo/Antiguo, kg
+  enviados y última actividad.
+- **Eliminado:** niveles Bronce/Plata/Oro/Élite, simulador de seguidores,
+  sub-afiliados y el enlace "Mi Red" del sidebar para influencers.
+
+> **Acción manual pendiente en Supabase:** ejecutar `0012_influencer_referidos.sql`
+> en el SQL Editor (añade el índice y siembra `influencer_config`).
