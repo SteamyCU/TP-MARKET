@@ -129,20 +129,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         extra.balance = 0;
       }
 
-      // Código de referido pendiente (registro vía enlace de afiliado)
+      // Código de referido pendiente (registro vía enlace de afiliado).
+      // Aplica el cupón via RPC (valida + incrementa usos_actuales) y vincula referidoPor.
       const pendingRef = localStorage.getItem('pending_ref');
       if (pendingRef) {
         try {
-          const { data: referrer } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('extra->>codigoReferido', pendingRef)
-            .maybeSingle();
-          if (referrer) {
-            extra.referidoPor = referrer.id;
+          const { data: resultado } = await supabase.rpc('aplicar_cupon_referido', {
+            p_codigo: pendingRef.toUpperCase().trim(),
+          });
+          if (resultado?.ok && resultado.tipo === 'influencer' && resultado.influencer_id) {
+            extra.referidoPor = resultado.influencer_id;
           }
         } catch (err) {
-          console.error('Error buscando referidor:', err);
+          console.error('Error procesando código de referido:', err);
         }
         localStorage.removeItem('pending_ref');
       }

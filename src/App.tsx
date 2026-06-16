@@ -84,10 +84,10 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
         finalData.role = 'partner';
       }
 
-      // If there's a valid referral, update influencer stats
+      // Solo registrar referido si el código corresponde a un influencer (no a un cupón general)
       if (referralInfo.valid && formData.referido_por) {
         const influencer = await buscarInfluencerPorCodigo(formData.referido_por);
-        if (influencer) {
+        if (influencer && influencer.tipo === 'influencer' && influencer.id) {
           await registrarReferido(influencer.id, profile.uid || auth.currentUser?.uid || null);
         }
       }
@@ -921,6 +921,7 @@ const Unirse = lazyPage(() => import('./pages/Unirse'), 'Unirse');
 const Negocios = lazyPage(() => import('./pages/Negocios'), 'Negocios');
 const SolicitudesAfiliados = lazyPage(() => import('./pages/SolicitudesAfiliados'), 'SolicitudesAfiliados');
 const Incidencias = lazyPage(() => import('./pages/Incidencias'), 'Incidencias');
+const Cupones = lazyPage(() => import('./pages/Cupones'), 'Cupones');
 const Layout = lazyPage(() => import('./components/Layout'), 'Layout');
 
 const PageLoader = () => (
@@ -979,6 +980,7 @@ export default function App() {
             <Route path="auditoria" element={<RoleRoute allowedRoles={['admin']}><Auditoria /></RoleRoute>} />
             <Route path="pagos" element={<RoleRoute allowedRoles={['admin', 'agente', 'contabilidad']}><Pagos /></RoleRoute>} />
             <Route path="incidencias" element={<RoleRoute allowedRoles={['admin', 'agente', 'logistica']}><Incidencias /></RoleRoute>} />
+            <Route path="cupones" element={<RoleRoute allowedRoles={['admin']}><Cupones /></RoleRoute>} />
             <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="*" element={<div className="p-8 text-tp-blue font-medium">Módulo en desarrollo...</div>} />
           </Route>

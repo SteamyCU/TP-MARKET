@@ -20,6 +20,7 @@ import {
   Megaphone,
   Shield,
   UserPlus,
+  Tag,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -101,6 +102,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: AlertTriangle,
       badge: incidenciasAbiertas > 0 ? incidenciasAbiertas : null,
     },
+    { name: 'Cupones y Códigos', path: '/dashboard/cupones', icon: Tag },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3 },
     { name: 'Reportes Globales', path: '/dashboard/reportes', icon: BarChart3 },
     { name: 'Configuración', path: '/dashboard/configuracion', icon: Settings },

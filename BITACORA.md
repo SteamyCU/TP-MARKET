@@ -44,6 +44,7 @@ y de los pendientes para dejarla lista para producción.
 | 20 | Módulo de incidencias: registro propio con tipo/prioridad/estado, asignación, resolución e historial |
 | 21 | Rediseño del sistema de Influencer: promoción pasiva, comisión por cliente nuevo referido y estado de actividad en tiempo real |
 | 22 | Notificación por email al aprobar/rechazar solicitudes de afiliado (Edge Function Resend) |
+| **23** | **Sistema centralizado de cupones:** tabla `cupones`, servicio `cupones.ts`, página admin `/dashboard/cupones`, refactorización de la validación de códigos de referido, actualización de AuthContext para usar RPC atómico |
 
 ### Desglose Fase 13 · Migración a Supabase
 

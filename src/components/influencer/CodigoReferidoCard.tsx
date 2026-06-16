@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Share2, Copy, CheckCircle2, Save, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
-import { actualizarCodigoReferido, normalizarCodigo } from '../../services/influencers';
+import { normalizarCodigo } from '../../services/influencers';
+import { actualizarCodigoPropioInfluencer } from '../../services/cupones';
 import { cn } from '../../lib/utils';
 
 function validarCodigo(cod: string): string | null {
@@ -42,7 +43,7 @@ export function CodigoReferidoCard() {
     setGuardando(true);
     setFeedback(null);
     try {
-      const normalizado = await actualizarCodigoReferido(user.uid, codigoInput);
+      const normalizado = await actualizarCodigoPropioInfluencer(user.uid, codigoInput);
       await updateProfile({ codigoReferido: normalizado });
       setCodigoInput(normalizado);
       setFeedback({ tipo: 'ok', msg: '✅ Código actualizado' });

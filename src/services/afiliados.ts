@@ -4,7 +4,8 @@
 // 'influencers' (ahora son perfiles con role='influencer' y extra.codigoReferido).
 
 import { supabase } from '../supabase';
-import { listProfiles, getProfile, updateProfileFields } from './profiles';
+import { getProfile, updateProfileFields } from './profiles';
+import { buscarCupon } from './cupones';
 
 export interface NuevaSolicitudAfiliado {
   uid: string;
@@ -184,23 +185,27 @@ export interface BeneficioReferido {
 
 export interface InfluencerReferidor {
   id: string;
+  tipo: 'influencer' | 'general';
   activo: boolean;
   beneficio: BeneficioReferido;
 }
 
 /**
- * Busca el influencer dueño de un código de referido. Antes consultaba la
- * colección 'influencers' por el campo 'codigo'; ahora busca perfiles con
- * extra.codigoReferido == code. Devuelve null si no existe.
+ * Busca el cupón por código y lo adapta al formato InfluencerReferidor que
+ * usa ProfileCompletion para mostrar el beneficio y registrar el referido.
+ * Devuelve null si el código no existe, está inactivo, vencido o agotado.
  */
 export async function buscarInfluencerPorCodigo(code: string): Promise<InfluencerReferidor | null> {
-  const perfiles = await listProfiles({ extraKey: 'codigoReferido', extraValue: code.toUpperCase() });
-  const influencer = perfiles[0];
-  if (!influencer) return null;
+  const cupon = await buscarCupon(code);
+  if (!cupon) return null;
   return {
-    id: influencer.id,
-    activo: influencer.activo !== false,
-    beneficio: (influencer.beneficio as BeneficioReferido) || { tipo: 'descuento', valor: 5 },
+    id: cupon.influencer_id || '',
+    tipo: cupon.tipo,
+    activo: true,
+    beneficio: {
+      tipo: cupon.descuento_tipo === 'porcentaje' ? 'descuento' : 'fijo',
+      valor: cupon.descuento_valor,
+    },
   };
 }
 
