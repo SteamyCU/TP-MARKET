@@ -29,18 +29,25 @@ export function PublicLayout({ children }: PublicLayoutProps) {
   return (
     <div className="min-h-screen bg-gray-50 font-sans selection:bg-tp-red/20 selection:text-tp-red">
       {/* Navbar */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-tp-gray-soft px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="text-3xl font-black italic tracking-tighter flex">
+      <nav className="bg-white/80 backdrop-blur-md border-b border-tp-gray-soft px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center sticky top-0 z-50">
+        {/* Logo */}
+        <button onClick={() => navigate('/')} className="flex items-center gap-1.5 sm:gap-2 hover:opacity-80 transition-opacity shrink-0">
+          <div className="text-2xl sm:text-3xl font-black italic tracking-tighter flex">
             <span className="text-tp-blue">T</span>
             <span className="text-tp-red">P</span>
           </div>
-          <div className="flex flex-col leading-none">
+          {/* Texto completo solo en sm+ */}
+          <div className="hidden sm:flex flex-col leading-none">
             <span className="font-black text-tp-blue text-lg">TO PAQUETE</span>
             <span className="text-[10px] font-bold text-tp-red tracking-widest uppercase">Logística Cuba</span>
           </div>
+          {/* Nombre corto en móvil */}
+          <span className="sm:hidden font-black text-tp-blue text-sm leading-none">To Paquete</span>
         </button>
-        <div className="flex items-center gap-6">
+
+        {/* Derecha */}
+        <div className="flex items-center gap-2 sm:gap-6">
+          {/* Links de navegación — solo desktop */}
           <div className="hidden md:flex items-center gap-6 text-sm font-bold text-tp-blue/70">
             <button onClick={() => navigate('/#calculadora')} className="hover:text-tp-red transition-colors">Calculadora</button>
             <button onClick={() => navigate('/#faq')} className="hover:text-tp-red transition-colors">FAQ</button>
@@ -70,11 +77,19 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/login?mode=login')} className="text-tp-blue font-bold hover:text-tp-red transition-colors text-sm px-4 py-2">
+
+          {/* Botones CTA */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => navigate('/login?mode=login')}
+              className="text-tp-blue font-bold hover:text-tp-red transition-colors text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2"
+            >
               Entrar
             </button>
-            <button onClick={() => navigate('/login?mode=register')} className="bg-tp-blue text-white px-6 py-2.5 rounded-full font-bold hover:bg-[#004a78] transition-all shadow-md hover:shadow-lg active:scale-95 text-sm">
+            <button
+              onClick={() => navigate('/login?mode=register')}
+              className="bg-tp-blue text-white px-3 sm:px-6 py-2 sm:py-2.5 rounded-full font-bold hover:bg-[#004a78] transition-all shadow-md hover:shadow-lg active:scale-95 text-xs sm:text-sm whitespace-nowrap"
+            >
               Empezar
             </button>
           </div>
@@ -88,18 +103,18 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       <SoporteWidget />
 
       {/* Footer */}
-      <footer className="bg-white border-t border-tp-gray-soft pt-20 pb-10 px-6">
+      <footer className="bg-white border-t border-tp-gray-soft pt-12 sm:pt-20 pb-8 sm:pb-10 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-20">
-            <div className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12 mb-12 sm:mb-20">
+            <div className="space-y-5 sm:space-y-6">
               <div className="flex items-center gap-2">
-                <div className="text-4xl font-black italic tracking-tighter flex">
+                <div className="text-3xl sm:text-4xl font-black italic tracking-tighter flex shrink-0">
                   <span className="text-tp-blue">T</span>
                   <span className="text-tp-red">P</span>
                 </div>
                 <div className="flex flex-col leading-none">
-                  <span className="font-black text-tp-blue text-xl">TO PAQUETE</span>
-                  <span className="text-[10px] font-bold text-tp-red tracking-widest uppercase">Logística Cuba</span>
+                  <span className="font-black text-tp-blue text-lg sm:text-xl">TO PAQUETE</span>
+                  <span className="text-[10px] font-bold text-tp-red tracking-wider sm:tracking-widest uppercase">Logística Cuba</span>
                 </div>
               </div>
               <p className="text-tp-blue/60 leading-relaxed font-medium">
@@ -162,11 +177,11 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             </div>
           </div>
 
-          <div className="border-t border-tp-gray-soft pt-10 flex flex-col md:flex-row justify-between items-center gap-6">
-            <p className="text-tp-blue/40 text-sm font-bold">
+          <div className="border-t border-tp-gray-soft pt-8 sm:pt-10 flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
+            <p className="text-tp-blue/40 text-sm font-bold text-center md:text-left">
               © 2026 To Paquete Logística. Todos los derechos reservados.
             </p>
-            <div className="flex items-center gap-6 text-xs font-black text-tp-blue/30 uppercase tracking-widest">
+            <div className="flex items-center flex-wrap justify-center gap-4 sm:gap-6 text-xs font-black text-tp-blue/30 uppercase tracking-wider sm:tracking-widest">
               <button onClick={() => navigate('/politica-privacidad')} className="hover:text-tp-red transition-colors">Privacidad</button>
               <button onClick={() => navigate('/politica-privacidad#cookies')} className="hover:text-tp-red transition-colors">Cookies</button>
               <button onClick={() => navigate('/terminos-condiciones')} className="hover:text-tp-red transition-colors">Legal</button>
