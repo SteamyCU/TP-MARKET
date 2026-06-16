@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Bot, User } from 'lucide-react';
+import { MessageSquare, X, Send, Bot, User, Headphones } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { cn } from '../lib/utils';
 import { GoogleGenAI } from '@google/genai';
 import { listProfiles } from '../services/profiles';
 import { getClienteByEmail } from '../services/clientes';
 import { useAuth } from '../AuthContext';
+import { abrirSoporte } from './SoporteWidget';
 
 interface Message {
   id: string;
@@ -219,6 +220,19 @@ ${clientContext ? clientContext : "No se conoce el agente del cliente actual."}
             </div>
           )}
           <div ref={messagesEndRef} />
+        </div>
+
+        {/* Acceso rápido a soporte humano */}
+        <div className="px-4 py-2 bg-white border-t border-tp-gray-soft flex items-center justify-between gap-3">
+          <span className="text-[11px] text-tp-blue/40 font-medium">¿Necesitas ayuda de un agente?</span>
+          <button
+            type="button"
+            onClick={() => { setIsOpen(false); abrirSoporte(); }}
+            className="flex items-center gap-1.5 text-[11px] font-bold text-tp-blue hover:text-tp-red transition-colors shrink-0"
+          >
+            <Headphones className="w-3.5 h-3.5" />
+            Contactar soporte
+          </button>
         </div>
 
         {/* Input */}

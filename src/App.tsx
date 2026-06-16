@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams, useNavig
 import { AuthProvider, useAuth } from './AuthContext';
 import { ScrollToTop } from './components/ScrollToTop';
 import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
+import { abrirSoporte } from './components/SoporteWidget';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
 import { cn } from './lib/utils';
 import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
@@ -432,9 +433,17 @@ function RoleRoute({ children, allowedRoles }: { children: React.ReactNode, allo
 
   if (loading) return null;
   if (!role || !allowedRoles.includes(role)) {
-    return <div className="p-8 text-tp-red font-bold bg-red-50 rounded-2xl border border-red-100">
-      Acceso Denegado. No tienes permisos para ver este módulo.
-    </div>;
+    return (
+      <div className="p-8 bg-red-50 rounded-2xl border border-red-100 space-y-3">
+        <p className="text-tp-red font-bold">Acceso denegado. No tienes permisos para ver este módulo.</p>
+        <button
+          onClick={abrirSoporte}
+          className="text-sm font-bold text-tp-blue/60 hover:text-tp-red transition-colors underline"
+        >
+          ¿Crees que es un error? Contacta con soporte
+        </button>
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -729,15 +738,26 @@ function Login() {
           </p>
 
           {!isForgot && (
-            <div className="pt-6 border-t border-tp-gray-soft">
-              <p className="text-xs font-black text-tp-blue/30 uppercase tracking-widest mb-3">¿Eres Agente o Influencer?</p>
-              <button
-                onClick={() => navigate('/unirse')}
-                className="inline-flex items-center gap-2 text-tp-blue font-black hover:text-tp-red transition-colors group"
-              >
-                ÚNETE AL PROGRAMA DE AFILIADOS
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+            <div className="pt-6 border-t border-tp-gray-soft space-y-4">
+              <div>
+                <p className="text-xs font-black text-tp-blue/30 uppercase tracking-widest mb-3">¿Eres Agente o Influencer?</p>
+                <button
+                  onClick={() => navigate('/unirse')}
+                  className="inline-flex items-center gap-2 text-tp-blue font-black hover:text-tp-red transition-colors group"
+                >
+                  ÚNETE AL PROGRAMA DE AFILIADOS
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+              <div className="pt-2 border-t border-tp-gray-soft/50">
+                <p className="text-xs text-tp-blue/30 font-bold mb-2">¿Tienes algún problema técnico?</p>
+                <button
+                  onClick={abrirSoporte}
+                  className="text-xs font-black text-tp-blue/40 hover:text-tp-red transition-colors underline"
+                >
+                  Contactar con soporte
+                </button>
+              </div>
             </div>
           )}
         </div>

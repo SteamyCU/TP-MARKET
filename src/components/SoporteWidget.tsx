@@ -4,6 +4,11 @@ import { supabase } from '../supabase';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 
+/** Abre el widget de soporte desde cualquier parte de la app. */
+export function abrirSoporte() {
+  window.dispatchEvent(new Event('tp-soporte-open'));
+}
+
 const CATEGORIAS = [
   'Problema con mi paquete',
   'Problema de acceso o contraseña',
@@ -24,6 +29,13 @@ export function SoporteWidget() {
   const [categoria, setCategoria] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [estado, setEstado] = useState<Estado>('idle');
+
+  // Escucha el evento global para abrir el widget desde cualquier parte de la app
+  useEffect(() => {
+    const abrir = () => setAbierto(true);
+    window.addEventListener('tp-soporte-open', abrir);
+    return () => window.removeEventListener('tp-soporte-open', abrir);
+  }, []);
 
   // Pre-rellenar con datos del perfil cuando se abre
   useEffect(() => {

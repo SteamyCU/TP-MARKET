@@ -1,9 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Facebook, Instagram, Mail, Phone, MapPin, Globe, ChevronDown
+  Facebook, Instagram, Mail, Phone, MapPin, Globe, ChevronDown, Headphones
 } from 'lucide-react';
-import { SoporteWidget } from './SoporteWidget';
+import { SoporteWidget, abrirSoporte } from './SoporteWidget';
 
 const TiktokIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -148,6 +148,15 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 <li className="flex items-center gap-3">
                   <Globe className="w-5 h-5 text-tp-red shrink-0" />
                   <span>www.topaquete.com</span>
+                </li>
+                <li>
+                  <button
+                    onClick={abrirSoporte}
+                    className="flex items-center gap-3 text-tp-blue/60 hover:text-tp-red transition-colors group"
+                  >
+                    <Headphones className="w-5 h-5 text-tp-red shrink-0" />
+                    <span>Soporte Técnico</span>
+                  </button>
                 </li>
               </ul>
             </div>
