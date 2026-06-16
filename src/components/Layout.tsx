@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { cargarConfigNegocio } from '../services/paquetes';
+import { SoporteWidget } from './SoporteWidget';
 
 const Chatbot = React.lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 
@@ -36,6 +37,7 @@ export function Layout() {
       <Suspense fallback={null}>
         <Chatbot />
       </Suspense>
+      <SoporteWidget />
     </div>
   );
 }

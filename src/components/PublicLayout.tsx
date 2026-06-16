@@ -1,8 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Facebook, Instagram, Mail, Phone, MapPin, Globe, ChevronDown 
+import {
+  Facebook, Instagram, Mail, Phone, MapPin, Globe, ChevronDown
 } from 'lucide-react';
+import { SoporteWidget } from './SoporteWidget';
 
 const TiktokIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -83,6 +84,8 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       <main>
         {children}
       </main>
+
+      <SoporteWidget />
 
       {/* Footer */}
       <footer className="bg-white border-t border-tp-gray-soft pt-20 pb-10 px-6">
