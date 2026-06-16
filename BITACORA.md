@@ -328,6 +328,13 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   `role === 'influencer'` muestran el sistema de clientes referidos/actividad
   (sin niveles ni simulador); para `role === 'agente'` mantienen el sistema
   original de Niveles y Simulador de Ganancias.
+- **Código de referido editable**: el influencer puede personalizar su código
+  desde la card "Tu enlace de promoción" en el Dashboard y en Mis Ganancias.
+  Se normaliza (mayúsculas, espacios→guiones, solo `[A-Z0-9-]`, máx. 20 caracteres),
+  se verifica unicidad contra el resto de perfiles y se guarda en
+  `profiles.extra.codigoReferido`. Componente reutilizable en
+  `src/components/influencer/CodigoReferidoCard.tsx`; función de servicio
+  `actualizarCodigoReferido` en `src/services/influencers.ts`.
 
 > **Acción manual pendiente en Supabase:** ejecutar `0012_influencer_referidos.sql`
 > en el SQL Editor (añade el índice y siembra `influencer_config`).

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, Users, Copy, CheckCircle2, Share2, Package, TrendingUp, AlertTriangle, CalendarClock } from 'lucide-react';
+import { Wallet, Users, CheckCircle2, Package, TrendingUp, AlertTriangle, CalendarClock } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import {
   getResumenInfluencer,
   type ResumenInfluencer,
 } from '../../services/influencers';
+import { CodigoReferidoCard } from '../influencer/CodigoReferidoCard';
 import { cn } from '../../lib/utils';
 
 function formatFecha(iso: string | null): string {
@@ -13,13 +14,9 @@ function formatFecha(iso: string | null): string {
 }
 
 export function InfluencerDashboard() {
-  const { user, loading: authLoading, profile } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [resumen, setResumen] = useState<ResumenInfluencer | null>(null);
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
-
-  const codigo = profile?.codigoReferido || '';
-  const referralLink = `${window.location.origin}/login?mode=register&ref=${codigo}`;
 
   useEffect(() => {
     if (authLoading || !user?.uid) return;
@@ -31,12 +28,6 @@ export function InfluencerDashboard() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [user, authLoading]);
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(referralLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const actividad = resumen?.actividad;
   const comisiones = resumen?.comisiones;
@@ -87,36 +78,7 @@ export function InfluencerDashboard() {
       </div>
 
       {/* Card "Tu enlace de promoción" */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-tp-gray-soft shadow-sm">
-        <h2 className="text-xl font-bold text-tp-blue mb-1 flex items-center gap-2">
-          <Share2 className="w-5 h-5 text-tp-red" />
-          Tu enlace de promoción
-        </h2>
-        <p className="text-sm text-tp-blue/50 mb-5">
-          Comparte este enlace en tus redes. Solo cuentan los clientes nuevos.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 bg-gray-50 border border-tp-gray-soft rounded-2xl px-4 py-4 font-mono text-sm text-tp-blue/70 break-all flex items-center">
-            {referralLink}
-          </div>
-          <button
-            onClick={copyToClipboard}
-            className={cn(
-              'px-8 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shrink-0',
-              copied ? 'bg-green-500 text-white' : 'bg-tp-blue text-white hover:bg-[#004a78]',
-            )}
-          >
-            {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-            {copied ? '¡COPIADO!' : 'COPIAR LINK'}
-          </button>
-        </div>
-        {codigo && (
-          <div className="mt-5 p-4 bg-tp-blue-light/30 rounded-2xl border border-tp-blue/10 inline-block">
-            <div className="text-xs font-bold text-tp-blue/40 uppercase mb-1">Tu código promocional</div>
-            <div className="text-2xl font-black text-tp-blue tracking-widest">{codigo}</div>
-          </div>
-        )}
-      </div>
+      <CodigoReferidoCard />
 
       {/* Stats principales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">

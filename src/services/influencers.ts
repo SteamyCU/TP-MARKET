@@ -20,6 +20,7 @@
 
 import { supabase } from '../supabase';
 import { getSetting } from './settings';
+import { listProfiles, updateProfileFields } from './profiles';
 
 const MS_POR_DIA = 1000 * 60 * 60 * 24;
 
@@ -282,6 +283,39 @@ function construirComisiones(cartera: Cartera): ComisionesInfluencer {
     kgGestionadosMes: Math.round(kgGestionadosMes * 100) / 100,
     clientesNuevosTotal: referidos.length,
   };
+}
+
+/**
+ * Normaliza un código de referido: mayúsculas, espacios→guiones, solo
+ * letras/números/guiones, máximo 20 caracteres.
+ */
+export function normalizarCodigo(raw: string): string {
+  return raw
+    .toUpperCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^A-Z0-9-]/g, '')
+    .slice(0, 20);
+}
+
+/**
+ * Cambia el código de referido del influencer.
+ * 1. Normaliza el código.
+ * 2. Valida longitud mínima (4 caracteres).
+ * 3. Verifica que ningún otro perfil use ya ese código.
+ * 4. Actualiza el perfil en Supabase.
+ * Devuelve el código normalizado para que la UI actualice el estado local.
+ */
+export async function actualizarCodigoReferido(uid: string, nuevoCodigo: string): Promise<string> {
+  const normalizado = normalizarCodigo(nuevoCodigo);
+  if (normalizado.length < 4) {
+    throw new Error('El código debe tener al menos 4 caracteres válidos (letras, números o guiones).');
+  }
+  const existentes = await listProfiles({ extraKey: 'codigoReferido', extraValue: normalizado });
+  if (existentes.some(p => p.id !== uid)) {
+    throw new Error('Este código ya está en uso, prueba otro');
+  }
+  await updateProfileFields(uid, { codigoReferido: normalizado });
+  return normalizado;
 }
 
 /**
