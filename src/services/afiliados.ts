@@ -65,6 +65,20 @@ export async function contarSolicitudesAfiliadoPendientes(): Promise<number> {
   return count || 0;
 }
 
+async function enviarNotificacionSolicitud(
+  email: string,
+  nombre: string,
+  resultado: 'aprobado' | 'rechazado',
+  rolSolicitado: string,
+  motivoRechazo?: string,
+): Promise<void> {
+  const { error } = await supabase.functions.invoke('notificar-solicitud', {
+    body: { email, nombre, resultado, rolSolicitado, motivoRechazo },
+  });
+  if (error) console.error('Error enviando notificación de solicitud:', error.message);
+  // No relanzar: si falla el correo la aprobación ya se hizo y no debe bloquearse.
+}
+
 /**
  * Aprueba una solicitud: promueve el perfil del solicitante al rol pedido
  * (agente/influencer), copia sus datos del formulario al perfil y marca la
@@ -86,6 +100,15 @@ export async function aprobarSolicitudAfiliado(solicitud: SolicitudAfiliado): Pr
     .update({ status: 'aprobado' })
     .eq('id', solicitud.id);
   if (error) throw error;
+
+  if (solicitud.email) {
+    await enviarNotificacionSolicitud(
+      solicitud.email,
+      solicitud.nombre || solicitud.email,
+      'aprobado',
+      role_solicitado,
+    );
+  }
 }
 
 export async function rechazarSolicitudAfiliado(solicitud: SolicitudAfiliado, motivo?: string): Promise<void> {
@@ -97,6 +120,16 @@ export async function rechazarSolicitudAfiliado(solicitud: SolicitudAfiliado, mo
     .update({ status: 'rechazado', datos })
     .eq('id', solicitud.id);
   if (error) throw error;
+
+  if (solicitud.email) {
+    await enviarNotificacionSolicitud(
+      solicitud.email,
+      solicitud.nombre || solicitud.email,
+      'rechazado',
+      solicitud.role_solicitado,
+      motivo,
+    );
+  }
 }
 
 /**

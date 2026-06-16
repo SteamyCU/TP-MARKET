@@ -43,6 +43,7 @@ y de los pendientes para dejarla lista para producción.
 | 19 | Página dedicada de gestión de solicitudes de Agentes/Influencers con tabla, subtabs, modales y revocación |
 | 20 | Módulo de incidencias: registro propio con tipo/prioridad/estado, asignación, resolución e historial |
 | 21 | Rediseño del sistema de Influencer: promoción pasiva, comisión por cliente nuevo referido y estado de actividad en tiempo real |
+| 22 | Notificación por email al aprobar/rechazar solicitudes de afiliado (Edge Function Resend) |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -325,3 +326,32 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 
 > **Acción manual pendiente en Supabase:** ejecutar `0012_influencer_referidos.sql`
 > en el SQL Editor (añade el índice y siembra `influencer_config`).
+
+### Fase 22 · Notificaciones de email al gestionar solicitudes de afiliado
+
+- **Edge Function** `supabase/functions/notificar-solicitud/index.ts`: recibe
+  `{ email, nombre, resultado, rolSolicitado, motivoRechazo? }` y envía un email
+  vía la API de Resend (`RESEND_API_KEY` como secret de la Edge Function).
+  Remitente: `ToPaquete <notificaciones@topaquete.com>`.
+- **Plantilla aprobado:** asunto "🎉 Tu solicitud de [Agente/Influencer] ha sido
+  aprobada", saludo, mensaje de aprobación, botón CTA "Acceder a mi panel" que
+  enlaza a `https://topaquete.com/dashboard`. HTML inline con colores de marca
+  (`#00314F` / `#EE293B`), cabecera con logo TP y pie de página.
+- **Plantilla rechazado:** asunto "Actualización sobre tu solicitud en ToPaquete",
+  mensaje de rechazo, motivo destacado si se proporcionó (bloque rojo), invitación
+  a responder al email para dudas.
+- **Servicio** `afiliados.ts`: función interna `enviarNotificacionSolicitud` llamada
+  al final de `aprobarSolicitudAfiliado` y `rechazarSolicitudAfiliado`. El error de
+  envío solo se loguea, nunca bloquea la operación principal.
+- **Panel admin** `SolicitudesAfiliados.tsx`: toast visible 4 s tras aprobar o
+  rechazar: "✅ Solicitud aprobada y correo enviado a [email]".
+- `tsconfig.json`: añadido `"exclude": ["supabase/functions"]` para que el
+  compilador de Vite no intente tipar las Edge Functions de Deno.
+
+> **Acción manual requerida: desplegar la Edge Function en Supabase.**
+> En la raíz del proyecto, con la CLI de Supabase instalada y sesión activa:
+> ```bash
+> supabase functions deploy notificar-solicitud --project-ref idcfuravemoljjxbdkeh
+> supabase secrets set RESEND_API_KEY=<tu_clave> --project-ref idcfuravemoljjxbdkeh
+> ```
+> O bien desde el Dashboard de Supabase → Edge Functions → Deploy desde GitHub.

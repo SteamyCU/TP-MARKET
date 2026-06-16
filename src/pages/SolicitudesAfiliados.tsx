@@ -3,6 +3,9 @@ import {
   RefreshCw, Mail, Phone, Star, User, Users, CheckCircle2, XCircle,
   ChevronDown, Inbox, FileText, ExternalLink, Globe, RotateCcw, Undo2, X, Download,
 } from 'lucide-react';
+
+interface ToastMsg { id: number; text: string; }
+let toastSeq = 0;
 import { cn } from '../lib/utils';
 import {
   getSolicitudesAfiliado, aprobarSolicitudAfiliado, rechazarSolicitudAfiliado,
@@ -64,6 +67,13 @@ export function SolicitudesAfiliados() {
   const [modalAprobar, setModalAprobar] = useState<SolicitudAfiliado | null>(null);
   const [modalRechazar, setModalRechazar] = useState<SolicitudAfiliado | null>(null);
   const [motivo, setMotivo] = useState('');
+  const [toasts, setToasts] = useState<ToastMsg[]>([]);
+
+  const addToast = (text: string) => {
+    const id = ++toastSeq;
+    setToasts(prev => [...prev, { id, text }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  };
 
   const cargar = async () => {
     setLoading(true);
@@ -94,6 +104,7 @@ export function SolicitudesAfiliados() {
     try {
       await aprobarSolicitudAfiliado(modalAprobar);
       setSolicitudes(prev => prev.map(s => s.id === modalAprobar.id ? { ...s, status: 'aprobado' } : s));
+      addToast(`✅ Solicitud aprobada${modalAprobar.email ? ` y correo enviado a ${modalAprobar.email}` : ''}`);
       setModalAprobar(null);
     } catch (err) {
       console.error('Error aprobando solicitud:', err);
@@ -110,6 +121,7 @@ export function SolicitudesAfiliados() {
       await rechazarSolicitudAfiliado(modalRechazar, motivo.trim() || undefined);
       const datos = motivo.trim() ? { ...modalRechazar.datos, motivo_rechazo: motivo.trim() } : modalRechazar.datos;
       setSolicitudes(prev => prev.map(s => s.id === modalRechazar.id ? { ...s, status: 'rechazado', datos } : s));
+      addToast(`✅ Solicitud rechazada${modalRechazar.email ? ` y correo enviado a ${modalRechazar.email}` : ''}`);
       setModalRechazar(null);
       setMotivo('');
     } catch (err) {
@@ -452,6 +464,18 @@ export function SolicitudesAfiliados() {
           </div>
         </div>
       )}
+
+      {/* Toasts */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className="bg-tp-blue text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+          >
+            {t.text}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
