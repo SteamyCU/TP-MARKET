@@ -27,6 +27,7 @@ import { logout } from '../supabase';
 import { useAuth } from '../AuthContext';
 import { subscribePagosPendientesCount } from '../services/pagos';
 import { contarSolicitudesAfiliadoPendientes } from '../services/afiliados';
+import { contarIncidenciasAbiertas } from '../services/incidencias';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -37,6 +38,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { role, profile } = useAuth();
   const [pendingPayments, setPendingPayments] = useState(0);
   const [pendingAfiliados, setPendingAfiliados] = useState(0);
+  const [incidenciasAbiertas, setIncidenciasAbiertas] = useState(0);
 
   useEffect(() => {
     if (role === 'admin') {
@@ -54,6 +56,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       contarSolicitudesAfiliadoPendientes()
         .then(count => { if (active) setPendingAfiliados(count); })
         .catch(err => console.error('Error cargando solicitudes de afiliados:', err));
+    };
+    cargar();
+    const intervalo = setInterval(cargar, 60000);
+    return () => { active = false; clearInterval(intervalo); };
+  }, [role]);
+
+  // Incidencias abiertas: visible para roles operativos (admin/agente/logística).
+  useEffect(() => {
+    if (!role || !['admin', 'agente', 'logistica'].includes(role)) return;
+    let active = true;
+    const cargar = () => {
+      contarIncidenciasAbiertas()
+        .then(count => { if (active) setIncidenciasAbiertas(count); })
+        .catch(err => console.error('Error cargando incidencias abiertas:', err));
     };
     cargar();
     const intervalo = setInterval(cargar, 60000);
@@ -79,6 +95,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       badge: pendingPayments > 0 ? pendingPayments : null
     },
     { name: 'Cobros y Pagos', path: '/dashboard/pagos', icon: Wallet },
+    {
+      name: 'Incidencias',
+      path: '/dashboard/incidencias',
+      icon: AlertTriangle,
+      badge: incidenciasAbiertas > 0 ? incidenciasAbiertas : null,
+    },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3 },
     { name: 'Reportes Globales', path: '/dashboard/reportes', icon: BarChart3 },
     { name: 'Configuración', path: '/dashboard/configuracion', icon: Settings },
@@ -98,7 +120,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Logística', path: '/dashboard/logistica', icon: Truck, badge: null },
     { name: 'Mis Comisiones', path: '/dashboard/comisiones', icon: Wallet, badge: null },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3, badge: null },
-    { name: 'Incidencias', path: '/dashboard/incidencias', icon: AlertTriangle, badge: null },
+    { name: 'Incidencias', path: '/dashboard/incidencias', icon: AlertTriangle, badge: incidenciasAbiertas > 0 ? incidenciasAbiertas : null },
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
   ];
 
@@ -138,6 +160,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const logisticaItems = [
     { name: 'Recepción', path: '/dashboard/recepcion', icon: PackagePlus, badge: null },
     { name: 'Logística', path: '/dashboard/logistica', icon: Truck, badge: null },
+    { name: 'Incidencias', path: '/dashboard/incidencias', icon: AlertTriangle, badge: incidenciasAbiertas > 0 ? incidenciasAbiertas : null },
     { name: 'Seguimiento', path: '/dashboard/seguimiento', icon: SearchIcon, badge: null },
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
   ];

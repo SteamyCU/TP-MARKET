@@ -41,6 +41,7 @@ y de los pendientes para dejarla lista para producción.
 | 17 | Precios Express por tipo de contenido (kg/unidad) en panel y calculadoras |
 | 18 | Panel de altas de afiliados (aprobar Agente/Influencer) y campana de notificaciones del admin |
 | 19 | Página dedicada de gestión de solicitudes de Agentes/Influencers con tabla, subtabs, modales y revocación |
+| 20 | Módulo de incidencias: registro propio con tipo/prioridad/estado, asignación, resolución e historial |
 
 ### Desglose Fase 13 · Migración a Supabase
 
@@ -257,3 +258,36 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   opcional.
 - La campana de notificaciones del admin (`Topbar.tsx`) enlaza ahora directamente a
   `/dashboard/solicitudes-afiliados` en lugar de `/dashboard/negocios?tab=altas`.
+
+### Fase 20 · Módulo de incidencias
+
+- **Tabla Supabase `incidencias`** (`0011_incidencias.sql`): cada incidencia es un
+  caso de gestión propio (antes "incidencia" solo existía como estado del paquete).
+  Campos: `codigo` (INC-XXXXX), `tipo`, `prioridad` (baja/media/alta/critica),
+  `estado` (abierta/en_proceso/resuelta/cerrada), `titulo`, `descripcion`,
+  `resolucion`, `asignado_a` y `reportado_por` (FK a `profiles`), `historial jsonb`
+  (comentarios y cambios cronológicos) y vínculo opcional a un paquete
+  (`paquete_id` + `paquete_tracking`/`cliente_nombre` denormalizados).
+  RLS: lectura operativa + finanzas, escritura operativa (admin/agente/logística),
+  borrado solo admin.
+- **Servicio** `src/services/incidencias.ts`: `subscribeIncidencias` (realtime),
+  `contarIncidenciasAbiertas`, `crearIncidencia`, `cambiarEstadoIncidencia`
+  (registra el cambio en el historial y guarda resolución/fecha al resolver),
+  `asignarIncidencia`, `agregarComentarioIncidencia`, `actualizarPrioridadIncidencia`
+  y `eliminarIncidencia`. Cada creación/cambio queda en auditoría
+  (`crear_incidencia` / `cambio_incidencia`).
+- **Página** `/dashboard/incidencias` (`Incidencias.tsx`, roles admin/agente/logística):
+  panel de KPIs (abiertas, en proceso, resueltas, críticas activas), filtros por
+  estado/prioridad/tipo y buscador, lista ordenada (abiertas y críticas primero),
+  modal de alta (con búsqueda de paquete por tracking que autocompleta el cliente y
+  opción de marcar el paquete como "Incidencia") y panel lateral de detalle con
+  cambio de estado/prioridad, asignación de responsable, resolución e hilo de
+  comentarios.
+- **Catálogos** en `constants/estados.ts`: `TIPOS_INCIDENCIA`, `PRIORIDADES_INCIDENCIA`
+  y `ESTADOS_INCIDENCIA`.
+- **Sidebar**: enlace "Incidencias" para admin, agente y logística con badge del
+  número de incidencias abiertas (refresco cada 60s). El KPI "Incidencias Abiertas"
+  del Dashboard ahora enlaza a `/dashboard/incidencias`.
+
+> **Acción manual pendiente en Supabase:** ejecutar `0011_incidencias.sql` en el
+> SQL Editor para crear la tabla `incidencias` y sus políticas RLS.

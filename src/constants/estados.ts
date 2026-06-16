@@ -102,6 +102,33 @@ export const ESTADO_COLOR: Record<string, string> = {
 export const ESTADOS_PAGO = ['Pagado', 'Parcial', 'Pendiente'] as const;
 export type EstadoPago = (typeof ESTADOS_PAGO)[number];
 
+// ── Incidencias ───────────────────────────────────────────────────────────
+export const TIPOS_INCIDENCIA = [
+  { value: 'paquete_danado', label: 'Paquete dañado' },
+  { value: 'extravio', label: 'Extravío / pérdida' },
+  { value: 'retraso', label: 'Retraso en entrega' },
+  { value: 'error_direccion', label: 'Dirección incorrecta' },
+  { value: 'contenido_incorrecto', label: 'Contenido incorrecto / faltante' },
+  { value: 'aduana', label: 'Retención en aduana' },
+  { value: 'pago', label: 'Problema de pago' },
+  { value: 'cliente', label: 'Reclamación de cliente' },
+  { value: 'otro', label: 'Otro' },
+] as const;
+
+export const PRIORIDADES_INCIDENCIA: { value: string; label: string; color: string }[] = [
+  { value: 'baja', label: 'Baja', color: 'bg-slate-100 text-slate-600' },
+  { value: 'media', label: 'Media', color: 'bg-blue-100 text-blue-700' },
+  { value: 'alta', label: 'Alta', color: 'bg-amber-100 text-amber-700' },
+  { value: 'critica', label: 'Crítica', color: 'bg-red-100 text-tp-red' },
+];
+
+export const ESTADOS_INCIDENCIA: { value: string; label: string; color: string }[] = [
+  { value: 'abierta', label: 'Abierta', color: 'bg-red-100 text-tp-red' },
+  { value: 'en_proceso', label: 'En proceso', color: 'bg-amber-100 text-amber-700' },
+  { value: 'resuelta', label: 'Resuelta', color: 'bg-green-100 text-green-700' },
+  { value: 'cerrada', label: 'Cerrada', color: 'bg-slate-200 text-slate-600' },
+];
+
 export const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta'] as const;
 
 export const CATEGORIAS_GASTO = [

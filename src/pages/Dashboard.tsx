@@ -216,7 +216,7 @@ export function Dashboard() {
           {[
             { label: 'Registrados Hoy', value: registradosHoy, color: 'text-tp-blue', path: '/dashboard/recepcion' },
             { label: 'Pendientes de Pago', value: pendientesPago, color: 'text-amber-600', path: '/dashboard/pagos' },
-            { label: 'Incidencias Abiertas', value: incidenciasAbiertas, color: 'text-tp-red', path: '/dashboard/logistica' },
+            { label: 'Incidencias Abiertas', value: incidenciasAbiertas, color: 'text-tp-red', path: '/dashboard/incidencias' },
             { label: 'Lotes Activos', value: lotesActivos, color: 'text-purple-600', path: '/dashboard/logistica' },
             { label: 'Entregas Pendientes', value: entregasPendientes, color: 'text-teal-600', path: '/dashboard/logistica' },
           ].map(kpi => (

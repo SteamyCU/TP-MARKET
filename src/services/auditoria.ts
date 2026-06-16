@@ -18,6 +18,8 @@ export type AccionAuditoria =
   | 'cambio_solicitud'
   | 'cambio_etiquetas_cliente'
   | 'cambio_datos_cliente'
+  | 'crear_incidencia'
+  | 'cambio_incidencia'
   | 'importacion';
 
 export interface EntradaAuditoria {
