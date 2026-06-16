@@ -323,6 +323,11 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   enviados y última actividad.
 - **Eliminado:** niveles Bronce/Plata/Oro/Élite, simulador de seguidores,
   sub-afiliados y el enlace "Mi Red" del sidebar para influencers.
+- **Role-aware** (corrección posterior): `ComisionesAgente.tsx` y
+  `ProgramaAfiliados.tsx` ahora detectan el rol al renderizar. Para
+  `role === 'influencer'` muestran el sistema de clientes referidos/actividad
+  (sin niveles ni simulador); para `role === 'agente'` mantienen el sistema
+  original de Niveles y Simulador de Ganancias.
 
 > **Acción manual pendiente en Supabase:** ejecutar `0012_influencer_referidos.sql`
 > en el SQL Editor (añade el índice y siembra `influencer_config`).

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Calculator, Trophy, Star, Shield, Crown, AlertCircle
+import {
+  Calculator, Trophy, Star, Shield, Crown, AlertCircle, Info
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { getSetting } from '../services/settings';
 
-export function ProgramaAfiliados() {
+function ProgramaAfiliadosAgente() {
   const { user, loading: authLoading, profile: userData } = useAuth();
   
   // Simulator state
@@ -228,4 +228,32 @@ export function ProgramaAfiliados() {
       </div>
     </div>
   );
+}
+
+function ProgramaAfiliadosInfluencer() {
+  return (
+    <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <h1 className="text-2xl font-black text-tp-blue">Información del Programa</h1>
+      <div className="bg-white p-8 rounded-3xl border border-tp-gray-soft shadow-sm space-y-4">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-tp-blue shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-black text-tp-blue text-lg mb-2">Cómo funciona tu programa</h2>
+            <ul className="space-y-3 text-sm text-tp-blue/70 leading-relaxed">
+              <li>• <strong>Solo cuentan los clientes nuevos</strong> que se registran con tu código o enlace. Si un cliente ya estaba registrado y usa tu código, el descuento se aplica pero no genera comisión para ti.</li>
+              <li>• Una vez referido, cobras comisión del <strong>5%</strong> sobre el valor de <strong>todos sus envíos futuros</strong>, indefinidamente.</li>
+              <li>• Eres <strong>activo</strong> si has traído al menos 1 cliente nuevo en los últimos 90 días. Si pasa la ventana sin nuevos clientes, pasas a <strong>inactivo</strong> y dejas de generar comisión en toda tu cartera hasta reactivarte.</li>
+              <li>• La comisión de cada envío se evalúa con tu estado de actividad en el momento del envío (sin retroactividad).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ProgramaAfiliados() {
+  const { role } = useAuth();
+  if (role === 'influencer') return <ProgramaAfiliadosInfluencer />;
+  return <ProgramaAfiliadosAgente />;
 }
