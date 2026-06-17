@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Facebook, Instagram, Mail, Phone, MapPin, Globe, ChevronDown, Headphones
 } from 'lucide-react';
 import { SoporteWidget, abrirSoporte } from './SoporteWidget';
+
+const Chatbot = React.lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 
 const TiktokIcon = ({ className }: { className?: string }) => (
   <svg 
@@ -100,6 +102,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
         {children}
       </main>
 
+      <Suspense fallback={null}>
+        <Chatbot />
+      </Suspense>
       <SoporteWidget />
 
       {/* Footer */}
