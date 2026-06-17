@@ -21,6 +21,7 @@ import {
   Shield,
   UserPlus,
   Tag,
+  Plane,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -173,13 +174,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Mi Perfil', path: '/dashboard/perfil', icon: Settings, badge: null },
   ];
 
-  const navItems = role === 'admin' ? adminItems :
+  const baseNavItems = role === 'admin' ? adminItems :
                    role === 'agente' ? agenteItems :
                    role === 'influencer' ? influencerItems :
                    role === 'partner' ? (profile?.tipoColaborador === 'punto_pack' ? puntoPackItems : partnerItems) :
                    role === 'contabilidad' ? contabilidadItems :
                    role === 'logistica' ? logisticaItems :
                    clienteItems;
+
+  // "Kilos Disponibles" (Programa de Viajeros) es visible para cualquier rol
+  // autenticado. Se inserta antes de "Mi Perfil" para mantenerlo agrupado al final.
+  const viajerosItem = { name: 'Kilos Disponibles', path: '/dashboard/kilos-disponibles', icon: Plane, badge: null };
+  const perfilIdx = baseNavItems.findIndex((item) => item.path === '/dashboard/perfil');
+  const navItems = perfilIdx === -1
+    ? [...baseNavItems, viajerosItem]
+    : [...baseNavItems.slice(0, perfilIdx), viajerosItem, ...baseNavItems.slice(perfilIdx)];
 
   return (
     <aside className={cn(

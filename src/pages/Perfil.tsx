@@ -1,10 +1,36 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
-import { User as UserIcon, Phone, MapPin, Building2, CreditCard, CheckCircle2, AlertCircle, Banknote } from 'lucide-react';
+import { User as UserIcon, Phone, MapPin, Building2, CreditCard, CheckCircle2, AlertCircle, Banknote, ShieldCheck, Upload, FileCheck2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { subirDocumentoIdentidad } from '../services/afiliados';
 
 export function Perfil() {
-  const { profile, updateProfile } = useAuth();
+  const { user, profile, updateProfile } = useAuth();
+  const identidadVerificada = Boolean(profile?.documentoIdentidadUrl);
+  const [idFile, setIdFile] = useState<File | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [docSuccess, setDocSuccess] = useState(false);
+
+  const handleUploadDocumento = async () => {
+    if (!idFile || !user?.uid) return;
+    setUploadingDoc(true);
+    setDocError(null);
+    setDocSuccess(false);
+    try {
+      const path = await subirDocumentoIdentidad(user.uid, idFile);
+      await updateProfile({ documentoIdentidadUrl: path });
+      setDocSuccess(true);
+      setIdFile(null);
+      setTimeout(() => setDocSuccess(false), 4000);
+    } catch (err) {
+      console.error('Error subiendo documento de identidad:', err);
+      setDocError('No se pudo subir el documento. Verifica el archivo (imagen o PDF) e intenta de nuevo.');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
   const [formData, setFormData] = useState({
     name: profile?.name || '',
     telefono: profile?.telefono || '',
@@ -241,6 +267,79 @@ export function Perfil() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Verificación de identidad (necesaria para el Programa de Viajeros) */}
+      <div className="mt-8 bg-white rounded-2xl border border-tp-gray-soft p-8 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className={cn(
+            'w-12 h-12 rounded-xl flex items-center justify-center shrink-0',
+            identidadVerificada ? 'bg-green-100 text-green-600' : 'bg-tp-blue-light/40 text-tp-blue',
+          )}>
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-bold text-tp-blue text-lg flex items-center gap-2">
+              Verificación de identidad
+              {identidadVerificada && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" /> Verificada
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-tp-blue/60 mt-1 leading-relaxed">
+              Sube tu DNI, NIE o pasaporte para verificar tu identidad. Es necesario para
+              publicar viajes en el <strong>Programa de Viajeros</strong>. Tu documento se
+              guarda de forma privada y solo lo revisa el equipo de ToPaquete.
+            </p>
+
+            {docSuccess && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-100 rounded-xl flex items-center gap-2 text-green-600 text-sm font-bold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" /> Documento subido correctamente. Tu identidad ya está verificada.
+              </div>
+            )}
+            {docError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-tp-red text-sm font-bold">
+                <AlertCircle className="w-4 h-4 shrink-0" /> {docError}
+              </div>
+            )}
+
+            {identidadVerificada ? (
+              <div className="mt-4 flex items-center gap-2 text-sm text-tp-blue/70 font-medium">
+                <FileCheck2 className="w-4 h-4 text-green-600" />
+                Documento registrado. Puedes subir uno nuevo si necesitas actualizarlo.
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+              <label className="flex-1 cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => { setIdFile(e.target.files?.[0] || null); setDocError(null); }}
+                  className="hidden"
+                />
+                <div className="px-4 py-2.5 bg-gray-50 border border-dashed border-tp-gray-soft rounded-xl text-sm font-medium text-tp-blue/70 flex items-center gap-2 hover:border-tp-blue/40 transition-colors">
+                  <Upload className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{idFile ? idFile.name : 'Seleccionar archivo (imagen o PDF)'}</span>
+                </div>
+              </label>
+              <button
+                type="button"
+                onClick={handleUploadDocumento}
+                disabled={!idFile || uploadingDoc}
+                className="px-6 py-2.5 bg-tp-blue text-white rounded-xl font-bold hover:bg-[#004a78] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shrink-0"
+              >
+                {uploadingDoc ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {uploadingDoc ? 'Subiendo…' : (identidadVerificada ? 'Actualizar documento' : 'Subir documento')}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Comparison Cards Section */}

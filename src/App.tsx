@@ -942,6 +942,7 @@ const Negocios = lazyPage(() => import('./pages/Negocios'), 'Negocios');
 const SolicitudesAfiliados = lazyPage(() => import('./pages/SolicitudesAfiliados'), 'SolicitudesAfiliados');
 const Incidencias = lazyPage(() => import('./pages/Incidencias'), 'Incidencias');
 const Cupones = lazyPage(() => import('./pages/Cupones'), 'Cupones');
+const KilosDisponibles = lazyPage(() => import('./pages/KilosDisponibles'), 'KilosDisponibles');
 const Layout = lazyPage(() => import('./components/Layout'), 'Layout');
 
 const PageLoader = () => (
@@ -1001,6 +1002,7 @@ export default function App() {
             <Route path="pagos" element={<RoleRoute allowedRoles={['admin', 'agente', 'contabilidad']}><Pagos /></RoleRoute>} />
             <Route path="incidencias" element={<RoleRoute allowedRoles={['admin', 'agente', 'logistica']}><Incidencias /></RoleRoute>} />
             <Route path="cupones" element={<RoleRoute allowedRoles={['admin']}><Cupones /></RoleRoute>} />
+            <Route path="kilos-disponibles" element={<KilosDisponibles />} />
             <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="*" element={<div className="p-8 text-tp-blue font-medium">Módulo en desarrollo...</div>} />
           </Route>
