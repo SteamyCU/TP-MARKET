@@ -45,6 +45,7 @@ y de los pendientes para dejarla lista para producción.
 | 21 | Rediseño del sistema de Influencer: promoción pasiva, comisión por cliente nuevo referido y estado de actividad en tiempo real |
 | 22 | Notificación por email al aprobar/rechazar solicitudes de afiliado (Edge Function Resend) |
 | **23** | **Sistema centralizado de cupones:** tabla `cupones`, servicio `cupones.ts`, página admin `/dashboard/cupones`, refactorización de la validación de códigos de referido, actualización de AuthContext para usar RPC atómico |
+| **24** | **Actualización de precios base:** Express 13 €/kg y Móvil/Celular 30 €/unidad (migración `0014`). Soporte técnico por email (widget flotante + Edge Function `soporte-email`) accesible desde footer, chatbot, login y acceso denegado |
 
 ### Desglose Fase 13 · Migración a Supabase
 
