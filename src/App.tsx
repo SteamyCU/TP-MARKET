@@ -15,7 +15,7 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
     telefono: profile?.telefono || '',
     dni: profile?.dni || '',
     direccion: profile?.direccion || '',
-    oficina: profile?.oficina || '',
+    canalVenta: profile?.canalVenta || '',
     socialHandle: profile?.socialHandle || '',
     businessName: profile?.businessName || '',
     tipoColaborador: profile?.tipoColaborador || (profile?.role === 'partner' ? 'empresa_b2b' : 'none'),
@@ -245,17 +245,22 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
 
           {profile?.role === 'agente' && (
             <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">Oficina / Sucursal</label>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">¿Por dónde sueles vender? (opcional)</label>
               <div className="relative">
                 <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Nombre de la oficina..."
-                  value={formData.oficina}
-                  onChange={(e) => setFormData({...formData, oficina: e.target.value})}
+                <select
+                  value={formData.canalVenta}
+                  onChange={(e) => setFormData({...formData, canalVenta: e.target.value})}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
-                />
+                >
+                  <option value="">Selecciona un canal…</option>
+                  <option value="WhatsApp">WhatsApp</option>
+                  <option value="Facebook">Facebook</option>
+                  <option value="Telegram">Telegram</option>
+                  <option value="Boca a boca">Boca a boca</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="Otro">Otro</option>
+                </select>
               </div>
             </div>
           )}
@@ -398,9 +403,8 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!loading && profile) {
-      const isComplete = profile.dni && profile.telefono && 
+      const isComplete = profile.dni && profile.telefono &&
                         (profile.role !== 'cliente' || profile.direccion) &&
-                        (profile.role !== 'agente' || profile.oficina) &&
                         (profile.role !== 'influencer' || (profile.redesSociales && profile.metodoCobro && profile.datosCobro && profile.tipoInfluencer)) &&
                         (profile.role !== 'partner' || profile.businessName);
       if (!isComplete) {

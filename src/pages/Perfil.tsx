@@ -36,7 +36,7 @@ export function Perfil() {
     telefono: profile?.telefono || '',
     dni: profile?.dni || '',
     direccion: profile?.direccion || '',
-    oficina: profile?.oficina || '',
+    canalVenta: profile?.canalVenta || '',
     precioPorKilo: profile?.precioPorKilo || 0,
     tipoInfluencer: profile?.tipoInfluencer || '',
     redesSociales: profile?.redesSociales || '',
@@ -223,16 +223,22 @@ export function Perfil() {
             {profile?.role === 'agente' && (
               <>
                 <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-2 ml-1">Oficina / Sucursal</label>
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-2 ml-1">¿Por dónde sueles vender? (opcional)</label>
                   <div className="relative">
                     <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                    <input 
-                      type="text" 
-                      required
-                      value={formData.oficina}
-                      onChange={(e) => setFormData({...formData, oficina: e.target.value})}
+                    <select
+                      value={formData.canalVenta}
+                      onChange={(e) => setFormData({...formData, canalVenta: e.target.value})}
                       className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
-                    />
+                    >
+                      <option value="">Selecciona un canal…</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Facebook">Facebook</option>
+                      <option value="Telegram">Telegram</option>
+                      <option value="Boca a boca">Boca a boca</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="Otro">Otro</option>
+                    </select>
                   </div>
                 </div>
                 <div>
