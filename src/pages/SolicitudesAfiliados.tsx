@@ -4,7 +4,7 @@ import {
   ChevronDown, Inbox, FileText, ExternalLink, Globe, RotateCcw, Undo2, X, Download,
 } from 'lucide-react';
 
-interface ToastMsg { id: number; text: string; }
+interface ToastMsg { id: number; text: string; tipo?: 'ok' | 'warn'; }
 let toastSeq = 0;
 import { cn } from '../lib/utils';
 import {
@@ -69,10 +69,11 @@ export function SolicitudesAfiliados() {
   const [motivo, setMotivo] = useState('');
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
 
-  const addToast = (text: string) => {
+  const addToast = (text: string, tipo: 'ok' | 'warn' = 'ok') => {
     const id = ++toastSeq;
-    setToasts(prev => [...prev, { id, text }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+    setToasts(prev => [...prev, { id, text, tipo }]);
+    // Los avisos de correo fallido se quedan más tiempo para que el admin los lea.
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), tipo === 'warn' ? 8000 : 4000);
   };
 
   const cargar = async () => {
@@ -102,9 +103,13 @@ export function SolicitudesAfiliados() {
     if (!modalAprobar) return;
     setProcesando(modalAprobar.id);
     try {
-      await aprobarSolicitudAfiliado(modalAprobar);
+      const correo = await aprobarSolicitudAfiliado(modalAprobar);
       setSolicitudes(prev => prev.map(s => s.id === modalAprobar.id ? { ...s, status: 'aprobado' } : s));
-      addToast(`✅ Solicitud aprobada${modalAprobar.email ? ` y correo enviado a ${modalAprobar.email}` : ''}`);
+      if (correo === 'fallido') {
+        addToast(`✅ Solicitud aprobada, pero el correo a ${modalAprobar.email} no se pudo enviar. Avísale tú o revisa la Edge Function de notificaciones.`, 'warn');
+      } else {
+        addToast(`✅ Solicitud aprobada${correo === 'enviado' ? ` y correo enviado a ${modalAprobar.email}` : ''}`);
+      }
       setModalAprobar(null);
     } catch (err) {
       console.error('Error aprobando solicitud:', err);
@@ -118,10 +123,14 @@ export function SolicitudesAfiliados() {
     if (!modalRechazar) return;
     setProcesando(modalRechazar.id);
     try {
-      await rechazarSolicitudAfiliado(modalRechazar, motivo.trim() || undefined);
+      const correo = await rechazarSolicitudAfiliado(modalRechazar, motivo.trim() || undefined);
       const datos = motivo.trim() ? { ...modalRechazar.datos, motivo_rechazo: motivo.trim() } : modalRechazar.datos;
       setSolicitudes(prev => prev.map(s => s.id === modalRechazar.id ? { ...s, status: 'rechazado', datos } : s));
-      addToast(`✅ Solicitud rechazada${modalRechazar.email ? ` y correo enviado a ${modalRechazar.email}` : ''}`);
+      if (correo === 'fallido') {
+        addToast(`Solicitud rechazada, pero el correo a ${modalRechazar.email} no se pudo enviar. Revisa la Edge Function de notificaciones.`, 'warn');
+      } else {
+        addToast(`✅ Solicitud rechazada${correo === 'enviado' ? ` y correo enviado a ${modalRechazar.email}` : ''}`);
+      }
       setModalRechazar(null);
       setMotivo('');
     } catch (err) {
@@ -470,7 +479,10 @@ export function SolicitudesAfiliados() {
         {toasts.map(t => (
           <div
             key={t.id}
-            className="bg-tp-blue text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
+            className={cn(
+              'text-sm font-bold px-5 py-3 rounded-2xl shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-sm pointer-events-auto',
+              t.tipo === 'warn' ? 'bg-amber-500 text-white' : 'bg-tp-blue text-white',
+            )}
           >
             {t.text}
           </div>

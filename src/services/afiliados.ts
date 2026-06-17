@@ -66,18 +66,30 @@ export async function contarSolicitudesAfiliadoPendientes(): Promise<number> {
   return count || 0;
 }
 
+// Resultado del envío del correo de notificación al solicitante:
+//  - 'enviado'   el correo salió correctamente.
+//  - 'fallido'   se intentó pero la Edge Function devolvió error (p. ej. no
+//                desplegada o sin RESEND_API_KEY).
+//  - 'sin_email' la solicitud no tenía email, no había a quién avisar.
+export type ResultadoCorreoSolicitud = 'enviado' | 'fallido' | 'sin_email';
+
 async function enviarNotificacionSolicitud(
   email: string,
   nombre: string,
   resultado: 'aprobado' | 'rechazado',
   rolSolicitado: string,
   motivoRechazo?: string,
-): Promise<void> {
+): Promise<boolean> {
   const { error } = await supabase.functions.invoke('notificar-solicitud', {
     body: { email, nombre, resultado, rolSolicitado, motivoRechazo },
   });
-  if (error) console.error('Error enviando notificación de solicitud:', error.message);
-  // No relanzar: si falla el correo la aprobación ya se hizo y no debe bloquearse.
+  if (error) {
+    // No relanzar: si falla el correo la aprobación ya se hizo y no debe
+    // bloquearse. Se informa al admin con el valor de retorno.
+    console.error('Error enviando notificación de solicitud:', error.message);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -85,7 +97,7 @@ async function enviarNotificacionSolicitud(
  * (agente/influencer), copia sus datos del formulario al perfil y marca la
  * solicitud como 'aprobado'. Requiere que el solicitante tenga un perfil (uid).
  */
-export async function aprobarSolicitudAfiliado(solicitud: SolicitudAfiliado): Promise<void> {
+export async function aprobarSolicitudAfiliado(solicitud: SolicitudAfiliado): Promise<ResultadoCorreoSolicitud> {
   if (!solicitud.uid) {
     throw new Error('La solicitud no tiene un usuario vinculado.');
   }
@@ -102,17 +114,17 @@ export async function aprobarSolicitudAfiliado(solicitud: SolicitudAfiliado): Pr
     .eq('id', solicitud.id);
   if (error) throw error;
 
-  if (solicitud.email) {
-    await enviarNotificacionSolicitud(
-      solicitud.email,
-      solicitud.nombre || solicitud.email,
-      'aprobado',
-      role_solicitado,
-    );
-  }
+  if (!solicitud.email) return 'sin_email';
+  const ok = await enviarNotificacionSolicitud(
+    solicitud.email,
+    solicitud.nombre || solicitud.email,
+    'aprobado',
+    role_solicitado,
+  );
+  return ok ? 'enviado' : 'fallido';
 }
 
-export async function rechazarSolicitudAfiliado(solicitud: SolicitudAfiliado, motivo?: string): Promise<void> {
+export async function rechazarSolicitudAfiliado(solicitud: SolicitudAfiliado, motivo?: string): Promise<ResultadoCorreoSolicitud> {
   const datos = motivo
     ? { ...solicitud.datos, motivo_rechazo: motivo }
     : solicitud.datos;
@@ -122,15 +134,15 @@ export async function rechazarSolicitudAfiliado(solicitud: SolicitudAfiliado, mo
     .eq('id', solicitud.id);
   if (error) throw error;
 
-  if (solicitud.email) {
-    await enviarNotificacionSolicitud(
-      solicitud.email,
-      solicitud.nombre || solicitud.email,
-      'rechazado',
-      solicitud.role_solicitado,
-      motivo,
-    );
-  }
+  if (!solicitud.email) return 'sin_email';
+  const ok = await enviarNotificacionSolicitud(
+    solicitud.email,
+    solicitud.nombre || solicitud.email,
+    'rechazado',
+    solicitud.role_solicitado,
+    motivo,
+  );
+  return ok ? 'enviado' : 'fallido';
 }
 
 /**
