@@ -104,6 +104,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       badge: incidenciasAbiertas > 0 ? incidenciasAbiertas : null,
     },
     { name: 'Cupones y Códigos', path: '/dashboard/cupones', icon: Tag },
+    { name: 'Ofertas de Viajeros', path: '/dashboard/admin/viajeros', icon: Plane },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3 },
     { name: 'Reportes Globales', path: '/dashboard/reportes', icon: BarChart3 },
     { name: 'Configuración', path: '/dashboard/configuracion', icon: Settings },
@@ -184,7 +185,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // "Kilos Disponibles" (Programa de Viajeros) es visible para cualquier rol
   // autenticado. Se inserta antes de "Mi Perfil" para mantenerlo agrupado al final.
-  const viajerosItem = { name: 'Kilos Disponibles', path: '/dashboard/kilos-disponibles', icon: Plane, badge: null };
+  const viajerosItem = { name: 'Vender mis Kilos', path: '/dashboard/kilos-disponibles', icon: Plane, badge: null };
   const perfilIdx = baseNavItems.findIndex((item) => item.path === '/dashboard/perfil');
   const navItems = perfilIdx === -1
     ? [...baseNavItems, viajerosItem]

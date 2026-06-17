@@ -11,6 +11,7 @@
 
 import { supabase } from '../supabase';
 import { getProfile } from './profiles';
+import { getSetting } from './settings';
 
 export type EstadoOfertaViajero = 'activa' | 'pausada' | 'completada' | 'cancelada';
 
@@ -155,23 +156,26 @@ export async function actualizarEstadoOferta(id: string, estado: EstadoOfertaVia
 // Reservas (Fase 25, parte 2)
 // =============================================================================
 
-export type EstadoReservaViajero = 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada' | 'completada';
+export type EstadoReservaViajero = 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada' | 'completada' | 'confirmada';
 
 export interface ReservaViajero {
   id: string;
   oferta_id: string;
-  cliente_id: string;
+  cliente_id: string | null;
+  reservado_por: string | null;
   kilos_solicitados: number;
   precio_total: number;
   estado: EstadoReservaViajero;
   mensaje_cliente: string | null;
   motivo_rechazo: string | null;
+  notas_internas: string | null;
   acepto_terminos: boolean;
   created_at: string;
   respondida_at: string | null;
   // Enriquecido (no son columnas):
   oferta?: OfertaViajero;
   cliente_nombre?: string;
+  viajero_nombre?: string;
   contacto?: { telefono: string | null; email: string | null; nombre: string };
 }
 
@@ -432,6 +436,7 @@ export async function getSolicitudesRecibidas(viajeroId: string): Promise<Reserv
   return Promise.all(
     reservas.map(async (r) => {
       const enriquecida: ReservaViajero = { ...r, oferta: ofertasPorId.get(r.oferta_id) };
+      if (!r.cliente_id) return enriquecida;
       const contactoCliente = await obtenerContacto(r.cliente_id);
       enriquecida.cliente_nombre = contactoCliente.nombre;
       if (r.estado === 'aceptada') {
@@ -440,4 +445,196 @@ export async function getSolicitudesRecibidas(viajeroId: string): Promise<Reserv
       return enriquecida;
     }),
   );
+}
+
+// =============================================================================
+// Fase 1: ToPaquete (admin) como único comprador de kilos
+// =============================================================================
+
+/** true si el mercado público entre clientes (Fase 2) está activado en settings. */
+export async function isMarketplacePublicoActivo(): Promise<boolean> {
+  const setting = await getSetting<{ activo?: boolean }>('viajeros_marketplace_publico');
+  return Boolean(setting?.activo);
+}
+
+export interface OfertaViajeroConContacto extends OfertaViajero {
+  viajero_telefono?: string | null;
+  viajero_email?: string | null;
+}
+
+/** Todas las ofertas activas de cualquier viajero, con datos de contacto, para el panel admin. */
+export async function getTodasLasOfertasActivas(): Promise<OfertaViajeroConContacto[]> {
+  const { data, error } = await supabase
+    .from('ofertas_viajero')
+    .select('*')
+    .eq('estado', 'activa')
+    .order('fecha_salida', { ascending: true });
+  if (error) throw error;
+  const ofertas = (data as OfertaViajero[]) || [];
+  if (ofertas.length === 0) return [];
+
+  const ids = [...new Set(ofertas.map((o) => o.viajero_id))];
+  const { data: perfiles } = await supabase.from('profiles').select('id, email, extra').in('id', ids);
+  const porId = new Map(((perfiles as PerfilContacto[]) || []).map((p) => [p.id, p]));
+
+  return ofertas.map((o) => {
+    const perfil = porId.get(o.viajero_id);
+    return {
+      ...o,
+      viajero_nombre: (perfil?.extra?.name as string) || perfil?.email || 'Viajero',
+      viajero_telefono: (perfil?.extra?.telefono as string) || null,
+      viajero_email: perfil?.email || null,
+    };
+  });
+}
+
+async function enviarNotificacionReservaAdmin(
+  email: string,
+  nombre: string,
+  datosOferta: { provincia_destino: string; fecha_salida: string },
+  kilos: number,
+  precioTotal: number,
+): Promise<void> {
+  const { error } = await supabase.functions.invoke('notificar-reserva-admin', {
+    body: { email, nombre, datosOferta, kilos, precioTotal },
+  });
+  if (error) console.error('Error enviando notificación de reserva de ToPaquete:', error.message);
+}
+
+/**
+ * El admin reserva kilos de una oferta en nombre de ToPaquete. Verifica cupo,
+ * calcula el precio total, inserta la reserva ya 'confirmada', bloquea el
+ * cupo en la oferta y notifica al viajero por email.
+ */
+export async function crearReservaAdmin(
+  adminUid: string,
+  ofertaId: string,
+  kilos: number,
+  notas?: string,
+): Promise<ReservaViajero> {
+  if (!(kilos > 0)) {
+    throw new Error('Indica cuántos kilos quieres reservar.');
+  }
+
+  const { data: ofertaData, error: ofertaError } = await supabase
+    .from('ofertas_viajero')
+    .select('*')
+    .eq('id', ofertaId)
+    .single();
+  if (ofertaError) throw ofertaError;
+  const oferta = ofertaData as OfertaViajero;
+
+  const restantes = getKilosRestantes(oferta);
+  if (kilos > restantes) {
+    throw new Error(`Solo quedan ${restantes.toFixed(1)} kg disponibles en este viaje.`);
+  }
+
+  const precio_total = kilos * oferta.precio_kg;
+
+  const { data, error } = await supabase
+    .from('reservas_viajero')
+    .insert({
+      oferta_id: ofertaId,
+      reservado_por: adminUid,
+      kilos_solicitados: kilos,
+      precio_total,
+      notas_internas: notas?.trim() || null,
+      acepto_terminos: true,
+      estado: 'confirmada',
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  await supabase
+    .from('ofertas_viajero')
+    .update({ kilos_reservados: oferta.kilos_reservados + kilos })
+    .eq('id', ofertaId);
+
+  const viajero = await obtenerContacto(oferta.viajero_id);
+  if (viajero.email) {
+    await enviarNotificacionReservaAdmin(
+      viajero.email,
+      viajero.nombre,
+      { provincia_destino: oferta.provincia_destino, fecha_salida: oferta.fecha_salida },
+      kilos,
+      precio_total,
+    );
+  }
+
+  return data as ReservaViajero;
+}
+
+/** Marca una reserva del admin como completada (el envío ya se gestionó). */
+export async function marcarReservaCompletada(id: string): Promise<void> {
+  const { error } = await supabase.from('reservas_viajero').update({ estado: 'completada' }).eq('id', id);
+  if (error) throw error;
+}
+
+/** Cancela una reserva del admin y libera el cupo de kilos en la oferta. */
+export async function cancelarReservaAdmin(id: string): Promise<void> {
+  const { data: reservaData, error: reservaError } = await supabase
+    .from('reservas_viajero')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (reservaError) throw reservaError;
+  const reserva = reservaData as ReservaViajero;
+
+  const { error } = await supabase.from('reservas_viajero').update({ estado: 'cancelada' }).eq('id', id);
+  if (error) throw error;
+
+  const { data: ofertaData } = await supabase
+    .from('ofertas_viajero')
+    .select('*')
+    .eq('id', reserva.oferta_id)
+    .single();
+  const oferta = ofertaData as OfertaViajero;
+
+  await supabase
+    .from('ofertas_viajero')
+    .update({ kilos_reservados: Math.max(0, oferta.kilos_reservados - reserva.kilos_solicitados) })
+    .eq('id', oferta.id);
+}
+
+/** Todas las reservas hechas por el admin (ToPaquete), con datos de la oferta y del viajero. */
+export async function getReservasAdmin(): Promise<ReservaViajero[]> {
+  const { data, error } = await supabase
+    .from('reservas_viajero')
+    .select('*')
+    .not('reservado_por', 'is', null)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const reservas = (data as ReservaViajero[]) || [];
+  if (reservas.length === 0) return reservas;
+
+  const ofertaIds = [...new Set(reservas.map((r) => r.oferta_id))];
+  const { data: ofertasData } = await supabase.from('ofertas_viajero').select('*').in('id', ofertaIds);
+  const ofertasPorId = new Map(((ofertasData as OfertaViajero[]) || []).map((o) => [o.id, o]));
+
+  return Promise.all(
+    reservas.map(async (r) => {
+      const oferta = ofertasPorId.get(r.oferta_id);
+      const enriquecida: ReservaViajero = { ...r, oferta };
+      if (oferta) {
+        enriquecida.contacto = await obtenerContacto(oferta.viajero_id);
+        enriquecida.viajero_nombre = enriquecida.contacto.nombre;
+      }
+      return enriquecida;
+    }),
+  );
+}
+
+/** Reservas confirmadas del admin sobre un conjunto de ofertas — para el badge en "Mis Viajes Publicados". */
+export async function getReservasConfirmadasDeOfertas(ofertaIds: string[]): Promise<Map<string, ReservaViajero>> {
+  if (ofertaIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from('reservas_viajero')
+    .select('*')
+    .in('oferta_id', ofertaIds)
+    .eq('estado', 'confirmada');
+  if (error) throw error;
+  const map = new Map<string, ReservaViajero>();
+  ((data as ReservaViajero[]) || []).forEach((r) => map.set(r.oferta_id, r));
+  return map;
 }

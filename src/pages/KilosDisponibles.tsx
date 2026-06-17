@@ -2,20 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plane, Luggage, MapPin, Calendar, Package, Zap, Plus, X, Pause, Play, Ban,
-  AlertCircle, ShieldAlert, ChevronDown, Filter, Check, ThumbsDown, Phone,
-  MessageCircle, Mail, Clock,
+  AlertCircle, ShieldAlert, Filter, Check, ThumbsDown, Phone,
+  MessageCircle, Mail, Clock, CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { PROVINCIAS_CUBA } from '../services/tarifas';
 import {
   getOfertasActivas, getMisOfertas, crearOferta, actualizarEstadoOferta,
   getKilosRestantes, crearReserva, aceptarReserva, rechazarReserva, cancelarReserva,
-  getMisReservas, getSolicitudesRecibidas,
+  getMisReservas, getSolicitudesRecibidas, isMarketplacePublicoActivo,
+  getReservasConfirmadasDeOfertas,
   type OfertaViajero, type EstadoOfertaViajero, type ReservaViajero, type EstadoReservaViajero,
 } from '../services/viajeros';
 import { cn } from '../lib/utils';
 
-const TERMINOS_VIAJERO = `Acepto que: (1) llevaré el equipaje correspondiente bajo mi entera responsabilidad como pasajero; (2) revisaré el contenido de cualquier paquete antes de aceptarlo, pudiendo rechazarlo si no coincide con lo declarado o contiene algo ilegal; (3) ToPaquete actúa únicamente como plataforma de conexión entre viajeros y clientes, y no participa en el transporte físico ni asume responsabilidad por pérdida, daño, retraso o problemas aduanales relacionados con este envío; (4) acepto los Términos y Condiciones del Programa de Viajeros.`;
+const TERMINOS_VIAJERO = `Acepto que: (1) llevaré el equipaje bajo mi entera responsabilidad como pasajero; (2) revisaré el contenido de cualquier paquete antes de aceptarlo, pudiendo rechazarlo si no coincide con lo declarado o contiene algo ilegal; (3) ToPaquete actúa como plataforma de conexión y no asume responsabilidad por pérdida, daño, retraso o problemas aduanales; (4) acepto los Términos y Condiciones del Programa de Viajeros.`;
 
 const TERMINOS_RESERVA = `Declaro que el contenido del paquete es legal, verídico y no contiene artículos prohibidos. Entiendo que el viajero podrá inspeccionar el contenido antes de aceptarlo. ToPaquete actúa únicamente como plataforma de conexión y no se hace responsable por pérdida, daño, retraso o problemas derivados de este envío.`;
 
@@ -25,6 +26,7 @@ const ESTADO_RESERVA_BADGE: Record<EstadoReservaViajero, { label: string; clase:
   rechazada:  { label: 'Rechazada',  clase: 'bg-red-100 text-tp-red' },
   cancelada:  { label: 'Cancelada',  clase: 'bg-gray-100 text-gray-500' },
   completada: { label: 'Completada', clase: 'bg-tp-blue-light text-tp-blue' },
+  confirmada: { label: 'Confirmada', clase: 'bg-green-100 text-green-700' },
 };
 
 function whatsappLink(telefono: string): string {
@@ -125,7 +127,6 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
     notas: '',
   });
   const [acepta, setAcepta] = useState(false);
-  const [verTerminos, setVerTerminos] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -263,29 +264,14 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
 
             {/* Cláusula de exención de responsabilidad */}
             <div className="bg-gray-50 rounded-2xl p-4 border border-tp-gray-soft">
-              <button
-                type="button"
-                onClick={() => setVerTerminos((v) => !v)}
-                className="flex items-center justify-between w-full text-left text-xs font-black text-tp-blue uppercase tracking-wider"
-              >
-                Términos del Programa de Viajeros
-                <ChevronDown className={cn('w-4 h-4 transition-transform', verTerminos && 'rotate-180')} />
-              </button>
-              {verTerminos && (
-                <p className="text-xs text-tp-blue/70 leading-relaxed mt-3">{TERMINOS_VIAJERO}</p>
-              )}
-              <label className="flex items-start gap-2.5 mt-3 cursor-pointer">
+              <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={acepta}
                   onChange={(e) => setAcepta(e.target.checked)}
                   className="w-4 h-4 accent-tp-red mt-0.5 shrink-0"
                 />
-                <span className="text-xs text-tp-blue/70 font-medium leading-relaxed">
-                  He leído y acepto que llevo el equipaje bajo mi responsabilidad, revisaré cada paquete antes
-                  de aceptarlo, y que ToPaquete solo conecta viajeros y clientes sin asumir responsabilidad por
-                  el transporte. <span className="font-bold">Acepto los términos del Programa de Viajeros.</span>
-                </span>
+                <span className="text-xs text-tp-blue/70 font-medium leading-relaxed">{TERMINOS_VIAJERO}</span>
               </label>
             </div>
 
@@ -510,6 +496,7 @@ function RechazarReservaModal({
 export function KilosDisponibles() {
   const { user } = useAuth();
   const [tab, setTab] = useState<'tablero' | 'mis' | 'mis-reservas'>('tablero');
+  const [marketplaceActivo, setMarketplaceActivo] = useState<boolean | null>(null);
 
   const [ofertas, setOfertas] = useState<OfertaViajero[]>([]);
   const [loading, setLoading] = useState(true);
@@ -520,6 +507,7 @@ export function KilosDisponibles() {
   const [misOfertas, setMisOfertas] = useState<OfertaViajero[]>([]);
   const [loadingMis, setLoadingMis] = useState(false);
   const [solicitudesRecibidas, setSolicitudesRecibidas] = useState<ReservaViajero[]>([]);
+  const [reservasConfirmadas, setReservasConfirmadas] = useState<Map<string, ReservaViajero>>(new Map());
 
   const [misReservas, setMisReservas] = useState<ReservaViajero[]>([]);
   const [loadingMisReservas, setLoadingMisReservas] = useState(false);
@@ -557,6 +545,9 @@ export function KilosDisponibles() {
       ]);
       setMisOfertas(ofertasPropias);
       setSolicitudesRecibidas(solicitudes);
+      setReservasConfirmadas(
+        ofertasPropias.length > 0 ? await getReservasConfirmadasDeOfertas(ofertasPropias.map((o) => o.id)) : new Map(),
+      );
     } catch (err) {
       console.error('Error cargando mis viajes:', err);
     } finally {
@@ -576,9 +567,16 @@ export function KilosDisponibles() {
     }
   }, [user]);
 
-  useEffect(() => { cargarTablero(); }, [cargarTablero]);
-  useEffect(() => { if (tab === 'mis') cargarMisOfertas(); }, [tab, cargarMisOfertas]);
-  useEffect(() => { if (tab === 'mis-reservas') cargarMisReservas(); }, [tab, cargarMisReservas]);
+  useEffect(() => {
+    isMarketplacePublicoActivo()
+      .then(setMarketplaceActivo)
+      .catch(() => setMarketplaceActivo(false));
+  }, []);
+
+  useEffect(() => { if (marketplaceActivo === true) cargarTablero(); }, [marketplaceActivo, cargarTablero]);
+  useEffect(() => { if (marketplaceActivo === true && tab === 'mis') cargarMisOfertas(); }, [tab, cargarMisOfertas, marketplaceActivo]);
+  useEffect(() => { if (marketplaceActivo === true && tab === 'mis-reservas') cargarMisReservas(); }, [tab, cargarMisReservas, marketplaceActivo]);
+  useEffect(() => { if (marketplaceActivo === false) cargarMisOfertas(); }, [marketplaceActivo, cargarMisOfertas]);
 
   const handleReservar = (oferta: OfertaViajero) => {
     setReservaOferta(oferta);
@@ -627,6 +625,118 @@ export function KilosDisponibles() {
 
   const limpiarFiltros = () => { setFiltroProvincia(''); setFiltroDesde(''); setFiltroHasta(''); };
   const hayFiltros = filtroProvincia || filtroDesde || filtroHasta;
+
+  if (marketplaceActivo === null) {
+    return <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando…</div>;
+  }
+
+  if (marketplaceActivo === false) {
+    // Fase 1: ToPaquete (admin) es el único comprador. Sin tablero público ni botón de reservar.
+    return (
+      <div className="space-y-6">
+        <div className="flex items-start justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-tp-blue flex items-center gap-2">
+              <Luggage className="w-6 h-6 text-tp-red" />
+              Vender mis Kilos
+            </h1>
+            <p className="text-sm text-tp-blue/50 mt-0.5">
+              Publica tu viaje y ToPaquete reservará los kilos que necesite para enviar paquetes Express.
+            </p>
+          </div>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-tp-red text-white rounded-2xl font-bold hover:bg-[#D91F33] transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Publicar mi viaje
+          </button>
+        </div>
+
+        <div>
+          <h2 className="text-sm font-black text-tp-blue uppercase tracking-wider mb-3">Mis Viajes Publicados</h2>
+          {loadingMis ? (
+            <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando tus viajes…</div>
+          ) : misOfertas.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
+              <Luggage className="w-12 h-12 text-tp-blue/15 mx-auto mb-3" />
+              <p className="text-tp-blue/40 font-bold">Aún no has publicado ningún viaje.</p>
+              <button onClick={() => setModalOpen(true)} className="mt-3 text-sm font-bold text-tp-red hover:underline">
+                Publicar mi primer viaje
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-tp-gray-soft shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-[10px] font-black uppercase tracking-wider text-tp-blue/40">
+                    <th className="px-5 py-3">Destino</th>
+                    <th className="px-5 py-3">Fecha</th>
+                    <th className="px-5 py-3">Kg totales</th>
+                    <th className="px-5 py-3">Kg reservados por ToPaquete</th>
+                    <th className="px-5 py-3">Estado</th>
+                    <th className="px-5 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {misOfertas.map((o) => {
+                    const badge = ESTADO_BADGE[o.estado];
+                    const reserva = reservasConfirmadas.get(o.id);
+                    return (
+                      <tr key={o.id} className="border-t border-tp-gray-soft">
+                        <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{o.provincia_destino}</td>
+                        <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">{formatFecha(o.fecha_salida)}</td>
+                        <td className="px-5 py-4 text-tp-blue font-bold whitespace-nowrap">{o.kilos_disponibles.toFixed(1)} kg</td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          {reserva ? (
+                            <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-black px-3 py-1.5 rounded-full">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> ToPaquete reservó {reserva.kilos_solicitados.toFixed(1)} kg
+                            </span>
+                          ) : (
+                            <span className="text-tp-blue/40 font-medium">{o.kilos_reservados.toFixed(1)} kg</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className={cn('text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full', badge.clase)}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          {!reserva && (o.estado === 'activa' || o.estado === 'pausada') && (
+                            <div className="flex items-center justify-end gap-2">
+                              {o.estado === 'activa' && (
+                                <button onClick={() => handleCambiarEstado(o.id, 'pausada')} title="Pausar" className="p-2 text-amber-600 hover:bg-amber-50 rounded-xl transition-colors">
+                                  <Pause className="w-4 h-4" />
+                                </button>
+                              )}
+                              {o.estado === 'pausada' && (
+                                <button onClick={() => handleCambiarEstado(o.id, 'activa')} title="Reactivar" className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-colors">
+                                  <Play className="w-4 h-4" />
+                                </button>
+                              )}
+                              <button onClick={() => handleCambiarEstado(o.id, 'cancelada')} title="Cancelar" className="p-2 text-tp-red hover:bg-tp-red/5 rounded-xl transition-colors">
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {modalOpen && (
+          <PublicarViajeModal
+            onClose={() => setModalOpen(false)}
+            onPublicado={() => cargarMisOfertas()}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
