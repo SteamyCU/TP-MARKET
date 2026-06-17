@@ -1003,7 +1003,7 @@ export default function App() {
             <Route path="pagos" element={<RoleRoute allowedRoles={['admin', 'agente', 'contabilidad']}><Pagos /></RoleRoute>} />
             <Route path="incidencias" element={<RoleRoute allowedRoles={['admin', 'agente', 'logistica']}><Incidencias /></RoleRoute>} />
             <Route path="cupones" element={<RoleRoute allowedRoles={['admin']}><Cupones /></RoleRoute>} />
-            <Route path="kilos-disponibles" element={<KilosDisponibles />} />
+            <Route path="kilos-disponibles" element={<RoleRoute allowedRoles={['cliente']}><KilosDisponibles /></RoleRoute>} />
             <Route path="admin/viajeros" element={<RoleRoute allowedRoles={['admin']}><AdminViajeros /></RoleRoute>} />
             <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="*" element={<div className="p-8 text-tp-blue font-medium">Módulo en desarrollo...</div>} />

@@ -183,13 +183,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                    role === 'logistica' ? logisticaItems :
                    clienteItems;
 
-  // "Kilos Disponibles" (Programa de Viajeros) es visible para cualquier rol
-  // autenticado. Se inserta antes de "Mi Perfil" para mantenerlo agrupado al final.
+  // "Vender mis Kilos" (Programa de Viajeros) es solo para clientes -- los
+  // viajeros que venden kilos de equipaje son siempre clientes, nunca
+  // influencers ni otros roles internos/colaboradores.
+  // Se inserta antes de "Mi Perfil" para mantenerlo agrupado al final.
   const viajerosItem = { name: 'Vender mis Kilos', path: '/dashboard/kilos-disponibles', icon: Plane, badge: null };
   const perfilIdx = baseNavItems.findIndex((item) => item.path === '/dashboard/perfil');
-  const navItems = perfilIdx === -1
-    ? [...baseNavItems, viajerosItem]
-    : [...baseNavItems.slice(0, perfilIdx), viajerosItem, ...baseNavItems.slice(perfilIdx)];
+  const navItems = role !== 'cliente'
+    ? baseNavItems
+    : perfilIdx === -1
+      ? [...baseNavItems, viajerosItem]
+      : [...baseNavItems.slice(0, perfilIdx), viajerosItem, ...baseNavItems.slice(perfilIdx)];
 
   return (
     <aside className={cn(
