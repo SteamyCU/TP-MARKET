@@ -2,17 +2,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plane, Luggage, MapPin, Calendar, Package, Zap, Plus, X, Pause, Play, Ban,
-  AlertCircle, ShieldAlert, ChevronDown, Filter,
+  AlertCircle, ShieldAlert, ChevronDown, Filter, Check, ThumbsDown, Phone,
+  MessageCircle, Mail, Clock,
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { PROVINCIAS_CUBA } from '../services/tarifas';
 import {
   getOfertasActivas, getMisOfertas, crearOferta, actualizarEstadoOferta,
-  getKilosRestantes, type OfertaViajero, type EstadoOfertaViajero,
+  getKilosRestantes, crearReserva, aceptarReserva, rechazarReserva, cancelarReserva,
+  getMisReservas, getSolicitudesRecibidas,
+  type OfertaViajero, type EstadoOfertaViajero, type ReservaViajero, type EstadoReservaViajero,
 } from '../services/viajeros';
 import { cn } from '../lib/utils';
 
 const TERMINOS_VIAJERO = `Acepto que: (1) llevaré el equipaje correspondiente bajo mi entera responsabilidad como pasajero; (2) revisaré el contenido de cualquier paquete antes de aceptarlo, pudiendo rechazarlo si no coincide con lo declarado o contiene algo ilegal; (3) ToPaquete actúa únicamente como plataforma de conexión entre viajeros y clientes, y no participa en el transporte físico ni asume responsabilidad por pérdida, daño, retraso o problemas aduanales relacionados con este envío; (4) acepto los Términos y Condiciones del Programa de Viajeros.`;
+
+const TERMINOS_RESERVA = `Declaro que el contenido del paquete es legal, verídico y no contiene artículos prohibidos. Entiendo que el viajero podrá inspeccionar el contenido antes de aceptarlo. ToPaquete actúa únicamente como plataforma de conexión y no se hace responsable por pérdida, daño, retraso o problemas derivados de este envío.`;
+
+const ESTADO_RESERVA_BADGE: Record<EstadoReservaViajero, { label: string; clase: string }> = {
+  pendiente:  { label: 'Pendiente',  clase: 'bg-amber-100 text-amber-700' },
+  aceptada:   { label: 'Aceptada',   clase: 'bg-green-100 text-green-700' },
+  rechazada:  { label: 'Rechazada',  clase: 'bg-red-100 text-tp-red' },
+  cancelada:  { label: 'Cancelada',  clase: 'bg-gray-100 text-gray-500' },
+  completada: { label: 'Completada', clase: 'bg-tp-blue-light text-tp-blue' },
+};
+
+function whatsappLink(telefono: string): string {
+  const digits = telefono.replace(/[^\d+]/g, '').replace(/^\+/, '');
+  return `https://wa.me/${digits}`;
+}
 
 function formatFecha(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -295,11 +313,203 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
 }
 
 // ---------------------------------------------------------------------------
+// Modal reservar kilos
+// ---------------------------------------------------------------------------
+function ReservarKilosModal({
+  oferta, clienteId, onClose, onReservado,
+}: {
+  oferta: OfertaViajero; clienteId: string; onClose: () => void; onReservado: () => void;
+}) {
+  const restantes = getKilosRestantes(oferta);
+  const [kilos, setKilos] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [acepta, setAcepta] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const kilosNum = parseFloat(kilos) || 0;
+  const total = kilosNum * oferta.precio_kg;
+  const puedeEnviar = acepta && kilosNum > 0 && kilosNum <= restantes && !enviando;
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!puedeEnviar) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      await crearReserva(oferta.id, clienteId, kilosNum, mensaje, acepta);
+      onReservado();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo enviar la solicitud.');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-tp-blue/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8">
+        <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+          <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
+            <Package className="w-5 h-5 text-tp-red" /> Reservar kilos
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <X className="w-5 h-5 text-tp-blue/50" />
+          </button>
+        </div>
+
+        <form onSubmit={enviar} className="p-6 space-y-4">
+          <div className="bg-tp-blue-light/30 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <div className="text-sm font-black text-tp-blue">{oferta.provincia_destino}</div>
+              <div className="text-xs text-tp-blue/50 font-medium">Sale el {formatFecha(oferta.fecha_salida)}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Disponible</div>
+              <div className="font-black text-tp-blue">{restantes.toFixed(1)} kg</div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-tp-red font-bold">
+              <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Kilos a reservar</label>
+            <input
+              type="number"
+              required
+              min="0.5"
+              step="0.5"
+              max={restantes}
+              value={kilos}
+              onChange={(e) => setKilos(e.target.value)}
+              placeholder={`Máx. ${restantes.toFixed(1)} kg`}
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            />
+          </div>
+
+          <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between">
+            <span className="text-sm font-bold text-tp-blue/60">Precio total</span>
+            <span className="text-2xl font-black text-tp-red">€{total.toFixed(2)}</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Mensaje para el viajero (opcional)</label>
+            <textarea
+              value={mensaje}
+              onChange={(e) => setMensaje(e.target.value)}
+              placeholder="Describe brevemente qué vas a enviar…"
+              rows={3}
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20 resize-none"
+            />
+          </div>
+
+          <label className="flex items-start gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acepta}
+              onChange={(e) => setAcepta(e.target.checked)}
+              className="w-4 h-4 accent-tp-red mt-0.5 shrink-0"
+            />
+            <span className="text-xs text-tp-blue/70 font-medium leading-relaxed">{TERMINOS_RESERVA}</span>
+          </label>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl border border-tp-gray-soft text-tp-blue/60 font-bold hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={!puedeEnviar}
+              className="flex-1 py-3 rounded-2xl bg-tp-blue text-white font-bold hover:bg-[#004a78] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {enviando ? 'Enviando…' : 'Enviar solicitud'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Modal rechazar solicitud (motivo opcional)
+// ---------------------------------------------------------------------------
+function RechazarReservaModal({
+  onClose, onConfirmar,
+}: {
+  onClose: () => void; onConfirmar: (motivo: string) => Promise<void>;
+}) {
+  const [motivo, setMotivo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const confirmar = async () => {
+    setEnviando(true);
+    try {
+      await onConfirmar(motivo);
+      onClose();
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-tp-blue/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+          <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
+            <ThumbsDown className="w-5 h-5 text-tp-red" /> Rechazar solicitud
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <X className="w-5 h-5 text-tp-blue/50" />
+          </button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Motivo (opcional)</label>
+            <textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Explica brevemente por qué rechazas la solicitud…"
+              rows={3}
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20 resize-none"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 rounded-2xl border border-tp-gray-soft text-tp-blue/60 font-bold hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmar}
+              disabled={enviando}
+              className="flex-1 py-3 rounded-2xl bg-tp-red text-white font-bold hover:bg-[#D91F33] transition-colors disabled:opacity-40"
+            >
+              {enviando ? 'Rechazando…' : 'Rechazar solicitud'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Página principal
 // ---------------------------------------------------------------------------
 export function KilosDisponibles() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'tablero' | 'mis'>('tablero');
+  const [tab, setTab] = useState<'tablero' | 'mis' | 'mis-reservas'>('tablero');
 
   const [ofertas, setOfertas] = useState<OfertaViajero[]>([]);
   const [loading, setLoading] = useState(true);
@@ -309,9 +519,17 @@ export function KilosDisponibles() {
 
   const [misOfertas, setMisOfertas] = useState<OfertaViajero[]>([]);
   const [loadingMis, setLoadingMis] = useState(false);
+  const [solicitudesRecibidas, setSolicitudesRecibidas] = useState<ReservaViajero[]>([]);
+
+  const [misReservas, setMisReservas] = useState<ReservaViajero[]>([]);
+  const [loadingMisReservas, setLoadingMisReservas] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [reservaOferta, setReservaOferta] = useState<OfertaViajero | null>(null);
+  const [rechazarReservaId, setRechazarReservaId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 5000); };
 
   const cargarTablero = useCallback(async () => {
     setLoading(true);
@@ -333,7 +551,12 @@ export function KilosDisponibles() {
     if (!user?.uid) return;
     setLoadingMis(true);
     try {
-      setMisOfertas(await getMisOfertas(user.uid));
+      const [ofertasPropias, solicitudes] = await Promise.all([
+        getMisOfertas(user.uid),
+        getSolicitudesRecibidas(user.uid),
+      ]);
+      setMisOfertas(ofertasPropias);
+      setSolicitudesRecibidas(solicitudes);
     } catch (err) {
       console.error('Error cargando mis viajes:', err);
     } finally {
@@ -341,12 +564,24 @@ export function KilosDisponibles() {
     }
   }, [user]);
 
+  const cargarMisReservas = useCallback(async () => {
+    if (!user?.uid) return;
+    setLoadingMisReservas(true);
+    try {
+      setMisReservas(await getMisReservas(user.uid));
+    } catch (err) {
+      console.error('Error cargando mis reservas:', err);
+    } finally {
+      setLoadingMisReservas(false);
+    }
+  }, [user]);
+
   useEffect(() => { cargarTablero(); }, [cargarTablero]);
   useEffect(() => { if (tab === 'mis') cargarMisOfertas(); }, [tab, cargarMisOfertas]);
+  useEffect(() => { if (tab === 'mis-reservas') cargarMisReservas(); }, [tab, cargarMisReservas]);
 
-  const handleReservar = (_oferta: OfertaViajero) => {
-    setToast('El sistema de reservas estará disponible muy pronto. Te avisaremos cuando puedas reservar kilos directamente.');
-    setTimeout(() => setToast(null), 5000);
+  const handleReservar = (oferta: OfertaViajero) => {
+    setReservaOferta(oferta);
   };
 
   const handleCambiarEstado = async (id: string, estado: EstadoOfertaViajero) => {
@@ -356,6 +591,37 @@ export function KilosDisponibles() {
       if (tab === 'tablero') cargarTablero();
     } catch (err) {
       console.error('Error cambiando estado de la oferta:', err);
+    }
+  };
+
+  const handleCancelarReserva = async (id: string) => {
+    try {
+      await cancelarReserva(id);
+      await cargarMisReservas();
+    } catch (err) {
+      console.error('Error cancelando la reserva:', err);
+      mostrarToast('No se pudo cancelar la reserva.');
+    }
+  };
+
+  const handleAceptarReserva = async (id: string) => {
+    try {
+      await aceptarReserva(id);
+      await cargarMisOfertas();
+    } catch (err) {
+      console.error('Error aceptando la reserva:', err);
+      mostrarToast('No se pudo aceptar la solicitud.');
+    }
+  };
+
+  const handleRechazarReserva = async (motivo: string) => {
+    if (!rechazarReservaId) return;
+    try {
+      await rechazarReserva(rechazarReservaId, motivo);
+      await cargarMisOfertas();
+    } catch (err) {
+      console.error('Error rechazando la reserva:', err);
+      mostrarToast('No se pudo rechazar la solicitud.');
     }
   };
 
@@ -385,7 +651,11 @@ export function KilosDisponibles() {
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-tp-gray-soft">
-        {([['tablero', 'Tablero de viajes'], ['mis', 'Mis viajes']] as const).map(([key, label]) => (
+        {([
+          ['tablero', 'Tablero de viajes'],
+          ['mis', 'Mis viajes'],
+          ['mis-reservas', 'Mis reservas'],
+        ] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -461,7 +731,7 @@ export function KilosDisponibles() {
             </div>
           )}
         </>
-      ) : (
+      ) : tab === 'mis' ? (
         /* Mis viajes */
         loadingMis ? (
           <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando tus viajes…</div>
@@ -474,6 +744,7 @@ export function KilosDisponibles() {
             </button>
           </div>
         ) : (
+          <div className="space-y-6">
           <div className="space-y-3">
             {misOfertas.map((o) => {
               const badge = ESTADO_BADGE[o.estado];
@@ -533,6 +804,179 @@ export function KilosDisponibles() {
               );
             })}
           </div>
+
+          {/* Solicitudes recibidas sobre mis viajes */}
+          <div>
+            <h2 className="text-sm font-black text-tp-blue uppercase tracking-wider mb-3">Solicitudes recibidas</h2>
+            {solicitudesRecibidas.length === 0 ? (
+              <div className="text-center py-10 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
+                <p className="text-tp-blue/40 font-bold text-sm">Aún no has recibido solicitudes de reserva.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {solicitudesRecibidas.map((r) => {
+                  const badge = ESTADO_RESERVA_BADGE[r.estado];
+                  return (
+                    <div key={r.id} className="bg-white rounded-2xl border border-tp-gray-soft p-5 shadow-sm space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-black text-tp-blue">{r.cliente_nombre || 'Cliente'}</h3>
+                            <span className={cn('text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full', badge.clase)}>
+                              {badge.label}
+                            </span>
+                          </div>
+                          {r.oferta && (
+                            <div className="text-xs text-tp-blue/50 font-medium mt-0.5">
+                              {r.oferta.provincia_destino} · {formatFecha(r.oferta.fecha_salida)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Kg solicitados</div>
+                          <div className="font-black text-tp-blue">{r.kilos_solicitados.toFixed(1)} kg</div>
+                        </div>
+                      </div>
+
+                      {r.mensaje_cliente && (
+                        <p className="text-sm text-tp-blue/60 bg-gray-50 rounded-xl p-3 leading-relaxed">{r.mensaje_cliente}</p>
+                      )}
+
+                      {r.estado === 'pendiente' && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleAceptarReserva(r.id)}
+                            className="flex-1 py-2.5 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <Check className="w-4 h-4" /> Aceptar
+                          </button>
+                          <button
+                            onClick={() => setRechazarReservaId(r.id)}
+                            className="flex-1 py-2.5 rounded-xl bg-tp-red text-white font-bold text-sm hover:bg-[#D91F33] transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            <ThumbsDown className="w-4 h-4" /> Rechazar
+                          </button>
+                        </div>
+                      )}
+
+                      {r.estado === 'aceptada' && r.contacto && (
+                        <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex flex-wrap items-center gap-4">
+                          <div className="text-xs font-black text-green-700 uppercase tracking-wider w-full">Contacto del cliente</div>
+                          {r.contacto.telefono && (
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-tp-blue">
+                              <Phone className="w-4 h-4 text-green-600" /> {r.contacto.telefono}
+                            </div>
+                          )}
+                          {r.contacto.email && (
+                            <div className="flex items-center gap-1.5 text-sm font-bold text-tp-blue">
+                              <Mail className="w-4 h-4 text-green-600" /> {r.contacto.email}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          </div>
+        )
+      ) : (
+        /* Mis reservas (vista cliente) */
+        loadingMisReservas ? (
+          <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando tus reservas…</div>
+        ) : misReservas.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
+            <Package className="w-12 h-12 text-tp-blue/15 mx-auto mb-3" />
+            <p className="text-tp-blue/40 font-bold">Aún no has reservado kilos en ningún viaje.</p>
+            <button onClick={() => setTab('tablero')} className="mt-3 text-sm font-bold text-tp-red hover:underline">
+              Ver tablero de viajes
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {misReservas.map((r) => {
+              const badge = ESTADO_RESERVA_BADGE[r.estado];
+              return (
+                <div key={r.id} className="bg-white rounded-2xl border border-tp-gray-soft p-5 shadow-sm space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-tp-blue text-lg">{r.oferta?.provincia_destino || '—'}</h3>
+                        <span className={cn('text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full', badge.clase)}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      {r.oferta && (
+                        <div className="text-sm text-tp-blue/50 font-medium flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" /> {formatFecha(r.oferta.fecha_salida)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Kg</div>
+                      <div className="font-black text-tp-blue">{r.kilos_solicitados.toFixed(1)} kg</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Total</div>
+                      <div className="font-black text-tp-red">€{r.precio_total.toFixed(2)}</div>
+                    </div>
+                    {r.estado === 'pendiente' && (
+                      <button
+                        onClick={() => handleCancelarReserva(r.id)}
+                        className="px-4 py-2.5 rounded-xl border border-tp-gray-soft text-tp-blue/60 font-bold text-sm hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+                      >
+                        <X className="w-4 h-4" /> Cancelar
+                      </button>
+                    )}
+                  </div>
+
+                  {r.estado === 'rechazada' && r.motivo_rechazo && (
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-sm text-tp-red font-medium">
+                      <strong>Motivo:</strong> {r.motivo_rechazo}
+                    </div>
+                  )}
+
+                  {r.estado === 'aceptada' && r.contacto && (
+                    <div className="bg-green-50 border border-green-100 rounded-2xl p-5 space-y-3">
+                      <div className="text-xs font-black text-green-700 uppercase tracking-wider flex items-center gap-1.5">
+                        <Check className="w-4 h-4" /> ¡Reserva aceptada! Datos de contacto de {r.contacto.nombre}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-4">
+                        {r.contacto.telefono && (
+                          <div className="flex items-center gap-2 text-2xl font-black text-tp-blue">
+                            <Phone className="w-5 h-5 text-green-600" /> {r.contacto.telefono}
+                          </div>
+                        )}
+                        {r.contacto.email && (
+                          <div className="flex items-center gap-1.5 text-sm font-bold text-tp-blue/70">
+                            <Mail className="w-4 h-4" /> {r.contacto.email}
+                          </div>
+                        )}
+                      </div>
+                      {r.contacto.telefono && (
+                        <a
+                          href={whatsappLink(r.contacto.telefono)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-colors"
+                        >
+                          <MessageCircle className="w-4 h-4" /> Abrir WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {r.estado === 'pendiente' && (
+                    <div className="flex items-center gap-1.5 text-xs text-tp-blue/40 font-medium">
+                      <Clock className="w-3.5 h-3.5" /> Esperando respuesta del viajero.
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )
       )}
 
@@ -540,6 +984,22 @@ export function KilosDisponibles() {
         <PublicarViajeModal
           onClose={() => setModalOpen(false)}
           onPublicado={() => { cargarTablero(); cargarMisOfertas(); setTab('mis'); }}
+        />
+      )}
+
+      {reservaOferta && user?.uid && (
+        <ReservarKilosModal
+          oferta={reservaOferta}
+          clienteId={user.uid}
+          onClose={() => setReservaOferta(null)}
+          onReservado={() => { cargarTablero(); cargarMisReservas(); setTab('mis-reservas'); mostrarToast('Tu solicitud de reserva fue enviada al viajero.'); }}
+        />
+      )}
+
+      {rechazarReservaId && (
+        <RechazarReservaModal
+          onClose={() => setRechazarReservaId(null)}
+          onConfirmar={handleRechazarReserva}
         />
       )}
 
