@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, X, Send, AlertCircle, CheckCircle2, PackagePlus, Info } from 'lucide-react';
-import { auth } from '../supabase';
 import { subscribeDestinatarios } from '../services/destinatarios';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
@@ -19,7 +18,7 @@ const FORM_INICIAL = {
 };
 
 export function MisSolicitudes() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [solicitudes, setSolicitudes] = useState<(Solicitud & { createdAt?: any })[]>([]);
@@ -46,14 +45,13 @@ export function MisSolicitudes() {
   }, [clienteId]);
 
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
-    if (!uid) return;
-    const unsub = subscribeSolicitudes({ clienteUid: uid }, (data) => {
+    if (!user?.uid) return;
+    const unsub = subscribeSolicitudes({ clienteUid: user.uid }, (data) => {
       setSolicitudes(data as unknown as (Solicitud & { createdAt?: any })[]);
       setIsLoading(false);
     });
     return () => unsub();
-  }, []);
+  }, [user?.uid]);
 
   const notificar = (texto: string) => {
     setMensaje(texto);
@@ -80,8 +78,8 @@ export function MisSolicitudes() {
     try {
       await crearSolicitud({
         clienteId,
-        clienteNombre: profile?.name || auth.currentUser?.displayName || auth.currentUser?.email || '',
-        clienteEmail: auth.currentUser?.email || '',
+        clienteNombre: profile?.name || user?.displayName || user?.email || '',
+        clienteEmail: user?.email || '',
         clienteTelefono: profile?.telefono || '',
         destinatarioId: destinatario.id,
         destinatarioNombre: destinatario.nombre,

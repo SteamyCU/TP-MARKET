@@ -3,7 +3,6 @@
 // convierte en paquetes reutilizando el flujo de Recepción.
 
 import { supabase } from '../supabase';
-import { auth } from '../supabase';
 import { registrarAuditoria } from './auditoria';
 import { getClienteByEmail, createCliente } from './clientes';
 
@@ -12,12 +11,12 @@ import { getClienteByEmail, createCliente } from './clientes';
  * existe (mismo patrón que usa MisDestinatarios).
  */
 export async function obtenerOCrearClienteDoc(): Promise<string | null> {
-  const user = auth.currentUser;
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user?.email) return null;
   const existente = await getClienteByEmail(user.email);
   if (existente) return existente.id;
   const nuevo = await createCliente({
-    nombre: user.displayName || user.email,
+    nombre: user.user_metadata?.full_name || user.email,
     documentoIdentidad: '',
     telefonoEspana: '',
     email: user.email,
@@ -153,8 +152,9 @@ export function subscribeSolicitudes(
 }
 
 export async function crearSolicitud(input: NuevaSolicitudInput): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
   const { data, error } = await supabase.from('solicitudes').insert({
-    cliente_uid: uuidOrNull(auth.currentUser?.uid),
+    cliente_uid: uuidOrNull(user?.id),
     cliente_id: uuidOrNull(input.clienteId),
     cliente_nombre: input.clienteNombre,
     cliente_email: input.clienteEmail,

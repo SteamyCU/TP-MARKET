@@ -477,3 +477,41 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 
 > **Acción manual pendiente en Supabase:** ejecutar `0022_viajeros_vuelo.sql`
 > en el SQL Editor (añade `aerolinea` y `hora_salida` a `ofertas_viajero`).
+
+### Fase 25 · Bug crítico: `obtenerOCrearClienteDoc` nunca resolvía el cliente
+
+- **Causa raíz:** `obtenerOCrearClienteDoc()` en `src/services/solicitudes.ts` leía
+  `auth.currentUser` (el espejo síncrono de usuario definido en `src/supabase.ts`,
+  pensado para código que se ejecuta bien entrado el ciclo de vida de la sesión).
+  Al llamarse dentro de un `useEffect` con `[]` justo al montar `MisSolicitudes.tsx`
+  (p. ej. tras recargar la página directamente en esa ruta), ese espejo todavía
+  podía no haberse poblado (se rellena de forma asíncrona vía
+  `supabase.auth.getSession()` y `onAuthStateChange`), así que la función
+  devolvía `null` de forma silenciosa y `clienteId` quedaba `null` para siempre
+  (sin reintento), dejando el botón "+ Crear nuevo" deshabilitado de forma
+  permanente y bloqueando la creación de solicitudes.
+- **Corrección:** `obtenerOCrearClienteDoc` y `crearSolicitud` ahora llaman a
+  `supabase.auth.getUser()` directamente (async, sin depender del espejo), y se
+  quitó el `import { auth } from '../supabase'` de `solicitudes.ts`. En
+  `MisSolicitudes.tsx` se eliminó el mismo patrón de carrera en el efecto que
+  suscribía las solicitudes del cliente: ahora usa `user` de `useAuth()` (el
+  contexto de React, reactivo) en vez de `auth.currentUser`, con `user?.uid`
+  como dependencia para que el efecto se vuelva a ejecutar en cuanto el usuario
+  esté disponible.
+- **Auditoría global de residuos de Firebase:** se buscó en todo `src/` por
+  `firebase/auth`, `firebase/firestore`, `onAuthStateChanged`, `getDoc(`,
+  `setDoc(`, `collection(`, `addDoc(`, `updateDoc(`, `deleteDoc(` y no se
+  encontró ningún import ni dependencia real de Firebase (tampoco está en
+  `package.json`). El patrón `auth.currentUser` que aparece en otros archivos
+  (`Clientes.tsx`, `Recepcion.tsx`, `App.tsx`, `ClienteFormModal.tsx`,
+  `lib/firestore-errors.ts` y varios `services/*.ts`) **no es residuo de
+  Firebase**: es un espejo deliberado y funcional (`src/supabase.ts`, función
+  `toAuthUser` + listeners de Supabase) creado a propósito para no reescribir
+  ese código durante la migración. En todos esos casos se invoca dentro de
+  manejadores de eventos o efectos que dependen de `role`/`profile` ya
+  resueltos, momento en el que el espejo ya está poblado — no reproducen el bug
+  y se dejaron sin cambios. Los dos únicos puntos donde el espejo se leía en el
+  primer render (antes de que pudiera estar listo) eran los corregidos arriba,
+  ambos en el flujo de "Mis Solicitudes".
+- **Archivos corregidos:** `src/services/solicitudes.ts`,
+  `src/pages/MisSolicitudes.tsx`.
