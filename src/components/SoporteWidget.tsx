@@ -81,7 +81,7 @@ export function SoporteWidget() {
         onClick={() => setAbierto(true)}
         aria-label="Contactar soporte"
         className={cn(
-          'fixed bottom-6 left-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg font-bold text-sm transition-all duration-200',
+          'fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-2xl shadow-lg font-bold text-sm transition-all duration-200',
           'bg-tp-blue text-white hover:bg-[#004a78] hover:shadow-xl active:scale-95',
           abierto && 'hidden',
         )}
@@ -92,7 +92,7 @@ export function SoporteWidget() {
 
       {/* Panel modal */}
       {abierto && (
-        <div className="fixed bottom-6 left-6 z-50 w-[360px] max-w-[calc(100vw-3rem)] bg-white rounded-3xl shadow-2xl border border-tp-gray-soft animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div className="fixed bottom-6 right-6 z-50 w-[360px] max-w-[calc(100vw-3rem)] bg-white rounded-3xl shadow-2xl border border-tp-gray-soft animate-in fade-in slide-in-from-bottom-4 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-tp-gray-soft">
             <div className="flex items-center gap-2">

@@ -148,7 +148,7 @@ ${clientContext ? clientContext : "No se conoce el agente del cliente actual."}
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 w-14 h-14 bg-tp-red hover:bg-[#D91F33] text-white rounded-full shadow-lg flex items-center justify-center transition-all z-40 hover:scale-105",
+          "fixed bottom-24 right-6 w-14 h-14 bg-tp-red hover:bg-[#D91F33] text-white rounded-full shadow-lg flex items-center justify-center transition-all z-40 hover:scale-105",
           isOpen ? "scale-0 opacity-0" : "scale-100 opacity-100"
         )}
       >
@@ -158,7 +158,7 @@ ${clientContext ? clientContext : "No se conoce el agente del cliente actual."}
       {/* Chat Window */}
       <div
         className={cn(
-          "fixed bottom-6 right-6 w-[380px] h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-tp-gray-soft flex flex-col z-50 transition-all origin-bottom-right",
+          "fixed bottom-24 right-6 w-[380px] h-[600px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-tp-gray-soft flex flex-col z-50 transition-all origin-bottom-right",
           isOpen ? "scale-100 opacity-100" : "scale-0 opacity-0 pointer-events-none"
         )}
       >
