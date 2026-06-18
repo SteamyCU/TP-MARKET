@@ -74,6 +74,20 @@ function formatFecha(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+// Quita los segundos de un valor "time" de Postgres (HH:MM:SS -> HH:MM).
+function formatHora(hora: string): string {
+  return hora.slice(0, 5);
+}
+
+function VueloInfo({ aerolinea, hora_salida }: { aerolinea: string | null; hora_salida: string | null }) {
+  if (!aerolinea && !hora_salida) return null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      ✈️ {aerolinea}{aerolinea && hora_salida ? ' · ' : ''}{hora_salida ? formatHora(hora_salida) : ''}
+    </span>
+  );
+}
+
 const ESTADO_BADGE: Record<EstadoOfertaViajero, { label: string; clase: string }> = {
   activa:      { label: 'Activa',      clase: 'bg-green-100 text-green-700' },
   pausada:     { label: 'Pausada',     clase: 'bg-amber-100 text-amber-700' },
@@ -102,9 +116,12 @@ function OfertaCard({ oferta, onReservar }: { oferta: OfertaViajero; onReservar:
         </span>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-tp-blue/70 font-medium mb-4">
+      <div className="flex items-center gap-2 text-sm text-tp-blue/70 font-medium mb-1">
         <Calendar className="w-4 h-4 text-tp-blue/40" />
         Sale el {formatFecha(oferta.fecha_salida)}
+      </div>
+      <div className="text-sm text-tp-blue/50 font-medium mb-4">
+        <VueloInfo aerolinea={oferta.aerolinea} hora_salida={oferta.hora_salida} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -160,6 +177,8 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
     fecha_salida: '',
     maletas_disponibles: 1,
     precio_maleta: '',
+    aerolinea: '',
+    hora_salida: '',
     notas: '',
   });
   const [acepta, setAcepta] = useState(false);
@@ -170,7 +189,8 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
 
   const camposCompletos =
     form.provincia_destino && form.fecha_salida &&
-    form.maletas_disponibles > 0 && parseFloat(form.precio_maleta) > 0;
+    form.maletas_disponibles > 0 && parseFloat(form.precio_maleta) > 0 &&
+    form.aerolinea.trim() && form.hora_salida;
   const puedePublicar = identidadVerificada && acepta && camposCompletos && !publishing;
 
   const publicar = async (e: React.FormEvent) => {
@@ -184,6 +204,8 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
         fecha_salida: form.fecha_salida,
         maletas_disponibles: form.maletas_disponibles,
         precio_maleta: parseFloat(form.precio_maleta),
+        aerolinea: form.aerolinea,
+        hora_salida: form.hora_salida,
         notas: form.notas,
         acepto_terminos: acepta,
       });
@@ -273,6 +295,30 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
                   value={form.maletas_disponibles}
                   onChange={(v) => setForm({ ...form, maletas_disponibles: v })}
                   min={1}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Aerolínea</label>
+                <input
+                  type="text"
+                  required
+                  value={form.aerolinea}
+                  onChange={(e) => setForm({ ...form, aerolinea: e.target.value })}
+                  placeholder="Ej: Iberia, Copa Airlines"
+                  className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Hora de salida del vuelo</label>
+                <input
+                  type="time"
+                  required
+                  value={form.hora_salida}
+                  onChange={(e) => setForm({ ...form, hora_salida: e.target.value })}
+                  className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
                 />
               </div>
             </div>
@@ -389,6 +435,7 @@ function ReservarKilosModal({
             <div>
               <div className="text-sm font-black text-tp-blue">{oferta.provincia_destino}</div>
               <div className="text-xs text-tp-blue/50 font-medium">Sale el {formatFecha(oferta.fecha_salida)}</div>
+              <div className="text-xs text-tp-blue/50 font-medium"><VueloInfo aerolinea={oferta.aerolinea} hora_salida={oferta.hora_salida} /></div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Disponible</div>
@@ -948,6 +995,7 @@ export function KilosDisponibles() {
                   <tr className="bg-gray-50 text-left text-[10px] font-black uppercase tracking-wider text-tp-blue/40">
                     <th className="px-5 py-3">Destino</th>
                     <th className="px-5 py-3">Fecha</th>
+                    <th className="px-5 py-3">Vuelo</th>
                     <th className="px-5 py-3">Maletas totales</th>
                     <th className="px-5 py-3">Maletas reservadas por ToPaquete</th>
                     <th className="px-5 py-3">Estado</th>
@@ -962,6 +1010,7 @@ export function KilosDisponibles() {
                       <tr key={o.id} className="border-t border-tp-gray-soft">
                         <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{o.provincia_destino}</td>
                         <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">{formatFecha(o.fecha_salida)}</td>
+                        <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap"><VueloInfo aerolinea={o.aerolinea} hora_salida={o.hora_salida} /></td>
                         <td className="px-5 py-4 text-tp-blue font-bold whitespace-nowrap">{o.maletas_disponibles} maleta(s)</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {reserva ? (
@@ -1150,6 +1199,9 @@ export function KilosDisponibles() {
                     <div className="text-sm text-tp-blue/50 font-medium flex items-center gap-1">
                       <Calendar className="w-3.5 h-3.5" /> {formatFecha(o.fecha_salida)}
                     </div>
+                    <div className="text-sm text-tp-blue/50 font-medium">
+                      <VueloInfo aerolinea={o.aerolinea} hora_salida={o.hora_salida} />
+                    </div>
                   </div>
 
                   <div className="text-center">
@@ -1219,6 +1271,9 @@ export function KilosDisponibles() {
                           {r.oferta && (
                             <div className="text-xs text-tp-blue/50 font-medium mt-0.5">
                               {r.oferta.provincia_destino} · {formatFecha(r.oferta.fecha_salida)}
+                              {(r.oferta.aerolinea || r.oferta.hora_salida) && (
+                                <> · <VueloInfo aerolinea={r.oferta.aerolinea} hora_salida={r.oferta.hora_salida} /></>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1310,6 +1365,11 @@ export function KilosDisponibles() {
                       {r.oferta && (
                         <div className="text-sm text-tp-blue/50 font-medium flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" /> {formatFecha(r.oferta.fecha_salida)}
+                        </div>
+                      )}
+                      {r.oferta && (r.oferta.aerolinea || r.oferta.hora_salida) && (
+                        <div className="text-sm text-tp-blue/50 font-medium">
+                          <VueloInfo aerolinea={r.oferta.aerolinea} hora_salida={r.oferta.hora_salida} />
                         </div>
                       )}
                     </div>

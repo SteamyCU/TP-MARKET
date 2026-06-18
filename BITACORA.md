@@ -445,3 +445,35 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 > supabase functions deploy notificar-bienvenida --project-ref idcfuravemoljjxbdkeh
 > ```
 > (usa el mismo secret `RESEND_API_KEY` ya configurado para las otras funciones).
+
+### Fase 24 · Programa de Viajeros: datos de vuelo en las ofertas
+
+- **Aclaración:** el cambio de unidad de "kilos" a "maletas" en `ofertas_viajero`
+  (`kilos_disponibles → maletas_disponibles`, `kilos_reservados → maletas_reservadas`,
+  `precio_kg → precio_maleta`) y en `reservas_viajero`
+  (`kilos_solicitados → maletas_solicitadas`) **ya se aplicó correctamente** en el
+  commit `f422b7f` mediante la migración `0021_maletas.sql` (renombres idempotentes
+  con guarda de `information_schema.columns`, más la siembra de
+  `settings.config_maletas = { kgPorMaleta: 23 }`). `viajeros.ts`,
+  `KilosDisponibles.tsx` y `AdminViajeros.tsx` ya usaban terminología de maletas en
+  todo el flujo de oferta/reserva de viajeros; no había `kilos_disponibles`,
+  `kilos_reservados` ni `precio_kg` pendientes en ese lado. (El lado de demanda,
+  `solicitudes_express`, sigue correctamente en kg — es la unidad real en la que
+  los clientes necesitan enviar, distinta de las maletas que vende cada viajero.)
+- **Lo nuevo de esta fase:** datos de vuelo en cada oferta. Migración
+  `0022_viajeros_vuelo.sql` añade `aerolinea text` y `hora_salida time` a
+  `ofertas_viajero`.
+- `viajeros.ts`: `OfertaViajero` y `NuevaOfertaViajero` incluyen `aerolinea` y
+  `hora_salida` (obligatorios al crear oferta); `crearOferta` valida que ambos
+  campos vengan rellenados.
+- `KilosDisponibles.tsx`: el formulario "Publicar mi viaje" pide aerolínea (texto)
+  y hora de salida (`input type="time"`) junto a la fecha de salida. Las tarjetas
+  de oferta, la tabla "Mis Viajes Publicados", el resumen de "Mis viajes"/"Mis
+  reservas" y el modal de reserva muestran la info de vuelo como
+  "✈️ Aerolínea · HH:MM" mediante el helper `VueloInfo`.
+- `AdminViajeros.tsx`: la tabla "Ofertas activas" suma una columna "Vuelo" y el
+  modal de reserva del admin también muestra `VueloInfo`, con el mismo helper
+  duplicado localmente.
+
+> **Acción manual pendiente en Supabase:** ejecutar `0022_viajeros_vuelo.sql`
+> en el SQL Editor (añade `aerolinea` y `hora_salida` a `ofertas_viajero`).

@@ -16,6 +16,20 @@ function formatFecha(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
+// Quita los segundos de un valor "time" de Postgres (HH:MM:SS -> HH:MM).
+function formatHora(hora: string): string {
+  return hora.slice(0, 5);
+}
+
+function VueloInfo({ aerolinea, hora_salida }: { aerolinea: string | null; hora_salida: string | null }) {
+  if (!aerolinea && !hora_salida) return null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      ✈️ {aerolinea}{aerolinea && hora_salida ? ' · ' : ''}{hora_salida ? formatHora(hora_salida) : ''}
+    </span>
+  );
+}
+
 const ESTADO_RESERVA_BADGE: Record<string, { label: string; clase: string }> = {
   confirmada: { label: 'Confirmada', clase: 'bg-green-100 text-green-700' },
   completada: { label: 'Completada', clase: 'bg-tp-blue-light text-tp-blue' },
@@ -79,6 +93,7 @@ function ReservarModal({
             <div>
               <div className="text-sm font-black text-tp-blue">{oferta.viajero_nombre} · {oferta.provincia_destino}</div>
               <div className="text-xs text-tp-blue/50 font-medium">Sale el {formatFecha(oferta.fecha_salida)}</div>
+              <div className="text-xs text-tp-blue/50 font-medium"><VueloInfo aerolinea={oferta.aerolinea} hora_salida={oferta.hora_salida} /></div>
             </div>
             <div className="text-right">
               <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Disponible</div>
@@ -272,6 +287,7 @@ export function AdminViajeros() {
                   <th className="px-5 py-3">Teléfono</th>
                   <th className="px-5 py-3">Destino</th>
                   <th className="px-5 py-3">Fecha salida</th>
+                  <th className="px-5 py-3">Vuelo</th>
                   <th className="px-5 py-3">Maletas disponibles</th>
                   <th className="px-5 py-3">Maletas reservadas</th>
                   <th className="px-5 py-3">Precio/maleta</th>
@@ -297,6 +313,7 @@ export function AdminViajeros() {
                       <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">
                         <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {formatFecha(o.fecha_salida)}</span>
                       </td>
+                      <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap"><VueloInfo aerolinea={o.aerolinea} hora_salida={o.hora_salida} /></td>
                       <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{restantes} maleta(s)</td>
                       <td className="px-5 py-4 text-tp-blue/50 font-medium whitespace-nowrap">{o.maletas_reservadas} maleta(s)</td>
                       <td className="px-5 py-4 font-black text-tp-red whitespace-nowrap">€{o.precio_maleta.toFixed(2)}</td>

@@ -23,6 +23,8 @@ export interface OfertaViajero {
   maletas_disponibles: number;
   maletas_reservadas: number;
   precio_maleta: number;
+  aerolinea: string | null;
+  hora_salida: string | null;
   notas: string | null;
   estado: EstadoOfertaViajero;
   acepto_terminos: boolean;
@@ -36,6 +38,8 @@ export interface NuevaOfertaViajero {
   fecha_salida: string;
   maletas_disponibles: number;
   precio_maleta: number;
+  aerolinea: string;
+  hora_salida: string;
   notas?: string;
   acepto_terminos: boolean;
 }
@@ -127,6 +131,12 @@ export async function crearOferta(uid: string, datos: NuevaOfertaViajero): Promi
   if (!(datos.precio_maleta > 0)) {
     throw new Error('Indica un precio por maleta válido.');
   }
+  if (!datos.aerolinea?.trim()) {
+    throw new Error('Indica la aerolínea del vuelo.');
+  }
+  if (!datos.hora_salida) {
+    throw new Error('Indica la hora de salida del vuelo.');
+  }
 
   const { data, error } = await supabase
     .from('ofertas_viajero')
@@ -136,6 +146,8 @@ export async function crearOferta(uid: string, datos: NuevaOfertaViajero): Promi
       fecha_salida: datos.fecha_salida,
       maletas_disponibles: datos.maletas_disponibles,
       precio_maleta: datos.precio_maleta,
+      aerolinea: datos.aerolinea.trim(),
+      hora_salida: datos.hora_salida,
       notas: datos.notas?.trim() || null,
       acepto_terminos: true,
       estado: 'activa',
