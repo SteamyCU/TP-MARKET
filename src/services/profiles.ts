@@ -136,3 +136,12 @@ export async function deleteProfile(id: string): Promise<void> {
   const { error } = await supabase.from('profiles').delete().eq('id', id);
   if (error) throw error;
 }
+
+// Email de bienvenida al crear un perfil de cliente nuevo (no se reenvía en
+// logins posteriores: solo debe llamarse justo después del insert inicial).
+export async function enviarBienvenidaCliente(email: string, nombre: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('notificar-bienvenida', {
+    body: { email, nombre },
+  });
+  if (error) console.error('Error enviando bienvenida:', error.message);
+}

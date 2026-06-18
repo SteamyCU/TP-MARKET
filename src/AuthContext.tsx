@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, toAuthUser, type AuthUser } from './supabase';
+import { enviarBienvenidaCliente } from './services/profiles';
 
 type RolUsuario = 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | 'contabilidad' | 'logistica';
 
@@ -158,6 +159,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setRole(newRole);
         setProfile(buildProfile({ id: currentUser.uid, email: currentUser.email || '', role: newRole, extra }));
+        // Email de bienvenida solo en el alta del perfil (no en logins posteriores).
+        if (newRole === 'cliente' && currentUser.email) {
+          enviarBienvenidaCliente(currentUser.email, (extra.name as string) || currentUser.email);
+        }
       }
     }
     setLoading(false);

@@ -107,7 +107,7 @@ serve(async (req) => {
             </p>
           </div>
           <p style="text-align:center;font-size:11px;color:#9ca3af;margin-top:20px">
-            © 2026 ToPaquete Logística · topaquete.com
+            © ${new Date().getFullYear()} ToPaquete Logística · topaquete.com
           </p>
         </div>
       `,

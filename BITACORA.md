@@ -417,3 +417,31 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
 > supabase secrets set RESEND_API_KEY=<tu_clave> --project-ref idcfuravemoljjxbdkeh
 > ```
 > O bien desde el Dashboard de Supabase → Edge Functions → Deploy desde GitHub.
+
+### Fase 23 · Correcciones en emails de Resend + email de bienvenida
+
+- **Footer con año hardcodeado:** `© 2025 ToPaquete` (y `© 2026` en `soporte-email`)
+  estaba escrito a mano en el HTML. Cambiado a año dinámico
+  (`© ${new Date().getFullYear()} ToPaquete`) en `notificar-solicitud`,
+  `notificar-reserva-viajero` y `soporte-email`.
+- **Texto engañoso "responde a este mensaje":** `notificaciones@topaquete.com` es
+  una dirección de solo envío sin buzón real; nadie lee lo que llega ahí. Se quitó
+  la invitación a responder ese correo en las plantillas aprobado/rechazado de
+  `notificar-solicitud` y se redirige la consulta a `soporte@topaquete.com`
+  (que sí tiene buzón, como ya usaba `soporte-email`).
+- **Nueva Edge Function** `supabase/functions/notificar-bienvenida/index.ts`: recibe
+  `{ email, nombre }` y envía "🎉 ¡Bienvenido a ToPaquete!" con el mismo patrón de
+  Resend que el resto de funciones (remitente `ToPaquete <notificaciones@topaquete.com>`,
+  CTA "Ir a mi cuenta" a `/dashboard`, footer con año dinámico y `soporte@topaquete.com`).
+- **Disparo del correo de bienvenida:** `enviarBienvenidaCliente` en
+  `src/services/profiles.ts` invoca la Edge Function. Se llama desde
+  `AuthContext.tsx`, dentro de la rama de "primer login" (cuando aún no existe
+  fila en `profiles` y se inserta una nueva), solo si el rol asignado es
+  `cliente`. Al estar dentro de la rama de alta (no la de login con perfil ya
+  existente), el correo nunca se reenvía en sesiones posteriores.
+
+> **Acción manual requerida: desplegar la Edge Function en Supabase.**
+> ```bash
+> supabase functions deploy notificar-bienvenida --project-ref idcfuravemoljjxbdkeh
+> ```
+> (usa el mismo secret `RESEND_API_KEY` ya configurado para las otras funciones).
