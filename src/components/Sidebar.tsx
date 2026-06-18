@@ -197,7 +197,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <aside className={cn(
-      "fixed inset-y-0 left-0 w-[280px] bg-white border-r border-tp-gray-soft flex flex-col z-40 transition-transform duration-300 lg:translate-x-0",
+      "fixed inset-y-0 left-0 w-[280px] bg-white border-r border-tp-gray-soft flex flex-col z-[45] transition-transform duration-300 lg:translate-x-0",
       isOpen ? "translate-x-0" : "-translate-x-full"
     )}>
       {/* Logo Area */}
