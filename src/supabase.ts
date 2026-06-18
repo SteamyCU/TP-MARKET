@@ -33,9 +33,13 @@ supabase.auth.onAuthStateChange((_event, session) => {
   auth.currentUser = toAuthUser(session?.user);
 });
 
-export const loginWithGoogle = () => supabase.auth.signInWithOAuth({
+export const loginWithGoogle = (redirectPath?: string) => supabase.auth.signInWithOAuth({
   provider: 'google',
-  options: { redirectTo: `${window.location.origin}/dashboard` },
+  options: {
+    redirectTo: redirectPath
+      ? `${window.location.origin}${redirectPath}`
+      : `${window.location.origin}/dashboard`,
+  },
 });
 
 export const registerWithEmail = async (email: string, password: string) => {

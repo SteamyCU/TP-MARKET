@@ -84,8 +84,9 @@ export function Unirse() {
 
   const handleGoogleSignIn = async () => {
     try {
-      await loginWithGoogle();
-      // Step will change via useEffect
+      const returnPath = `/unirse?tipo=${selectedRole}`;
+      await loginWithGoogle(returnPath);
+      // Step will change via useEffect cuando vuelva de Google con ?tipo=...
     } catch (error) {
       console.error("Error signing in:", error);
     }
