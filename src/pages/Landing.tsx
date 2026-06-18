@@ -11,6 +11,17 @@ import {
   getTarifasEnvio, getTarifasTransporte, getTarifasExpressContenido, calcularPrecio, calcularPrecioExpressContenido,
   EXPRESS_CONTENIDO_POR_TIPO, TarifaEnvio, TarifaTransporteCuba, TarifaExpressContenido,
 } from '../services/tarifas';
+import { getProximasSalidas, FlatSalida } from '../services/ofertasSalidas';
+
+/** Formatea una fecha ISO (YYYY-MM-DD) como "Viernes 10 de Abril". */
+function formatearFechaSalida(fechaIso: string): string {
+  // Se interpreta como fecha local (sin desfase de zona horaria) añadiendo T00:00.
+  const fecha = new Date(`${fechaIso}T00:00:00`);
+  const texto = new Intl.DateTimeFormat('es-ES', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  }).format(fecha);
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
 
 const faqs = [
   {
@@ -89,6 +100,18 @@ export function Landing() {
   const [tarifasTransporte, setTarifasTransporte] = useState<TarifaTransporteCuba[]>([]);
   const [tarifasExpressContenido, setTarifasExpressContenido] = useState<TarifaExpressContenido[]>([]);
   const [loadingTarifas, setLoadingTarifas] = useState(true);
+
+  const [proximasSalidas, setProximasSalidas] = useState<{ regular: FlatSalida | null; express: FlatSalida | null }>({ regular: null, express: null });
+  const [loadingSalidas, setLoadingSalidas] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getProximasSalidas()
+      .then((salidas) => { if (active) setProximasSalidas(salidas); })
+      .catch((error) => console.error('Error cargando próximas salidas:', error))
+      .finally(() => { if (active) setLoadingSalidas(false); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -180,10 +203,23 @@ export function Landing() {
         
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
           <div className="text-white">
-            <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 mb-6">
-              <span className="w-2 h-2 bg-tp-red rounded-full animate-pulse"></span>
-              <span className="text-xs font-bold uppercase tracking-wider">Próxima salida: Viernes 10 de Abril</span>
-            </div>
+            {loadingSalidas ? (
+              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 mb-6">
+                <span className="w-2 h-2 bg-tp-red/60 rounded-full animate-pulse"></span>
+                <span className="h-3 w-40 bg-white/20 rounded-full animate-pulse"></span>
+              </div>
+            ) : (proximasSalidas.regular || proximasSalidas.express) && (
+              <div className="inline-flex items-center gap-2 bg-white/10 px-4 py-1.5 rounded-full backdrop-blur-md border border-white/10 mb-6">
+                <span className="w-2 h-2 bg-tp-red rounded-full animate-pulse"></span>
+                <span className="text-xs font-bold uppercase tracking-wider">
+                  {proximasSalidas.regular && proximasSalidas.express
+                    ? `📦 Regular: ${formatearFechaSalida(proximasSalidas.regular.fecha)} · ⚡ Express: ${formatearFechaSalida(proximasSalidas.express.fecha)}`
+                    : proximasSalidas.regular
+                      ? `Próxima salida Regular: ${formatearFechaSalida(proximasSalidas.regular.fecha)}`
+                      : `Próxima salida Express: ${formatearFechaSalida(proximasSalidas.express!.fecha)}`}
+                </span>
+              </div>
+            )}
             <h1 className="text-5xl lg:text-7xl font-black mb-6 leading-[1.1]">
               Envíos a Cuba <br/>
               <span className="text-tp-red">Sin Límites</span>

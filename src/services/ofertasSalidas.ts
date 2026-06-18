@@ -146,3 +146,41 @@ export async function eliminarSalida(id: string): Promise<void> {
   const { error } = await supabase.from('salidas').delete().eq('id', id);
   if (error) throw error;
 }
+
+// Estados que NO cuentan como una salida vigente (se excluyen del badge público).
+const ESTADOS_SALIDA_INACTIVOS = [
+  'cancelada', 'cancelado', 'finalizada', 'finalizado',
+  'completada', 'completado', 'inactiva', 'inactivo',
+];
+
+/**
+ * Devuelve la próxima salida vigente de cada tipo para el badge público del home.
+ * "Vigente" = fecha >= hoy y estado no cancelado/finalizado. Como la consulta
+ * viene ordenada por fecha ascendente, el primer match de cada tipo es el más
+ * próximo. Si no hay ninguna de un tipo, ese campo es null.
+ */
+export async function getProximasSalidas(): Promise<{ regular: FlatSalida | null; express: FlatSalida | null }> {
+  // La columna `fecha` es un date plano; comparamos contra hoy en local (YYYY-MM-DD).
+  const hoy = new Date();
+  const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+
+  const { data, error } = await supabase
+    .from('salidas')
+    .select('*')
+    .gte('fecha', hoyStr)
+    .order('fecha', { ascending: true });
+
+  if (error) {
+    console.error('Error cargando próximas salidas:', error.message);
+    return { regular: null, express: null };
+  }
+
+  const vigentes = (data as SalidaRow[])
+    .map(rowToSalida)
+    .filter((s) => s.fecha && !ESTADOS_SALIDA_INACTIVOS.includes(s.estado.trim().toLowerCase()));
+
+  return {
+    regular: vigentes.find((s) => s.tipoSalida === 'aerea') ?? null,
+    express: vigentes.find((s) => s.tipoSalida === 'express') ?? null,
+  };
+}
