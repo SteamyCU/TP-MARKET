@@ -88,6 +88,17 @@ export function Clientes() {
   const [isImporting, setIsImporting] = useState(false);
   const [agentes, setAgentes] = useState<Record<string, string>>({});
 
+  // Migración masiva de clientes entre agentes/partners (solo admin).
+  const [isMigrarModalOpen, setIsMigrarModalOpen] = useState(false);
+  const [agentesPartners, setAgentesPartners] = useState<{ id: string; nombre: string; email: string }[]>([]);
+  const [migrarDesde, setMigrarDesde] = useState('');
+  const [migrarHacia, setMigrarHacia] = useState('');
+  const [migrarConfirmado, setMigrarConfirmado] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const SIN_AGENTE = '__sin_agente__';
+
   useEffect(() => {
     if (role === 'admin') {
       const unsubscribe = subscribeProfiles({}, (profiles) => {
@@ -119,35 +130,80 @@ export function Clientes() {
     }
   }, [selectedCliente]);
 
-  const handleMigrateRoxana = async () => {
-    if (!window.confirm('¿Migrar todos los clientes al agente Roxana Enamorado?')) return;
+  // Carga los agentes/partners disponibles como destino/origen de la migración.
+  useEffect(() => {
+    if (role !== 'admin') return;
+    listProfiles({ roles: ['agente', 'partner'] })
+      .then((perfiles) => {
+        setAgentesPartners(
+          perfiles.map((p) => ({
+            id: p.id,
+            nombre: (p.name as string) || p.email || 'Sin nombre',
+            email: p.email || '',
+          })),
+        );
+      })
+      .catch((err) => console.error('Error cargando agentes/partners:', err));
+  }, [role]);
+
+  // Nº de clientes por agente y nº sin agente asignado.
+  const conteoPorAgente = React.useMemo(() => {
+    const m: Record<string, number> = {};
+    clientes.forEach((c) => {
+      const k = c.agenteId || SIN_AGENTE;
+      m[k] = (m[k] || 0) + 1;
+    });
+    return m;
+  }, [clientes]);
+
+  // Clientes afectados por la selección "Migrar de" actual.
+  const clientesAMigrar = React.useMemo(() => {
+    if (!migrarDesde) return [];
+    if (migrarDesde === SIN_AGENTE) return clientes.filter((c) => !c.agenteId);
+    return clientes.filter((c) => c.agenteId === migrarDesde);
+  }, [migrarDesde, clientes]);
+
+  const nombreAgente = (id: string) =>
+    agentesPartners.find((a) => a.id === id)?.nombre || agentes[id] || 'agente';
+
+  const abrirMigrarModal = () => {
+    setMigrarDesde('');
+    setMigrarHacia('');
+    setMigrarConfirmado(false);
+    setIsMigrarModalOpen(true);
+  };
+
+  const puedeMigrar =
+    !!migrarDesde && !!migrarHacia && migrarDesde !== migrarHacia &&
+    migrarConfirmado && clientesAMigrar.length > 0 && !isMigrating;
+
+  const handleMigrarClientes = async () => {
+    if (!puedeMigrar) return;
+    setIsMigrating(true);
     try {
-      // Find Roxana user
-      const profiles = await listProfiles();
-      let roxanaId: string | null = null;
-      profiles.forEach((p) => {
-        const email = (p.email || '').toLowerCase();
-        const name = ((p.name as string) || '').toLowerCase();
-        if (email.includes('roxana') || name.includes('roxana')) {
-          roxanaId = p.id;
-        }
-      });
-
-      if (!roxanaId) {
-        alert('No se encontró el agente Roxana Enamorado');
-        return;
-      }
-
-      // Update all clients
       let count = 0;
-      for (const cliente of clientes) {
-        await updateCliente(cliente.id, { agenteId: roxanaId });
+      for (const cliente of clientesAMigrar) {
+        await updateCliente(cliente.id, { agenteId: migrarHacia });
         count++;
       }
-      alert(`Se han actualizado ${count} clientes al agente Roxana Enamorado.`);
+      const destinoNombre = nombreAgente(migrarHacia);
+      const origenNombre = migrarDesde === SIN_AGENTE ? 'clientes sin agente asignado' : nombreAgente(migrarDesde);
+      await registrarAuditoria({
+        accion: 'cambio_datos_cliente',
+        entidad: 'cliente',
+        entidadId: `${count} clientes`,
+        descripcion: `Migración masiva de ${count} cliente(s) de "${origenNombre}" a "${destinoNombre}"`,
+        valorAnterior: origenNombre,
+        valorNuevo: destinoNombre,
+      });
+      setIsMigrarModalOpen(false);
+      setToast(`${count} clientes migrados a ${destinoNombre}`);
+      setTimeout(() => setToast(null), 5000);
     } catch (error) {
-      console.error('Error migrating clients:', error);
+      console.error('Error migrando clientes:', error);
       alert('Error en la migración.');
+    } finally {
+      setIsMigrating(false);
     }
   };
 
@@ -366,10 +422,10 @@ export function Clientes() {
         <div className="flex flex-wrap items-center gap-3">
           {role === 'admin' && (
             <button
-              onClick={handleMigrateRoxana}
+              onClick={abrirMigrarModal}
               className="bg-tp-blue-light text-tp-blue hover:bg-tp-blue hover:text-white px-4 py-2 rounded-xl font-bold transition-colors"
             >
-              Migrar a Roxana
+              Migrar clientes
             </button>
           )}
           <button
@@ -792,6 +848,111 @@ export function Clientes() {
         detectarDuplicado={detectarClienteDuplicado}
         onImportar={importarClientes}
       />
+
+      {/* Migración masiva de clientes entre agentes/partners */}
+      {isMigrarModalOpen && (
+        <div className="fixed inset-0 bg-tp-blue/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8">
+            <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+              <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
+                <Users className="w-5 h-5 text-tp-red" /> Migrar clientes
+              </h2>
+              <button onClick={() => setIsMigrarModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-tp-blue/50" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Migrar de</label>
+                <select
+                  value={migrarDesde}
+                  onChange={(e) => setMigrarDesde(e.target.value)}
+                  className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                >
+                  <option value="">Selecciona el origen…</option>
+                  <option value={SIN_AGENTE}>
+                    Todos los clientes sin agente asignado ({conteoPorAgente[SIN_AGENTE] || 0})
+                  </option>
+                  {agentesPartners.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nombre} ({conteoPorAgente[a.id] || 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Migrar a</label>
+                <select
+                  value={migrarHacia}
+                  onChange={(e) => setMigrarHacia(e.target.value)}
+                  className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                >
+                  <option value="">Selecciona el destino…</option>
+                  {agentesPartners
+                    .filter((a) => a.id !== migrarDesde)
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.nombre}{a.email ? ` · ${a.email}` : ''}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {migrarDesde && migrarHacia && (
+                <div className="bg-tp-blue-light/30 rounded-2xl p-4 text-sm text-tp-blue font-medium">
+                  Se migrarán <strong>{clientesAMigrar.length}</strong> cliente(s) de{' '}
+                  <strong>{migrarDesde === SIN_AGENTE ? 'sin agente asignado' : nombreAgente(migrarDesde)}</strong> a{' '}
+                  <strong>{nombreAgente(migrarHacia)}</strong>.
+                </div>
+              )}
+
+              {migrarDesde && migrarHacia && clientesAMigrar.length === 0 && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700 font-bold">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> No hay clientes en el origen seleccionado.
+                </div>
+              )}
+
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={migrarConfirmado}
+                  onChange={(e) => setMigrarConfirmado(e.target.checked)}
+                  className="w-4 h-4 accent-tp-red mt-0.5 shrink-0"
+                />
+                <span className="text-sm text-tp-blue/70 font-medium leading-relaxed">
+                  Confirmo que quiero realizar esta migración.
+                </span>
+              </label>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMigrarModalOpen(false)}
+                  className="flex-1 py-3 rounded-2xl border border-tp-gray-soft text-tp-blue/60 font-bold hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMigrarClientes}
+                  disabled={!puedeMigrar}
+                  className="flex-1 py-3 rounded-2xl bg-tp-blue text-white font-bold hover:bg-[#004a78] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {isMigrating ? 'Migrando…' : 'Confirmar migración'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-tp-blue text-white px-5 py-3 rounded-2xl shadow-2xl text-sm font-medium max-w-md text-center animate-in fade-in slide-in-from-bottom-4">
+          <span className="flex items-center gap-2 justify-center"><CheckCircle2 className="w-4 h-4" /> {toast}</span>
+        </div>
+      )}
     </div>
   );
 }

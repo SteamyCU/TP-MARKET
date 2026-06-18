@@ -50,6 +50,7 @@ y de los pendientes para dejarla lista para producción.
 | **26** | **Programa de Viajeros — Fase 1 (venta a ToPaquete):** migración `0017` extiende `reservas_viajero` (sin reconstruirla) para admitir reservas hechas por el admin en nombre de ToPaquete (`reservado_por`, `notas_internas`, estado `confirmada`). Los clientes publican kilos desde "Vender mis Kilos" (antes "Kilos Disponibles") con un flujo simplificado: solo "Publicar mi viaje" y "Mis Viajes Publicados" (con badge "✅ ToPaquete reservó X kg"), sin tablero público ni botón de reservar entre clientes. Nuevo panel admin `/dashboard/admin/viajeros` ("Ofertas de Viajeros"): lista de todas las ofertas activas con contacto del viajero, reserva de kilos en nombre de ToPaquete con cálculo de precio en vivo y notas internas, y pestaña de reservas confirmadas con acciones "Completada"/"Cancelar". Notificación por email al viajero vía Resend (Edge Function `notificar-reserva-admin`). El mercado público entre clientes (Fase 2, UI ya construida en la Fase 25) queda oculto detrás del flag `settings.viajeros_marketplace_publico` (`activo: false` por defecto) — al activarlo se restaura sin reconstruir nada. **PENDIENTE (Fase 2, no activar todavía):** poner `viajeros_marketplace_publico.activo` en `true` cuando se decida abrir el mercado cliente-a-cliente. |
 | **28** | **Badge "Próxima Salida" dinámico en el home:** el badge del Hero de `Landing.tsx` (antes hardcodeado "Viernes 10 de Abril") ahora se conecta a la tabla `salidas`. Nueva función `getProximasSalidas()` en `ofertasSalidas.ts` que devuelve la próxima salida vigente (fecha >= hoy, estado no cancelado/finalizado) de tipo `aerea` (Regular) y de tipo `express` (Express). El badge muestra ambas fechas ("📦 Regular: … · ⚡ Express: …"), o solo la disponible, o se oculta si no hay ninguna programada; skeleton sutil mientras carga. Fecha formateada en español con `Intl.DateTimeFormat('es-ES')` y primera letra en mayúscula. Gestionable 100% desde "Ofertas y Salidas" sin tocar código: al crear una salida (estado `Programada`, fecha hoy/futura) aparece en el home en la siguiente carga, sin redeploy. **Migración `0019_salidas_lectura_publica.sql`:** la política RLS previa solo permitía lectura a usuarios autenticados; se añade lectura pública (anon) limitada a las salidas vigentes para que el badge funcione para visitantes sin sesión. |
 | **27** | **Corrección · registro de agentes remotos:** el campo obligatorio "Oficina / Sucursal" bloqueaba el botón "Finalizar Registro y Entrar" a los agentes, que trabajan en remoto (WhatsApp, Facebook, Telegram, boca a boca) y no tienen oficina física. Se elimina ese campo del formulario "Completa tu Perfil" (`App.tsx`) y del editor de perfil del agente (`Perfil.tsx`), se quita la validación bloqueante `(profile.role !== 'agente' || profile.oficina)` de la condición `isComplete`, y se sustituye por un campo **opcional** "¿Por dónde sueles vender?" (select: WhatsApp / Facebook / Telegram / Boca a boca / Instagram / Otro) guardado en `extra.canalVenta`. **No requiere migración:** los campos de perfil (`oficina`, `canalVenta`, etc.) viven dentro de la columna `extra` (jsonb) de `profiles`, no en columnas propias. El alta manual de agentes desde el panel admin (`Usuarios.tsx`) conserva su campo "Oficina" opcional (no bloqueante) por si el admin lo quiere anotar. |
+| **30** | **Migración genérica de clientes entre agentes:** se elimina el código hardcodeado `handleMigrateRoxana` y el botón "Migrar a Roxana" (caso puntual que reasignaba todos los clientes a un agente buscado por nombre). Se sustituye en `Clientes.tsx` por una herramienta genérica "Migrar clientes" (solo admin): modal con selector "Migrar de" ("Todos los clientes sin agente asignado" o un agente/partner concreto, mostrando cuántos clientes tiene cada uno) y "Migrar a" (agentes/partners `role IN ('agente','partner')` con nombre + email), texto de confirmación "Se migrarán X clientes de [origen] a [destino]", checkbox obligatorio y botón "Confirmar migración". Usa `updateCliente(id, { agenteId })` por cliente, muestra un toast "X clientes migrados a [agente]" y registra la acción en la tabla `auditoria` (`registrarAuditoria`, acción `cambio_datos_cliente`). |
 | **29** | **Programa de Viajeros — lado de la demanda + notificaciones reales:** (1) **Filtro simplificado** en el "Tablero de viajes": los campos "Desde"/"Hasta" se sustituyen por un único "Fecha de salida" (coincidencia exacta, o todas si está vacío). (2) **Tabla `solicitudes_express`** (migración `0020`): un cliente publica que necesita enviar Express (provincia, fecha límite, kilos, precio dispuesto/kg, notas) desde el nuevo tab "Solicitar Express" en "Vender mis Kilos" (disponible en Fase 1 y Fase 2); lista "Mis solicitudes" con badges Pendiente/Te avisamos/Cumplida/Cancelada y opción de cancelar. (3) **Sistema de notificaciones in-app** (tabla `notificaciones` + servicio `notificaciones.ts`): la campanita del `Topbar` ahora muestra las notificaciones reales del usuario logueado (todos los roles) además de los contadores de admin (afiliados/B2B), con marcar-leída al hacer clic + navegación al `link`, y "Marcar todas como leídas". (4) **Matching automático:** al publicar una oferta (`crearOferta`), la Edge Function `notificar-match-express` (service role, evita la RLS) busca solicitudes Express pendientes que coincidan (misma provincia, kilos ≤ disponibles, fecha límite ≥ salida) y por cada una crea la notificación in-app, envía email vía Resend y marca la solicitud como `notificado`. (5) **Panel admin** `/dashboard/admin/viajeros`: nuevo tab "Solicitudes Express" con todas las solicitudes (cliente, destino, fecha, kg, precio, estado, notas) para priorizar a qué viajeros contactar. **NOTA:** la migración se numeró `0020` (no `0018`, ya ocupado por `0018_precio_express_normal.sql`). |
 
 ### Desglose Fase 13 · Migración a Supabase
@@ -144,6 +145,43 @@ y de los pendientes para dejarla lista para producción.
 ---
 
 ## Pendientes para finalizar la plataforma
+
+### ⚠️ Acciones manuales pendientes (consolidado — hacerlas todas de una)
+
+Todo lo que hay que ejecutar a mano en Supabase para que lo desarrollado quede
+operativo. Todas las migraciones son idempotentes (seguras de re-ejecutar),
+salvo `0011` que usa `create table`/`create policy` sin `if exists` (si ya se
+corrió, dará un error inofensivo de "ya existe" y se ignora).
+
+**A) Migraciones en el SQL Editor** (en orden; ejecuta las que no estés seguro de haber corrido):
+
+- [ ] `0011_incidencias.sql` (tabla `incidencias` + RLS) — *no idempotente*
+- [ ] `0012_influencer_referidos.sql` (índice + `influencer_config`)
+- [ ] `0013_cupones.sql`
+- [ ] `0014_actualizar_precios.sql`
+- [ ] `0015_ofertas_viajero.sql`
+- [ ] `0016_reservas_viajero.sql`
+- [ ] `0017_viajeros_fase1_admin.sql`
+- [ ] `0018_precio_express_normal.sql` (precio base Express "Miscelánea Normal" = 13 €/kg)
+- [ ] `0019_salidas_lectura_publica.sql` (lectura pública del badge "Próxima salida" del home) — **nueva**
+- [ ] `0020_solicitudes_express_notificaciones.sql` (tablas `solicitudes_express` + `notificaciones` + RLS) — **nueva**
+
+**B) Edge Functions a desplegar** (Dashboard → Edge Functions → Deploy, o `supabase functions deploy <nombre>`):
+
+- [ ] `notificar-solicitud` (emails de aprobación/rechazo de agente/influencer — *reportado: no llegan; falta desplegar*)
+- [ ] `notificar-match-express` (matching de solicitudes Express → email + notificación in-app) — **nueva**
+- [ ] `soporte-email`, `notificar-reserva-viajero`, `notificar-reserva-admin` (confirmar que ya están desplegadas)
+
+**C) Secrets / configuración:**
+
+- [ ] `RESEND_API_KEY` configurada como secret de las Edge Functions (necesaria para TODOS los emails).
+      `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` las inyecta Supabase automáticamente (no hay que ponerlas).
+
+> Cómo saber si falta la `RESEND_API_KEY` o solo falta desplegar una función: si los
+> correos de **soporte** SÍ llegan, la clave ya está bien y solo falta desplegar las
+> funciones que no lleguen; si **tampoco** llegan los de soporte, falta la `RESEND_API_KEY`.
+
+---
 
 ### En el panel de Supabase (acciones manuales del dueño)
 
