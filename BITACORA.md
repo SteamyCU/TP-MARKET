@@ -515,3 +515,13 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   ambos en el flujo de "Mis Solicitudes".
 - **Archivos corregidos:** `src/services/solicitudes.ts`,
   `src/pages/MisSolicitudes.tsx`.
+
+### Fase 26 · "Únete a la Red": pantalla de éxito menciona email + WhatsApp
+
+- La pantalla "¡Solicitud Recibida!" de `src/pages/Unirse.tsx` solo mencionaba
+  WhatsApp como canal de contacto, pero la decisión (aprobado/rechazado) ya se
+  notifica por correo desde la Fase 22 (`notificar-solicitud`). Se actualizó el
+  texto principal para anunciar ambos canales, y la card "Paso Siguiente" se
+  dividió en dos: "Revisa tu Correo" (confirmación de la decisión por email) y
+  "Atento a WhatsApp" (explicación del programa de afiliados), manteniendo la
+  card de "Validación" sin cambios. El grid pasa de 2 a 3 columnas en desktop.

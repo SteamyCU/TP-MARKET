@@ -15,7 +15,8 @@ import {
   Info,
   ShieldCheck,
   Zap,
-  MessageCircle
+  MessageCircle,
+  Mail
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { loginWithGoogle, loginWithEmail, registerWithEmail } from '../supabase';
@@ -627,14 +628,19 @@ export function Unirse() {
               </div>
               <h2 className="text-4xl font-black text-tp-blue mb-4 tracking-tight">¡Solicitud Recibida!</h2>
               <p className="text-xl text-tp-blue/60 font-medium mb-10">
-                Gracias por querer formar parte de To Paquete. Nuestro equipo revisará tu perfil y te contactará por WhatsApp en las próximas 24-48 horas.
+                Gracias por querer formar parte de ToPaquete. Nuestro equipo revisará tu perfil. Te avisaremos por correo electrónico en cuanto tengamos una respuesta, y nuestro equipo se pondrá en contacto contigo por WhatsApp para explicarte todo lo que conlleva el programa de afiliados.
               </p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+                <div className="p-6 bg-tp-blue/5 rounded-3xl border border-tp-blue/10">
+                  <Mail className="w-8 h-8 text-tp-blue mx-auto mb-3" />
+                  <h4 className="font-black text-tp-blue text-sm uppercase mb-1">Revisa tu Correo</h4>
+                  <p className="text-xs text-tp-blue/60 font-bold">Te confirmaremos la decisión por email</p>
+                </div>
                 <div className="p-6 bg-tp-blue/5 rounded-3xl border border-tp-blue/10">
                   <MessageCircle className="w-8 h-8 text-tp-blue mx-auto mb-3" />
-                  <h4 className="font-black text-tp-blue text-sm uppercase mb-1">Paso Siguiente</h4>
-                  <p className="text-xs text-tp-blue/60 font-bold">Atento a tu WhatsApp</p>
+                  <h4 className="font-black text-tp-blue text-sm uppercase mb-1">Atento a WhatsApp</h4>
+                  <p className="text-xs text-tp-blue/60 font-bold">Te explicaremos cómo funciona el programa</p>
                 </div>
                 <div className="p-6 bg-tp-blue/5 rounded-3xl border border-tp-blue/10">
                   <ShieldCheck className="w-8 h-8 text-tp-blue mx-auto mb-3" />
