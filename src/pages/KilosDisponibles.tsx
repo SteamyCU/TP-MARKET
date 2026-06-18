@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plane, Luggage, MapPin, Calendar, Package, Zap, Plus, X, Pause, Play, Ban,
   AlertCircle, ShieldAlert, Filter, Check, ThumbsDown, Phone,
-  MessageCircle, Mail, Clock, CheckCircle2,
+  MessageCircle, Mail, Clock, CheckCircle2, Send,
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { PROVINCIAS_CUBA } from '../services/tarifas';
@@ -12,7 +12,9 @@ import {
   getKilosRestantes, crearReserva, aceptarReserva, rechazarReserva, cancelarReserva,
   getMisReservas, getSolicitudesRecibidas, isMarketplacePublicoActivo,
   getReservasConfirmadasDeOfertas,
+  crearSolicitudExpress, getMisSolicitudesExpress, cancelarSolicitudExpress,
   type OfertaViajero, type EstadoOfertaViajero, type ReservaViajero, type EstadoReservaViajero,
+  type SolicitudExpress, type EstadoSolicitudExpress,
 } from '../services/viajeros';
 import { cn } from '../lib/utils';
 
@@ -490,19 +492,242 @@ function RechazarReservaModal({
   );
 }
 
+const ESTADO_SOLICITUD_EXPRESS_BADGE: Record<EstadoSolicitudExpress, { label: string; clase: string }> = {
+  pendiente:  { label: 'Pendiente',   clase: 'bg-gray-100 text-gray-500' },
+  notificado: { label: 'Te avisamos', clase: 'bg-green-100 text-green-700' },
+  cumplida:   { label: 'Cumplida',    clase: 'bg-tp-blue-light text-tp-blue' },
+  cancelada:  { label: 'Cancelada',   clase: 'bg-red-100 text-tp-red' },
+};
+
+// ---------------------------------------------------------------------------
+// Panel "Solicitar Express" (lado de la demanda): formulario + mis solicitudes
+// ---------------------------------------------------------------------------
+function SolicitarExpressPanel({ clienteId }: { clienteId: string }) {
+  const [solicitudes, setSolicitudes] = useState<SolicitudExpress[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ provincia: '', fecha: '', kilos: '', precio: '', notas: '' });
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
+
+  const hoy = new Date().toISOString().split('T')[0];
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      setSolicitudes(await getMisSolicitudesExpress(clienteId));
+    } catch (err) {
+      console.error('Error cargando solicitudes Express:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [clienteId]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  const completo =
+    form.provincia && form.fecha && parseFloat(form.kilos) > 0 && parseFloat(form.precio) > 0;
+
+  const publicar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!completo || enviando) return;
+    setEnviando(true);
+    setError(null);
+    setOk(false);
+    try {
+      await crearSolicitudExpress(
+        clienteId, form.provincia, form.fecha,
+        parseFloat(form.kilos), parseFloat(form.precio), form.notas,
+      );
+      setForm({ provincia: '', fecha: '', kilos: '', precio: '', notas: '' });
+      setOk(true);
+      setTimeout(() => setOk(false), 5000);
+      await cargar();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo publicar la solicitud.');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const cancelar = async (id: string) => {
+    try {
+      await cancelarSolicitudExpress(id);
+      await cargar();
+    } catch (err) {
+      console.error('Error cancelando la solicitud Express:', err);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Formulario */}
+      <form onSubmit={publicar} className="bg-white rounded-3xl border border-tp-gray-soft shadow-sm p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-black text-tp-blue flex items-center gap-2">
+            <Zap className="w-5 h-5 text-tp-red" /> Necesito enviar Express
+          </h2>
+          <p className="text-sm text-tp-blue/50 mt-0.5">
+            Publica lo que necesitas enviar. Cuando un viajero publique un viaje que coincida, te avisaremos por email y aquí mismo.
+          </p>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-tp-red font-bold">
+            <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+          </div>
+        )}
+        {ok && (
+          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-100 rounded-xl text-sm text-green-700 font-bold">
+            <CheckCircle2 className="w-4 h-4 shrink-0" /> ¡Solicitud publicada! Te avisaremos en cuanto haya un viaje que coincida.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Provincia destino</label>
+            <select
+              required
+              value={form.provincia}
+              onChange={(e) => setForm({ ...form, provincia: e.target.value })}
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            >
+              <option value="">Selecciona una provincia…</option>
+              {PROVINCIAS_CUBA.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Fecha límite que necesitas</label>
+            <input
+              type="date"
+              required
+              min={hoy}
+              value={form.fecha}
+              onChange={(e) => setForm({ ...form, fecha: e.target.value })}
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Kilos necesarios</label>
+            <input
+              type="number"
+              required
+              min="0.5"
+              step="0.5"
+              value={form.kilos}
+              onChange={(e) => setForm({ ...form, kilos: e.target.value })}
+              placeholder="Ej: 5"
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Precio que pagas (€/kg)</label>
+            <input
+              type="number"
+              required
+              min="0.01"
+              step="0.01"
+              value={form.precio}
+              onChange={(e) => setForm({ ...form, precio: e.target.value })}
+              placeholder="Ej: 8.00"
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Notas (opcional)</label>
+          <textarea
+            value={form.notas}
+            onChange={(e) => setForm({ ...form, notas: e.target.value })}
+            placeholder="Qué necesitas enviar, flexibilidad de fechas, etc."
+            rows={2}
+            className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20 resize-none"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={!completo || enviando}
+          className="w-full py-3 rounded-2xl bg-tp-red text-white font-bold hover:bg-[#D91F33] transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          <Send className="w-4 h-4" /> {enviando ? 'Publicando…' : 'Publicar solicitud'}
+        </button>
+      </form>
+
+      {/* Mis solicitudes */}
+      <div>
+        <h2 className="text-sm font-black text-tp-blue uppercase tracking-wider mb-3">Mis solicitudes</h2>
+        {loading ? (
+          <div className="text-center py-12 text-tp-blue/30 italic font-bold">Cargando tus solicitudes…</div>
+        ) : solicitudes.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
+            <Zap className="w-12 h-12 text-tp-blue/15 mx-auto mb-3" />
+            <p className="text-tp-blue/40 font-bold">Aún no has publicado ninguna solicitud Express.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-tp-gray-soft shadow-sm overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-left text-[10px] font-black uppercase tracking-wider text-tp-blue/40">
+                  <th className="px-5 py-3">Destino</th>
+                  <th className="px-5 py-3">Fecha límite</th>
+                  <th className="px-5 py-3">Kg</th>
+                  <th className="px-5 py-3">Precio ofrecido</th>
+                  <th className="px-5 py-3">Estado</th>
+                  <th className="px-5 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {solicitudes.map((s) => {
+                  const badge = ESTADO_SOLICITUD_EXPRESS_BADGE[s.estado];
+                  return (
+                    <tr key={s.id} className="border-t border-tp-gray-soft">
+                      <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{s.provincia_destino}</td>
+                      <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">{formatFecha(s.fecha_necesaria)}</td>
+                      <td className="px-5 py-4 text-tp-blue font-bold whitespace-nowrap">{s.kilos_necesarios.toFixed(1)} kg</td>
+                      <td className="px-5 py-4 font-black text-tp-red whitespace-nowrap">€{s.precio_dispuesto_kg.toFixed(2)}/kg</td>
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <span className={cn('text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full', badge.clase)}>
+                          {badge.label}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        {s.estado === 'pendiente' && (
+                          <button
+                            onClick={() => cancelar(s.id)}
+                            className="px-3 py-1.5 rounded-lg border border-tp-gray-soft text-tp-blue/60 font-bold text-xs hover:bg-gray-50 transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <X className="w-3.5 h-3.5" /> Cancelar
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Página principal
 // ---------------------------------------------------------------------------
 export function KilosDisponibles() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'tablero' | 'mis' | 'mis-reservas'>('tablero');
+  const [tab, setTab] = useState<'tablero' | 'mis' | 'mis-reservas' | 'solicitar'>('tablero');
+  // Sub-pestaña de la vista simplificada (Fase 1, mercado público desactivado).
+  const [fase1Tab, setFase1Tab] = useState<'vender' | 'solicitar'>('vender');
   const [marketplaceActivo, setMarketplaceActivo] = useState<boolean | null>(null);
 
   const [ofertas, setOfertas] = useState<OfertaViajero[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroProvincia, setFiltroProvincia] = useState('');
-  const [filtroDesde, setFiltroDesde] = useState('');
-  const [filtroHasta, setFiltroHasta] = useState('');
+  const [filtroFecha, setFiltroFecha] = useState('');
 
   const [misOfertas, setMisOfertas] = useState<OfertaViajero[]>([]);
   const [loadingMis, setLoadingMis] = useState(false);
@@ -524,8 +749,9 @@ export function KilosDisponibles() {
     try {
       const data = await getOfertasActivas({
         provincia: filtroProvincia || undefined,
-        fechaDesde: filtroDesde || undefined,
-        fechaHasta: filtroHasta || undefined,
+        // Fecha exacta: mismo límite inferior y superior.
+        fechaDesde: filtroFecha || undefined,
+        fechaHasta: filtroFecha || undefined,
       });
       setOfertas(data);
     } catch (err) {
@@ -533,7 +759,7 @@ export function KilosDisponibles() {
     } finally {
       setLoading(false);
     }
-  }, [filtroProvincia, filtroDesde, filtroHasta]);
+  }, [filtroProvincia, filtroFecha]);
 
   const cargarMisOfertas = useCallback(async () => {
     if (!user?.uid) return;
@@ -623,8 +849,8 @@ export function KilosDisponibles() {
     }
   };
 
-  const limpiarFiltros = () => { setFiltroProvincia(''); setFiltroDesde(''); setFiltroHasta(''); };
-  const hayFiltros = filtroProvincia || filtroDesde || filtroHasta;
+  const limpiarFiltros = () => { setFiltroProvincia(''); setFiltroFecha(''); };
+  const hayFiltros = filtroProvincia || filtroFecha;
 
   if (marketplaceActivo === null) {
     return <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando…</div>;
@@ -644,14 +870,38 @@ export function KilosDisponibles() {
               Publica tu viaje y ToPaquete reservará los kilos que necesite para enviar paquetes Express.
             </p>
           </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-tp-red text-white rounded-2xl font-bold hover:bg-[#D91F33] transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" /> Publicar mi viaje
-          </button>
+          {fase1Tab === 'vender' && (
+            <button
+              onClick={() => setModalOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-tp-red text-white rounded-2xl font-bold hover:bg-[#D91F33] transition-colors shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Publicar mi viaje
+            </button>
+          )}
         </div>
 
+        {/* Tabs: vender mis kilos / solicitar express */}
+        <div className="flex gap-2 border-b border-tp-gray-soft">
+          {([
+            ['vender', 'Vender mis Kilos'],
+            ['solicitar', 'Solicitar Express'],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFase1Tab(key)}
+              className={cn(
+                'px-4 py-2.5 text-sm font-bold transition-colors border-b-2 -mb-px',
+                fase1Tab === key ? 'border-tp-red text-tp-red' : 'border-transparent text-tp-blue/50 hover:text-tp-blue',
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {fase1Tab === 'solicitar' ? (
+          user?.uid ? <SolicitarExpressPanel clienteId={user.uid} /> : null
+        ) : (
         <div>
           <h2 className="text-sm font-black text-tp-blue uppercase tracking-wider mb-3">Mis Viajes Publicados</h2>
           {loadingMis ? (
@@ -727,6 +977,7 @@ export function KilosDisponibles() {
             </div>
           )}
         </div>
+        )}
 
         {modalOpen && (
           <PublicarViajeModal
@@ -765,6 +1016,7 @@ export function KilosDisponibles() {
           ['tablero', 'Tablero de viajes'],
           ['mis', 'Mis viajes'],
           ['mis-reservas', 'Mis reservas'],
+          ['solicitar', 'Solicitar Express'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -798,20 +1050,11 @@ export function KilosDisponibles() {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-tp-blue/40 uppercase tracking-wider mb-1">Desde</label>
+              <label className="block text-[10px] font-bold text-tp-blue/40 uppercase tracking-wider mb-1">Fecha de salida</label>
               <input
                 type="date"
-                value={filtroDesde}
-                onChange={(e) => setFiltroDesde(e.target.value)}
-                className="px-3 py-2 border border-tp-gray-soft rounded-xl text-sm text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-tp-blue/40 uppercase tracking-wider mb-1">Hasta</label>
-              <input
-                type="date"
-                value={filtroHasta}
-                onChange={(e) => setFiltroHasta(e.target.value)}
+                value={filtroFecha}
+                onChange={(e) => setFiltroFecha(e.target.value)}
                 className="px-3 py-2 border border-tp-gray-soft rounded-xl text-sm text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
               />
             </div>
@@ -992,7 +1235,7 @@ export function KilosDisponibles() {
           </div>
           </div>
         )
-      ) : (
+      ) : tab === 'mis-reservas' ? (
         /* Mis reservas (vista cliente) */
         loadingMisReservas ? (
           <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando tus reservas…</div>
@@ -1088,6 +1331,9 @@ export function KilosDisponibles() {
             })}
           </div>
         )
+      ) : (
+        /* Solicitar Express (lado de la demanda) */
+        user?.uid ? <SolicitarExpressPanel clienteId={user.uid} /> : null
       )}
 
       {modalOpen && (

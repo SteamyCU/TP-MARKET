@@ -1,9 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, Bell, Plus, Menu, UserPlus, Inbox, CheckCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import { cn } from '../lib/utils';
 import { contarSolicitudesAfiliadoPendientes } from '../services/afiliados';
 import { contarContactosPartnersPendientes } from '../services/contactosPartners';
+import {
+  getNotificacionesUsuario, contarNoLeidas, marcarLeida, marcarTodasLeidas,
+  type Notificacion,
+} from '../services/notificaciones';
+
+/** Fecha relativa corta en español ("hace 5 min", "hace 2 h", "hace 3 d"). */
+function fechaRelativa(iso: string): string {
+  const seg = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (seg < 60) return 'ahora';
+  const min = Math.floor(seg / 60);
+  if (min < 60) return `hace ${min} min`;
+  const horas = Math.floor(min / 60);
+  if (horas < 24) return `hace ${horas} h`;
+  const dias = Math.floor(horas / 24);
+  return `hace ${dias} d`;
+}
 
 interface TopbarProps {
   onToggleSidebar?: () => void;
@@ -15,9 +32,13 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
   const [openNotif, setOpenNotif] = useState(false);
   const [afiliadosPend, setAfiliadosPend] = useState(0);
   const [b2bPend, setB2bPend] = useState(0);
+  const [notifs, setNotifs] = useState<Notificacion[]>([]);
+  const [noLeidas, setNoLeidas] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const totalPend = afiliadosPend + b2bPend;
+  // El badge suma los avisos de admin (afiliados + B2B) y las notificaciones
+  // in-app sin leer del usuario (cualquier rol).
+  const totalPend = afiliadosPend + b2bPend + noLeidas;
 
   // Solo el admin recibe avisos de solicitudes entrantes.
   useEffect(() => {
@@ -40,6 +61,46 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
     const intervalo = setInterval(cargar, 60000);
     return () => { active = false; clearInterval(intervalo); };
   }, [role]);
+
+  // Notificaciones in-app del usuario logueado (todos los roles).
+  const cargarNotifs = useCallback(async () => {
+    if (!user?.uid) return;
+    const [lista, sinLeer] = await Promise.all([
+      getNotificacionesUsuario(user.uid, 10),
+      contarNoLeidas(user.uid),
+    ]);
+    setNotifs(lista);
+    setNoLeidas(sinLeer);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    let active = true;
+    const run = () => { if (active) cargarNotifs(); };
+    run();
+    const intervalo = setInterval(run, 60000);
+    return () => { active = false; clearInterval(intervalo); };
+  }, [user, cargarNotifs]);
+
+  const handleClickNotif = async (n: Notificacion) => {
+    setOpenNotif(false);
+    try {
+      if (!n.leida) { await marcarLeida(n.id); await cargarNotifs(); }
+    } catch (err) {
+      console.error('Error marcando notificación leída:', err);
+    }
+    if (n.link) navigate(n.link);
+  };
+
+  const handleMarcarTodas = async () => {
+    if (!user?.uid) return;
+    try {
+      await marcarTodasLeidas(user.uid);
+      await cargarNotifs();
+    } catch (err) {
+      console.error('Error marcando todas leídas:', err);
+    }
+  };
 
   // Cierra el menú al hacer clic fuera.
   useEffect(() => {
@@ -98,7 +159,7 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             aria-label="Notificaciones"
           >
             <Bell className="w-6 h-6" />
-            {role === 'admin' && totalPend > 0 && (
+            {totalPend > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-tp-red text-white text-[10px] font-black rounded-full border-2 border-white flex items-center justify-center">
                 {totalPend > 9 ? '9+' : totalPend}
               </span>
@@ -107,55 +168,79 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
 
           {openNotif && (
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-tp-gray-soft overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="px-4 py-3 border-b border-tp-gray-soft bg-gray-50/50">
+              <div className="px-4 py-3 border-b border-tp-gray-soft bg-gray-50/50 flex items-center justify-between">
                 <h3 className="font-black text-tp-blue text-sm">Notificaciones</h3>
+                {noLeidas > 0 && (
+                  <button
+                    onClick={handleMarcarTodas}
+                    className="text-[11px] font-bold text-tp-blue/50 hover:text-tp-red transition-colors flex items-center gap-1"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" /> Marcar todas
+                  </button>
+                )}
               </div>
 
-              {role !== 'admin' ? (
-                <div className="p-8 text-center">
-                  <CheckCheck className="w-10 h-10 text-tp-blue/15 mx-auto mb-3" />
-                  <p className="text-sm text-tp-blue/40 font-medium">No tienes notificaciones nuevas.</p>
-                </div>
-              ) : totalPend === 0 ? (
-                <div className="p-8 text-center">
-                  <CheckCheck className="w-10 h-10 text-green-400 mx-auto mb-3" />
-                  <p className="text-sm text-tp-blue/50 font-bold">¡Todo al día!</p>
-                  <p className="text-xs text-tp-blue/40 mt-1">No hay solicitudes pendientes.</p>
-                </div>
-              ) : (
-                <div className="py-2">
-                  {afiliadosPend > 0 && (
-                    <button
-                      onClick={() => irA('/dashboard/solicitudes-afiliados')}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-tp-blue-light/30 transition-colors text-left"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-tp-red/10 text-tp-red flex items-center justify-center shrink-0">
-                        <UserPlus className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-tp-blue">Altas de afiliados</p>
-                        <p className="text-xs text-tp-blue/50">{afiliadosPend} solicitud{afiliadosPend === 1 ? '' : 'es'} de Agente/Influencer por revisar</p>
-                      </div>
-                      <span className="w-6 h-6 bg-tp-red text-white text-xs font-black rounded-full flex items-center justify-center shrink-0">{afiliadosPend}</span>
-                    </button>
-                  )}
-                  {b2bPend > 0 && (
-                    <button
-                      onClick={() => irA('/dashboard/negocios?tab=solicitudes')}
-                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-tp-blue-light/30 transition-colors text-left"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-tp-blue/10 text-tp-blue flex items-center justify-center shrink-0">
-                        <Inbox className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-tp-blue">Solicitudes de la web</p>
-                        <p className="text-xs text-tp-blue/50">{b2bPend} lead{b2bPend === 1 ? '' : 's'} de Partner/Franquicia/Punto sin atender</p>
-                      </div>
-                      <span className="w-6 h-6 bg-tp-blue text-white text-xs font-black rounded-full flex items-center justify-center shrink-0">{b2bPend}</span>
-                    </button>
-                  )}
-                </div>
-              )}
+              <div className="max-h-96 overflow-y-auto">
+                {/* Avisos de admin (contadores agregados) */}
+                {role === 'admin' && afiliadosPend > 0 && (
+                  <button
+                    onClick={() => irA('/dashboard/solicitudes-afiliados')}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-tp-blue-light/30 transition-colors text-left border-b border-tp-gray-soft/60"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-tp-red/10 text-tp-red flex items-center justify-center shrink-0">
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-tp-blue">Altas de afiliados</p>
+                      <p className="text-xs text-tp-blue/50">{afiliadosPend} solicitud{afiliadosPend === 1 ? '' : 'es'} de Agente/Influencer por revisar</p>
+                    </div>
+                    <span className="w-6 h-6 bg-tp-red text-white text-xs font-black rounded-full flex items-center justify-center shrink-0">{afiliadosPend}</span>
+                  </button>
+                )}
+                {role === 'admin' && b2bPend > 0 && (
+                  <button
+                    onClick={() => irA('/dashboard/negocios?tab=solicitudes')}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-tp-blue-light/30 transition-colors text-left border-b border-tp-gray-soft/60"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-tp-blue/10 text-tp-blue flex items-center justify-center shrink-0">
+                      <Inbox className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-tp-blue">Solicitudes de la web</p>
+                      <p className="text-xs text-tp-blue/50">{b2bPend} lead{b2bPend === 1 ? '' : 's'} de Partner/Franquicia/Punto sin atender</p>
+                    </div>
+                    <span className="w-6 h-6 bg-tp-blue text-white text-xs font-black rounded-full flex items-center justify-center shrink-0">{b2bPend}</span>
+                  </button>
+                )}
+
+                {/* Notificaciones in-app del usuario */}
+                {notifs.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => handleClickNotif(n)}
+                    className={cn(
+                      'w-full flex items-start gap-3 px-4 py-3 hover:bg-tp-blue-light/20 transition-colors text-left border-b border-tp-gray-soft/40',
+                      !n.leida && 'bg-tp-blue-light/20',
+                    )}
+                  >
+                    <span className={cn('mt-1.5 w-2 h-2 rounded-full shrink-0', n.leida ? 'bg-transparent' : 'bg-tp-red')} />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn('text-sm text-tp-blue truncate', n.leida ? 'font-medium' : 'font-bold')}>{n.titulo}</p>
+                      <p className="text-xs text-tp-blue/50 leading-snug line-clamp-2">{n.mensaje}</p>
+                      <p className="text-[10px] text-tp-blue/30 font-bold mt-0.5">{fechaRelativa(n.created_at)}</p>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Vacío */}
+                {totalPend === 0 && notifs.length === 0 && (
+                  <div className="p-8 text-center">
+                    <CheckCheck className="w-10 h-10 text-green-400 mx-auto mb-3" />
+                    <p className="text-sm text-tp-blue/50 font-bold">¡Todo al día!</p>
+                    <p className="text-xs text-tp-blue/40 mt-1">No tienes notificaciones nuevas.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

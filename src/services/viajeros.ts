@@ -143,7 +143,29 @@ export async function crearOferta(uid: string, datos: NuevaOfertaViajero): Promi
     .select()
     .single();
   if (error) throw error;
-  return data as OfertaViajero;
+  const oferta = data as OfertaViajero;
+
+  // Matching del lado de la demanda: notifica (email + in-app) a los clientes con
+  // solicitudes Express pendientes que coincidan con esta oferta. Se hace en una
+  // Edge Function con service role porque la RLS impide que el viajero lea/escriba
+  // las solicitudes/notificaciones de otros clientes. No bloquea la publicación.
+  try {
+    await supabase.functions.invoke('notificar-match-express', {
+      body: {
+        oferta: {
+          id: oferta.id,
+          provincia_destino: oferta.provincia_destino,
+          fecha_salida: oferta.fecha_salida,
+          kilos_disponibles: oferta.kilos_disponibles,
+          precio_kg: oferta.precio_kg,
+        },
+      },
+    });
+  } catch (matchErr) {
+    console.error('Error notificando coincidencias de solicitudes Express:', matchErr);
+  }
+
+  return oferta;
 }
 
 /** Cambia el estado de una oferta (pausar/cancelar/completar/reactivar). */
@@ -637,4 +659,109 @@ export async function getReservasConfirmadasDeOfertas(ofertaIds: string[]): Prom
   const map = new Map<string, ReservaViajero>();
   ((data as ReservaViajero[]) || []).forEach((r) => map.set(r.oferta_id, r));
   return map;
+}
+
+// =============================================================================
+// Lado de la demanda: solicitudes de envío Express (clientes que necesitan kilos)
+// =============================================================================
+
+export type EstadoSolicitudExpress = 'pendiente' | 'notificado' | 'cumplida' | 'cancelada';
+
+export interface SolicitudExpress {
+  id: string;
+  cliente_id: string;
+  provincia_destino: string;
+  fecha_necesaria: string;
+  kilos_necesarios: number;
+  precio_dispuesto_kg: number;
+  notas: string | null;
+  estado: EstadoSolicitudExpress;
+  created_at: string;
+  // Enriquecido (no es columna): nombre del cliente, para el panel admin.
+  cliente_nombre?: string;
+}
+
+/** Un cliente publica que necesita enviar Express. */
+export async function crearSolicitudExpress(
+  clienteId: string,
+  provincia: string,
+  fecha: string,
+  kilos: number,
+  precio: number,
+  notas?: string,
+): Promise<SolicitudExpress> {
+  if (!provincia) throw new Error('Indica la provincia de destino.');
+  if (!fecha) throw new Error('Indica la fecha límite que necesitas.');
+  if (!(kilos > 0)) throw new Error('Indica cuántos kilos necesitas enviar.');
+  if (!(precio > 0)) throw new Error('Indica el precio por kilo que estás dispuesto a pagar.');
+
+  const { data, error } = await supabase
+    .from('solicitudes_express')
+    .insert({
+      cliente_id: clienteId,
+      provincia_destino: provincia,
+      fecha_necesaria: fecha,
+      kilos_necesarios: kilos,
+      precio_dispuesto_kg: precio,
+      notas: notas?.trim() || null,
+      estado: 'pendiente',
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as SolicitudExpress;
+}
+
+/** Solicitudes Express de un cliente, más recientes primero. */
+export async function getMisSolicitudesExpress(clienteId: string): Promise<SolicitudExpress[]> {
+  const { data, error } = await supabase
+    .from('solicitudes_express')
+    .select('*')
+    .eq('cliente_id', clienteId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as SolicitudExpress[]) || [];
+}
+
+/** El cliente cancela su propia solicitud Express. */
+export async function cancelarSolicitudExpress(id: string): Promise<void> {
+  const { error } = await supabase.from('solicitudes_express').update({ estado: 'cancelada' }).eq('id', id);
+  if (error) throw error;
+}
+
+/** Todas las solicitudes Express (panel admin), con el nombre del cliente. */
+export async function getTodasLasSolicitudesExpress(): Promise<SolicitudExpress[]> {
+  const { data, error } = await supabase
+    .from('solicitudes_express')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const solicitudes = (data as SolicitudExpress[]) || [];
+  if (solicitudes.length === 0) return solicitudes;
+
+  const ids = [...new Set(solicitudes.map((s) => s.cliente_id))];
+  const { data: perfiles } = await supabase.from('profiles').select('id, email, extra').in('id', ids);
+  const porId = new Map(
+    ((perfiles as PerfilContacto[]) || []).map((p) => [p.id, (p.extra?.name as string) || p.email || 'Cliente']),
+  );
+  return solicitudes.map((s) => ({ ...s, cliente_nombre: porId.get(s.cliente_id) || 'Cliente' }));
+}
+
+/**
+ * Solicitudes Express pendientes que coinciden con una oferta (misma provincia,
+ * kilos necesarios <= disponibles, fecha límite >= salida). Solo es utilizable
+ * por el admin (la RLS no deja a un viajero leer solicitudes ajenas); el matching
+ * automático al publicar lo ejecuta la Edge Function notificar-match-express.
+ */
+export async function buscarSolicitudesCoincidentes(oferta: OfertaViajero): Promise<SolicitudExpress[]> {
+  const disponibles = getKilosRestantes(oferta);
+  const { data, error } = await supabase
+    .from('solicitudes_express')
+    .select('*')
+    .eq('estado', 'pendiente')
+    .eq('provincia_destino', oferta.provincia_destino)
+    .lte('kilos_necesarios', disponibles)
+    .gte('fecha_necesaria', oferta.fecha_salida);
+  if (error) throw error;
+  return (data as SolicitudExpress[]) || [];
 }

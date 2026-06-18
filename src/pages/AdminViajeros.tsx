@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plane, Package, X, AlertCircle, Phone, Mail, Calendar, MapPin,
-  CheckCircle2, Ban, Check,
+  CheckCircle2, Ban, Check, Zap,
 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import {
   getTodasLasOfertasActivas, crearReservaAdmin, marcarReservaCompletada,
   cancelarReservaAdmin, getReservasAdmin, getKilosRestantes,
-  type OfertaViajeroConContacto, type ReservaViajero,
+  getTodasLasSolicitudesExpress,
+  type OfertaViajeroConContacto, type ReservaViajero, type SolicitudExpress,
 } from '../services/viajeros';
 import { cn } from '../lib/utils';
 
@@ -19,6 +20,13 @@ const ESTADO_RESERVA_BADGE: Record<string, { label: string; clase: string }> = {
   confirmada: { label: 'Confirmada', clase: 'bg-green-100 text-green-700' },
   completada: { label: 'Completada', clase: 'bg-tp-blue-light text-tp-blue' },
   cancelada:  { label: 'Cancelada',  clase: 'bg-gray-100 text-gray-500' },
+};
+
+const ESTADO_SOLICITUD_EXPRESS_BADGE: Record<string, { label: string; clase: string }> = {
+  pendiente:  { label: 'Pendiente',   clase: 'bg-amber-100 text-amber-700' },
+  notificado: { label: 'Notificado',  clase: 'bg-green-100 text-green-700' },
+  cumplida:   { label: 'Cumplida',    clase: 'bg-tp-blue-light text-tp-blue' },
+  cancelada:  { label: 'Cancelada',   clase: 'bg-gray-100 text-gray-500' },
 };
 
 // ---------------------------------------------------------------------------
@@ -143,7 +151,7 @@ function ReservarModal({
 // ---------------------------------------------------------------------------
 export function AdminViajeros() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<'ofertas' | 'reservas'>('ofertas');
+  const [tab, setTab] = useState<'ofertas' | 'reservas' | 'solicitudes'>('ofertas');
 
   const [ofertas, setOfertas] = useState<OfertaViajeroConContacto[]>([]);
   const [loadingOfertas, setLoadingOfertas] = useState(true);
@@ -151,6 +159,9 @@ export function AdminViajeros() {
 
   const [reservas, setReservas] = useState<ReservaViajero[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
+
+  const [solicitudes, setSolicitudes] = useState<SolicitudExpress[]>([]);
+  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false);
 
   const [toast, setToast] = useState<string | null>(null);
   const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 5000); };
@@ -177,8 +188,20 @@ export function AdminViajeros() {
     }
   }, []);
 
+  const cargarSolicitudes = useCallback(async () => {
+    setLoadingSolicitudes(true);
+    try {
+      setSolicitudes(await getTodasLasSolicitudesExpress());
+    } catch (err) {
+      console.error('Error cargando solicitudes Express:', err);
+    } finally {
+      setLoadingSolicitudes(false);
+    }
+  }, []);
+
   useEffect(() => { cargarOfertas(); }, [cargarOfertas]);
   useEffect(() => { if (tab === 'reservas') cargarReservas(); }, [tab, cargarReservas]);
+  useEffect(() => { if (tab === 'solicitudes') cargarSolicitudes(); }, [tab, cargarSolicitudes]);
 
   const handleCompletar = async (id: string) => {
     try {
@@ -219,6 +242,7 @@ export function AdminViajeros() {
         {([
           ['ofertas', 'Ofertas activas'],
           ['reservas', 'Reservas confirmadas'],
+          ['solicitudes', 'Solicitudes Express'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -299,7 +323,7 @@ export function AdminViajeros() {
             </table>
           </div>
         )
-      ) : (
+      ) : tab === 'reservas' ? (
         loadingReservas ? (
           <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando reservas…</div>
         ) : reservas.length === 0 ? (
@@ -367,6 +391,61 @@ export function AdminViajeros() {
               );
             })}
           </div>
+        )
+      ) : (
+        /* Solicitudes Express (lado de la demanda) */
+        loadingSolicitudes ? (
+          <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando solicitudes…</div>
+        ) : solicitudes.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
+            <Zap className="w-12 h-12 text-tp-blue/15 mx-auto mb-3" />
+            <p className="text-tp-blue/40 font-bold">No hay solicitudes Express de clientes todavía.</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-tp-blue/50">
+              Clientes que necesitan enviar Express. Prioriza qué viajeros contactar cuando publiquen ofertas que coincidan.
+            </p>
+            <div className="bg-white rounded-2xl border border-tp-gray-soft shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-50 text-left text-[10px] font-black uppercase tracking-wider text-tp-blue/40">
+                    <th className="px-5 py-3">Cliente</th>
+                    <th className="px-5 py-3">Destino</th>
+                    <th className="px-5 py-3">Fecha límite</th>
+                    <th className="px-5 py-3">Kg</th>
+                    <th className="px-5 py-3">Precio ofrecido</th>
+                    <th className="px-5 py-3">Estado</th>
+                    <th className="px-5 py-3">Notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solicitudes.map((s) => {
+                    const badge = ESTADO_SOLICITUD_EXPRESS_BADGE[s.estado] || { label: s.estado, clase: 'bg-gray-100 text-gray-500' };
+                    return (
+                      <tr key={s.id} className="border-t border-tp-gray-soft">
+                        <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{s.cliente_nombre}</td>
+                        <td className="px-5 py-4 text-tp-blue font-bold whitespace-nowrap">
+                          <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-tp-blue/40" /> {s.provincia_destino}</span>
+                        </td>
+                        <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">
+                          <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {formatFecha(s.fecha_necesaria)}</span>
+                        </td>
+                        <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{s.kilos_necesarios.toFixed(1)} kg</td>
+                        <td className="px-5 py-4 font-black text-tp-red whitespace-nowrap">€{s.precio_dispuesto_kg.toFixed(2)}/kg</td>
+                        <td className="px-5 py-4 whitespace-nowrap">
+                          <span className={cn('text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full', badge.clase)}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-tp-blue/50 font-medium max-w-[200px] truncate">{s.notas || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )
       )}
 
