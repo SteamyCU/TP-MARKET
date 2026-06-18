@@ -20,9 +20,9 @@ export interface OfertaViajero {
   viajero_id: string;
   provincia_destino: string;
   fecha_salida: string;
-  kilos_disponibles: number;
-  kilos_reservados: number;
-  precio_kg: number;
+  maletas_disponibles: number;
+  maletas_reservadas: number;
+  precio_maleta: number;
   notas: string | null;
   estado: EstadoOfertaViajero;
   acepto_terminos: boolean;
@@ -34,8 +34,8 @@ export interface OfertaViajero {
 export interface NuevaOfertaViajero {
   provincia_destino: string;
   fecha_salida: string;
-  kilos_disponibles: number;
-  precio_kg: number;
+  maletas_disponibles: number;
+  precio_maleta: number;
   notas?: string;
   acepto_terminos: boolean;
 }
@@ -46,9 +46,9 @@ export interface FiltroOfertas {
   fechaHasta?: string;
 }
 
-/** Kilos que quedan libres en una oferta. */
-export function getKilosRestantes(oferta: OfertaViajero): number {
-  return Math.max(0, oferta.kilos_disponibles - oferta.kilos_reservados);
+/** Maletas que quedan libres en una oferta. */
+export function getMaletasRestantes(oferta: OfertaViajero): number {
+  return Math.max(0, oferta.maletas_disponibles - oferta.maletas_reservadas);
 }
 
 /** true si el perfil tiene el documento de identidad subido/verificado. */
@@ -71,7 +71,7 @@ async function enriquecerConViajero(ofertas: OfertaViajero[]): Promise<OfertaVia
 }
 
 /**
- * Ofertas activas con kilos libres, ordenadas por fecha de salida ascendente.
+ * Ofertas activas con maletas libres, ordenadas por fecha de salida ascendente.
  * Acepta filtros opcionales por provincia y rango de fechas de salida.
  */
 export async function getOfertasActivas(filtro: FiltroOfertas = {}): Promise<OfertaViajero[]> {
@@ -88,11 +88,11 @@ export async function getOfertasActivas(filtro: FiltroOfertas = {}): Promise<Ofe
   const { data, error } = await q;
   if (error) throw error;
 
-  // Solo las que aún tienen kilos libres (kilos_disponibles > kilos_reservados).
-  const conKilos = ((data as OfertaViajero[]) || []).filter(
-    (o) => o.kilos_disponibles > o.kilos_reservados,
+  // Solo las que aún tienen maletas libres (maletas_disponibles > maletas_reservadas).
+  const conMaletas = ((data as OfertaViajero[]) || []).filter(
+    (o) => o.maletas_disponibles > o.maletas_reservadas,
   );
-  return enriquecerConViajero(conKilos);
+  return enriquecerConViajero(conMaletas);
 }
 
 /** Ofertas publicadas por un usuario (todas, sin filtrar por estado). */
@@ -121,11 +121,11 @@ export async function crearOferta(uid: string, datos: NuevaOfertaViajero): Promi
   if (!datos.acepto_terminos) {
     throw new Error('Debes aceptar los términos del Programa de Viajeros para publicar tu viaje.');
   }
-  if (!(datos.kilos_disponibles > 0)) {
-    throw new Error('Indica cuántos kilos tienes disponibles.');
+  if (!(datos.maletas_disponibles > 0)) {
+    throw new Error('Indica cuántas maletas tienes disponibles.');
   }
-  if (!(datos.precio_kg > 0)) {
-    throw new Error('Indica un precio por kilo válido.');
+  if (!(datos.precio_maleta > 0)) {
+    throw new Error('Indica un precio por maleta válido.');
   }
 
   const { data, error } = await supabase
@@ -134,8 +134,8 @@ export async function crearOferta(uid: string, datos: NuevaOfertaViajero): Promi
       viajero_id: uid,
       provincia_destino: datos.provincia_destino,
       fecha_salida: datos.fecha_salida,
-      kilos_disponibles: datos.kilos_disponibles,
-      precio_kg: datos.precio_kg,
+      maletas_disponibles: datos.maletas_disponibles,
+      precio_maleta: datos.precio_maleta,
       notas: datos.notas?.trim() || null,
       acepto_terminos: true,
       estado: 'activa',
@@ -149,15 +149,20 @@ export async function crearOferta(uid: string, datos: NuevaOfertaViajero): Promi
   // solicitudes Express pendientes que coincidan con esta oferta. Se hace en una
   // Edge Function con service role porque la RLS impide que el viajero lea/escriba
   // las solicitudes/notificaciones de otros clientes. No bloquea la publicación.
+  // Las ofertas van en maletas; se envía el equivalente en kg (kgPorMaleta) para
+  // cruzar con las solicitudes_express, que siguen en kg.
   try {
+    const config = await getSetting<{ kgPorMaleta?: number }>('config_maletas');
+    const kgPorMaleta = config?.kgPorMaleta || 23;
     await supabase.functions.invoke('notificar-match-express', {
       body: {
         oferta: {
           id: oferta.id,
           provincia_destino: oferta.provincia_destino,
           fecha_salida: oferta.fecha_salida,
-          kilos_disponibles: oferta.kilos_disponibles,
-          precio_kg: oferta.precio_kg,
+          maletas_disponibles: oferta.maletas_disponibles,
+          precio_maleta: oferta.precio_maleta,
+          kg_disponibles: oferta.maletas_disponibles * kgPorMaleta,
         },
       },
     });
@@ -185,7 +190,7 @@ export interface ReservaViajero {
   oferta_id: string;
   cliente_id: string | null;
   reservado_por: string | null;
-  kilos_solicitados: number;
+  maletas_solicitadas: number;
   precio_total: number;
   estado: EstadoReservaViajero;
   mensaje_cliente: string | null;
@@ -233,21 +238,21 @@ async function enviarNotificacionReserva(
 
 /**
  * Crea una solicitud de reserva sobre una oferta. Verifica que el cliente
- * acepte los términos, que queden kilos suficientes, calcula el precio total,
+ * acepte los términos, que queden maletas suficientes, calcula el precio total,
  * inserta la reserva, bloquea el cupo en la oferta y notifica al viajero.
  */
 export async function crearReserva(
   ofertaId: string,
   clienteId: string,
-  kilos: number,
+  maletas: number,
   mensaje: string | undefined,
   aceptoTerminos: boolean,
 ): Promise<ReservaViajero> {
   if (!aceptoTerminos) {
     throw new Error('Debes aceptar las condiciones de la reserva para continuar.');
   }
-  if (!(kilos > 0)) {
-    throw new Error('Indica cuántos kilos quieres reservar.');
+  if (!(maletas > 0)) {
+    throw new Error('Indica cuántas maletas quieres reservar.');
   }
 
   const { data: ofertaData, error: ofertaError } = await supabase
@@ -258,19 +263,19 @@ export async function crearReserva(
   if (ofertaError) throw ofertaError;
   const oferta = ofertaData as OfertaViajero;
 
-  const restantes = getKilosRestantes(oferta);
-  if (kilos > restantes) {
-    throw new Error(`Solo quedan ${restantes.toFixed(1)} kg disponibles en este viaje.`);
+  const restantes = getMaletasRestantes(oferta);
+  if (maletas > restantes) {
+    throw new Error(`Solo quedan ${restantes} maleta(s) disponibles en este viaje.`);
   }
 
-  const precio_total = kilos * oferta.precio_kg;
+  const precio_total = maletas * oferta.precio_maleta;
 
   const { data, error } = await supabase
     .from('reservas_viajero')
     .insert({
       oferta_id: ofertaId,
       cliente_id: clienteId,
-      kilos_solicitados: kilos,
+      maletas_solicitadas: maletas,
       precio_total,
       mensaje_cliente: mensaje?.trim() || null,
       acepto_terminos: true,
@@ -282,7 +287,7 @@ export async function crearReserva(
 
   await supabase
     .from('ofertas_viajero')
-    .update({ kilos_reservados: oferta.kilos_reservados + kilos })
+    .update({ maletas_reservadas: oferta.maletas_reservadas + maletas })
     .eq('id', ofertaId);
 
   const viajero = await obtenerContacto(oferta.viajero_id);
@@ -364,7 +369,7 @@ export async function rechazarReserva(reservaId: string, motivo?: string): Promi
 
   await supabase
     .from('ofertas_viajero')
-    .update({ kilos_reservados: Math.max(0, oferta.kilos_reservados - reserva.kilos_solicitados) })
+    .update({ maletas_reservadas: Math.max(0, oferta.maletas_reservadas - reserva.maletas_solicitadas) })
     .eq('id', oferta.id);
 
   const cliente = await obtenerContacto(reserva.cliente_id);
@@ -405,7 +410,7 @@ export async function cancelarReserva(reservaId: string): Promise<void> {
 
   await supabase
     .from('ofertas_viajero')
-    .update({ kilos_reservados: Math.max(0, oferta.kilos_reservados - reserva.kilos_solicitados) })
+    .update({ maletas_reservadas: Math.max(0, oferta.maletas_reservadas - reserva.maletas_solicitadas) })
     .eq('id', oferta.id);
 }
 
@@ -514,28 +519,28 @@ async function enviarNotificacionReservaAdmin(
   email: string,
   nombre: string,
   datosOferta: { provincia_destino: string; fecha_salida: string },
-  kilos: number,
+  maletas: number,
   precioTotal: number,
 ): Promise<void> {
   const { error } = await supabase.functions.invoke('notificar-reserva-admin', {
-    body: { email, nombre, datosOferta, kilos, precioTotal },
+    body: { email, nombre, datosOferta, maletas, precioTotal },
   });
   if (error) console.error('Error enviando notificación de reserva de ToPaquete:', error.message);
 }
 
 /**
- * El admin reserva kilos de una oferta en nombre de ToPaquete. Verifica cupo,
+ * El admin reserva maletas de una oferta en nombre de ToPaquete. Verifica cupo,
  * calcula el precio total, inserta la reserva ya 'confirmada', bloquea el
  * cupo en la oferta y notifica al viajero por email.
  */
 export async function crearReservaAdmin(
   adminUid: string,
   ofertaId: string,
-  kilos: number,
+  maletas: number,
   notas?: string,
 ): Promise<ReservaViajero> {
-  if (!(kilos > 0)) {
-    throw new Error('Indica cuántos kilos quieres reservar.');
+  if (!(maletas > 0)) {
+    throw new Error('Indica cuántas maletas quieres reservar.');
   }
 
   const { data: ofertaData, error: ofertaError } = await supabase
@@ -546,19 +551,19 @@ export async function crearReservaAdmin(
   if (ofertaError) throw ofertaError;
   const oferta = ofertaData as OfertaViajero;
 
-  const restantes = getKilosRestantes(oferta);
-  if (kilos > restantes) {
-    throw new Error(`Solo quedan ${restantes.toFixed(1)} kg disponibles en este viaje.`);
+  const restantes = getMaletasRestantes(oferta);
+  if (maletas > restantes) {
+    throw new Error(`Solo quedan ${restantes} maleta(s) disponibles en este viaje.`);
   }
 
-  const precio_total = kilos * oferta.precio_kg;
+  const precio_total = maletas * oferta.precio_maleta;
 
   const { data, error } = await supabase
     .from('reservas_viajero')
     .insert({
       oferta_id: ofertaId,
       reservado_por: adminUid,
-      kilos_solicitados: kilos,
+      maletas_solicitadas: maletas,
       precio_total,
       notas_internas: notas?.trim() || null,
       acepto_terminos: true,
@@ -570,7 +575,7 @@ export async function crearReservaAdmin(
 
   await supabase
     .from('ofertas_viajero')
-    .update({ kilos_reservados: oferta.kilos_reservados + kilos })
+    .update({ maletas_reservadas: oferta.maletas_reservadas + maletas })
     .eq('id', ofertaId);
 
   const viajero = await obtenerContacto(oferta.viajero_id);
@@ -579,7 +584,7 @@ export async function crearReservaAdmin(
       viajero.email,
       viajero.nombre,
       { provincia_destino: oferta.provincia_destino, fecha_salida: oferta.fecha_salida },
-      kilos,
+      maletas,
       precio_total,
     );
   }
@@ -615,7 +620,7 @@ export async function cancelarReservaAdmin(id: string): Promise<void> {
 
   await supabase
     .from('ofertas_viajero')
-    .update({ kilos_reservados: Math.max(0, oferta.kilos_reservados - reserva.kilos_solicitados) })
+    .update({ maletas_reservadas: Math.max(0, oferta.maletas_reservadas - reserva.maletas_solicitadas) })
     .eq('id', oferta.id);
 }
 
@@ -749,18 +754,21 @@ export async function getTodasLasSolicitudesExpress(): Promise<SolicitudExpress[
 
 /**
  * Solicitudes Express pendientes que coinciden con una oferta (misma provincia,
- * kilos necesarios <= disponibles, fecha límite >= salida). Solo es utilizable
- * por el admin (la RLS no deja a un viajero leer solicitudes ajenas); el matching
- * automático al publicar lo ejecuta la Edge Function notificar-match-express.
+ * kilos necesarios <= maletas disponibles convertidas a kg, fecha límite >=
+ * salida). Solo es utilizable por el admin (la RLS no deja a un viajero leer
+ * solicitudes ajenas); el matching automático al publicar lo ejecuta la Edge
+ * Function notificar-match-express.
  */
 export async function buscarSolicitudesCoincidentes(oferta: OfertaViajero): Promise<SolicitudExpress[]> {
-  const disponibles = getKilosRestantes(oferta);
+  const config = await getSetting<{ kgPorMaleta?: number }>('config_maletas');
+  const kgPorMaleta = config?.kgPorMaleta || 23;
+  const disponiblesKg = getMaletasRestantes(oferta) * kgPorMaleta;
   const { data, error } = await supabase
     .from('solicitudes_express')
     .select('*')
     .eq('estado', 'pendiente')
     .eq('provincia_destino', oferta.provincia_destino)
-    .lte('kilos_necesarios', disponibles)
+    .lte('kilos_necesarios', disponiblesKg)
     .gte('fecha_necesaria', oferta.fecha_salida);
   if (error) throw error;
   return (data as SolicitudExpress[]) || [];

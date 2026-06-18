@@ -26,8 +26,11 @@ interface Oferta {
   id: string;
   provincia_destino: string;
   fecha_salida: string;
-  kilos_disponibles: number;
-  precio_kg: number;
+  maletas_disponibles: number;
+  precio_maleta: number;
+  // Equivalente en kg de las maletas disponibles, para cruzar con las
+  // solicitudes_express (que siguen en kg).
+  kg_disponibles: number;
 }
 
 interface SolicitudExpress {
@@ -74,9 +77,9 @@ function html(nombre: string, oferta: Oferta): string {
           <td style="padding:40px 40px 32px;">
             <p style="margin:0 0 8px;font-size:22px;font-weight:900;color:${TP_BLUE};">🎉 ¡Hola, ${nombre}!</p>
             <p style="margin:16px 0;font-size:16px;color:#374151;line-height:1.6;">
-              Encontramos kilos para tu envío Express a <strong>${oferta.provincia_destino}</strong>.
-              Hay <strong>${oferta.kilos_disponibles} kg</strong> disponibles el
-              <strong>${formatFecha(oferta.fecha_salida)}</strong> a <strong>${oferta.precio_kg.toFixed(2)}€/kg</strong>.
+              Encontramos espacio para tu envío Express a <strong>${oferta.provincia_destino}</strong>.
+              Hay <strong>${oferta.maletas_disponibles} maleta(s)</strong> disponibles el
+              <strong>${formatFecha(oferta.fecha_salida)}</strong> a <strong>${oferta.precio_maleta.toFixed(2)}€/maleta</strong>.
             </p>
             <p style="margin:16px 0;font-size:15px;color:#6b7280;line-height:1.6;">
               Entra a tu cuenta para gestionar tu envío antes de que se agoten los kilos.
@@ -148,7 +151,7 @@ serve(async (req: Request) => {
       select: '*',
       estado: 'eq.pendiente',
       provincia_destino: `eq.${oferta.provincia_destino}`,
-      kilos_necesarios: `lte.${oferta.kilos_disponibles}`,
+      kilos_necesarios: `lte.${oferta.kg_disponibles}`,
       fecha_necesaria: `gte.${oferta.fecha_salida}`,
     });
     const matchRes = await fetch(`${SUPABASE_URL}/rest/v1/solicitudes_express?${params}`, { headers: restHeaders });
@@ -176,7 +179,7 @@ serve(async (req: Request) => {
         body: JSON.stringify({
           user_id: sol.cliente_id,
           titulo: '¡Encontramos kilos para tu envío!',
-          mensaje: `Hay un viaje disponible a ${oferta.provincia_destino} el ${formatFecha(oferta.fecha_salida)} con ${oferta.kilos_disponibles}kg disponibles a ${oferta.precio_kg.toFixed(2)}€/kg.`,
+          mensaje: `Hay un viaje disponible a ${oferta.provincia_destino} el ${formatFecha(oferta.fecha_salida)} con ${oferta.maletas_disponibles} maleta(s) disponibles a ${oferta.precio_maleta.toFixed(2)}€/maleta.`,
           tipo: 'match_express',
           link: '/dashboard/kilos-disponibles',
         }),

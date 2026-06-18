@@ -23,7 +23,7 @@ interface Payload {
   email: string;
   nombre: string;
   datosOferta: DatosOferta;
-  kilos: number;
+  maletas: number;
   precioTotal: number;
 }
 
@@ -31,7 +31,7 @@ function formatFecha(iso: string): string {
   return new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-function html(nombre: string, oferta: DatosOferta, kilos: number, precioTotal: number): string {
+function html(nombre: string, oferta: DatosOferta, maletas: number, precioTotal: number): string {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -55,7 +55,7 @@ function html(nombre: string, oferta: DatosOferta, kilos: number, precioTotal: n
           <td style="padding:40px 40px 32px;">
             <p style="margin:0 0 8px;font-size:22px;font-weight:900;color:${TP_BLUE};">¡Hola, ${nombre}!</p>
             <p style="margin:16px 0;font-size:16px;color:#374151;line-height:1.6;">
-              ToPaquete ha reservado <strong>${kilos} kg</strong> de tu viaje a
+              ToPaquete ha reservado <strong>${maletas} maleta(s)</strong> de tu viaje a
               <strong>${oferta.provincia_destino}</strong> del <strong>${formatFecha(oferta.fecha_salida)}</strong>
               por un total de <strong>${precioTotal.toFixed(2)}€</strong>.
             </p>
@@ -100,9 +100,9 @@ serve(async (req: Request) => {
 
   try {
     const payload: Payload = await req.json();
-    const { email, nombre, datosOferta, kilos, precioTotal } = payload;
+    const { email, nombre, datosOferta, maletas, precioTotal } = payload;
 
-    if (!email || !nombre || !datosOferta || !kilos || precioTotal === undefined) {
+    if (!email || !nombre || !datosOferta || !maletas || precioTotal === undefined) {
       return new Response(JSON.stringify({ error: 'Faltan campos requeridos.' }), {
         status: 400,
         headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
@@ -126,8 +126,8 @@ serve(async (req: Request) => {
       body: JSON.stringify({
         from: 'ToPaquete <notificaciones@topaquete.com>',
         to: [email],
-        subject: 'ToPaquete reservó kilos de tu viaje',
-        html: html(nombre, datosOferta, kilos, precioTotal),
+        subject: 'ToPaquete reservó maletas de tu viaje',
+        html: html(nombre, datosOferta, maletas, precioTotal),
       }),
     });
 

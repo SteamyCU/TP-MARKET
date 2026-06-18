@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Plane, Luggage, MapPin, Calendar, Package, Zap, Plus, X, Pause, Play, Ban,
+  Plane, Luggage, MapPin, Calendar, Package, Zap, Plus, Minus, X, Pause, Play, Ban,
   AlertCircle, ShieldAlert, Filter, Check, ThumbsDown, Phone,
   MessageCircle, Mail, Clock, CheckCircle2, Send,
 } from 'lucide-react';
@@ -9,7 +9,7 @@ import { useAuth } from '../AuthContext';
 import { PROVINCIAS_CUBA } from '../services/tarifas';
 import {
   getOfertasActivas, getMisOfertas, crearOferta, actualizarEstadoOferta,
-  getKilosRestantes, crearReserva, aceptarReserva, rechazarReserva, cancelarReserva,
+  getMaletasRestantes, crearReserva, aceptarReserva, rechazarReserva, cancelarReserva,
   getMisReservas, getSolicitudesRecibidas, isMarketplacePublicoActivo,
   getReservasConfirmadasDeOfertas,
   crearSolicitudExpress, getMisSolicitudesExpress, cancelarSolicitudExpress,
@@ -31,6 +31,40 @@ const ESTADO_RESERVA_BADGE: Record<EstadoReservaViajero, { label: string; clase:
   confirmada: { label: 'Confirmada', clase: 'bg-green-100 text-green-700' },
 };
 
+// Contador +/- para maletas (mínimo configurable, paso de 1 en 1).
+function ContadorMaletas({
+  value, onChange, min = 1, max,
+}: {
+  value: number; onChange: (v: number) => void; min?: number; max?: number;
+}) {
+  const dec = () => onChange(Math.max(min, value - 1));
+  const inc = () => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1);
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={dec}
+        disabled={value <= min}
+        className="w-11 h-11 rounded-xl border border-tp-gray-soft text-tp-blue flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <Minus className="w-4 h-4" />
+      </button>
+      <div className="flex items-center gap-2 min-w-[96px] justify-center">
+        <Luggage className="w-5 h-5 text-tp-blue/50" />
+        <span className="text-2xl font-black text-tp-blue tabular-nums">{value}</span>
+      </div>
+      <button
+        type="button"
+        onClick={inc}
+        disabled={max !== undefined && value >= max}
+        className="w-11 h-11 rounded-xl border border-tp-gray-soft text-tp-blue flex items-center justify-center hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
+
 function whatsappLink(telefono: string): string {
   const digits = telefono.replace(/[^\d+]/g, '').replace(/^\+/, '');
   return `https://wa.me/${digits}`;
@@ -51,7 +85,7 @@ const ESTADO_BADGE: Record<EstadoOfertaViajero, { label: string; clase: string }
 // Card de oferta (tablero)
 // ---------------------------------------------------------------------------
 function OfertaCard({ oferta, onReservar }: { oferta: OfertaViajero; onReservar: (o: OfertaViajero) => void }) {
-  const restantes = getKilosRestantes(oferta);
+  const restantes = getMaletasRestantes(oferta);
   const agotada = restantes <= 0;
 
   return (
@@ -75,14 +109,14 @@ function OfertaCard({ oferta, onReservar }: { oferta: OfertaViajero; onReservar:
 
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-tp-blue-light/30 rounded-2xl p-4">
-          <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40 mb-1">Kg disponibles</div>
+          <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40 mb-1">🧳 Maletas disponibles</div>
           <div className={cn('text-2xl font-black', agotada ? 'text-tp-blue/30' : 'text-tp-blue')}>
-            {restantes.toFixed(1)}
+            {restantes}
           </div>
         </div>
         <div className="bg-gray-50 rounded-2xl p-4">
           <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40 mb-1">Precio</div>
-          <div className="text-2xl font-black text-tp-red">€{oferta.precio_kg.toFixed(2)}<span className="text-sm text-tp-blue/40 font-bold">/kg</span></div>
+          <div className="text-2xl font-black text-tp-red">€{oferta.precio_maleta.toFixed(2)}<span className="text-sm text-tp-blue/40 font-bold">/maleta</span></div>
         </div>
       </div>
 
@@ -107,7 +141,7 @@ function OfertaCard({ oferta, onReservar }: { oferta: OfertaViajero; onReservar:
         )}
       >
         <Package className="w-4 h-4" />
-        {agotada ? 'Sin kilos disponibles' : 'Reservar kilos'}
+        {agotada ? 'Sin maletas disponibles' : 'Reservar maletas'}
       </button>
     </div>
   );
@@ -124,8 +158,8 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
   const [form, setForm] = useState({
     provincia_destino: '',
     fecha_salida: '',
-    kilos_disponibles: '',
-    precio_kg: '',
+    maletas_disponibles: 1,
+    precio_maleta: '',
     notas: '',
   });
   const [acepta, setAcepta] = useState(false);
@@ -136,7 +170,7 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
 
   const camposCompletos =
     form.provincia_destino && form.fecha_salida &&
-    parseFloat(form.kilos_disponibles) > 0 && parseFloat(form.precio_kg) > 0;
+    form.maletas_disponibles > 0 && parseFloat(form.precio_maleta) > 0;
   const puedePublicar = identidadVerificada && acepta && camposCompletos && !publishing;
 
   const publicar = async (e: React.FormEvent) => {
@@ -148,8 +182,8 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
       await crearOferta(user.uid, {
         provincia_destino: form.provincia_destino,
         fecha_salida: form.fecha_salida,
-        kilos_disponibles: parseFloat(form.kilos_disponibles),
-        precio_kg: parseFloat(form.precio_kg),
+        maletas_disponibles: form.maletas_disponibles,
+        precio_maleta: parseFloat(form.precio_maleta),
         notas: form.notas,
         acepto_terminos: acepta,
       });
@@ -193,6 +227,15 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
           </div>
         ) : (
           <form onSubmit={publicar} className="p-6 space-y-4">
+            <div className="flex items-start gap-3 bg-tp-blue-light/30 rounded-2xl p-4">
+              <Luggage className="w-6 h-6 text-tp-red shrink-0 mt-0.5" />
+              <p className="text-xs text-tp-blue/70 font-medium leading-relaxed">
+                ¿Tienes un viaje planificado a Cuba? Vende el espacio de equipaje que no vas a usar.
+                Otros clientes pagan por enviar sus paquetes Express contigo. Tú decides cuántas maletas
+                ofreces y a qué precio.
+              </p>
+            </div>
+
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-tp-red font-bold">
                 <AlertCircle className="w-4 h-4 shrink-0" /> {error}
@@ -225,30 +268,25 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Kilos disponibles</label>
-                <input
-                  type="number"
-                  required
-                  min="0.5"
-                  step="0.5"
-                  value={form.kilos_disponibles}
-                  onChange={(e) => setForm({ ...form, kilos_disponibles: e.target.value })}
-                  placeholder="Ej: 10"
-                  className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Maletas disponibles</label>
+                <ContadorMaletas
+                  value={form.maletas_disponibles}
+                  onChange={(v) => setForm({ ...form, maletas_disponibles: v })}
+                  min={1}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Precio por kilo (€)</label>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Precio por maleta (€)</label>
               <input
                 type="number"
                 required
                 min="0.01"
                 step="0.01"
-                value={form.precio_kg}
-                onChange={(e) => setForm({ ...form, precio_kg: e.target.value })}
-                placeholder="Ej: 8.00"
+                value={form.precio_maleta}
+                onChange={(e) => setForm({ ...form, precio_maleta: e.target.value })}
+                placeholder="Ej: 80.00"
                 className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
               />
             </div>
@@ -301,23 +339,22 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
 }
 
 // ---------------------------------------------------------------------------
-// Modal reservar kilos
+// Modal reservar maletas
 // ---------------------------------------------------------------------------
 function ReservarKilosModal({
   oferta, clienteId, onClose, onReservado,
 }: {
   oferta: OfertaViajero; clienteId: string; onClose: () => void; onReservado: () => void;
 }) {
-  const restantes = getKilosRestantes(oferta);
-  const [kilos, setKilos] = useState('');
+  const restantes = getMaletasRestantes(oferta);
+  const [maletas, setMaletas] = useState(1);
   const [mensaje, setMensaje] = useState('');
   const [acepta, setAcepta] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const kilosNum = parseFloat(kilos) || 0;
-  const total = kilosNum * oferta.precio_kg;
-  const puedeEnviar = acepta && kilosNum > 0 && kilosNum <= restantes && !enviando;
+  const total = maletas * oferta.precio_maleta;
+  const puedeEnviar = acepta && maletas > 0 && maletas <= restantes && !enviando;
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -325,7 +362,7 @@ function ReservarKilosModal({
     setEnviando(true);
     setError(null);
     try {
-      await crearReserva(oferta.id, clienteId, kilosNum, mensaje, acepta);
+      await crearReserva(oferta.id, clienteId, maletas, mensaje, acepta);
       onReservado();
       onClose();
     } catch (err) {
@@ -340,7 +377,7 @@ function ReservarKilosModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8">
         <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
           <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
-            <Package className="w-5 h-5 text-tp-red" /> Reservar kilos
+            <Package className="w-5 h-5 text-tp-red" /> Reservar maletas
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <X className="w-5 h-5 text-tp-blue/50" />
@@ -355,7 +392,7 @@ function ReservarKilosModal({
             </div>
             <div className="text-right">
               <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Disponible</div>
-              <div className="font-black text-tp-blue">{restantes.toFixed(1)} kg</div>
+              <div className="font-black text-tp-blue">{restantes} maleta(s)</div>
             </div>
           </div>
 
@@ -366,18 +403,8 @@ function ReservarKilosModal({
           )}
 
           <div>
-            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Kilos a reservar</label>
-            <input
-              type="number"
-              required
-              min="0.5"
-              step="0.5"
-              max={restantes}
-              value={kilos}
-              onChange={(e) => setKilos(e.target.value)}
-              placeholder={`Máx. ${restantes.toFixed(1)} kg`}
-              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
-            />
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Maletas a reservar (máx. {restantes})</label>
+            <ContadorMaletas value={maletas} onChange={setMaletas} min={1} max={restantes} />
           </div>
 
           <div className="bg-gray-50 rounded-2xl p-4 flex items-center justify-between">
@@ -867,7 +894,7 @@ export function KilosDisponibles() {
               Vender mis Kilos
             </h1>
             <p className="text-sm text-tp-blue/50 mt-0.5">
-              Publica tu viaje y ToPaquete reservará los kilos que necesite para enviar paquetes Express.
+              Publica tu viaje y ToPaquete reservará las maletas que necesite para enviar paquetes Express.
             </p>
           </div>
           {fase1Tab === 'vender' && (
@@ -921,8 +948,8 @@ export function KilosDisponibles() {
                   <tr className="bg-gray-50 text-left text-[10px] font-black uppercase tracking-wider text-tp-blue/40">
                     <th className="px-5 py-3">Destino</th>
                     <th className="px-5 py-3">Fecha</th>
-                    <th className="px-5 py-3">Kg totales</th>
-                    <th className="px-5 py-3">Kg reservados por ToPaquete</th>
+                    <th className="px-5 py-3">Maletas totales</th>
+                    <th className="px-5 py-3">Maletas reservadas por ToPaquete</th>
                     <th className="px-5 py-3">Estado</th>
                     <th className="px-5 py-3"></th>
                   </tr>
@@ -935,14 +962,14 @@ export function KilosDisponibles() {
                       <tr key={o.id} className="border-t border-tp-gray-soft">
                         <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{o.provincia_destino}</td>
                         <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">{formatFecha(o.fecha_salida)}</td>
-                        <td className="px-5 py-4 text-tp-blue font-bold whitespace-nowrap">{o.kilos_disponibles.toFixed(1)} kg</td>
+                        <td className="px-5 py-4 text-tp-blue font-bold whitespace-nowrap">{o.maletas_disponibles} maleta(s)</td>
                         <td className="px-5 py-4 whitespace-nowrap">
                           {reserva ? (
                             <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-black px-3 py-1.5 rounded-full">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> ToPaquete reservó {reserva.kilos_solicitados.toFixed(1)} kg
+                              <CheckCircle2 className="w-3.5 h-3.5" /> ToPaquete reservó {reserva.maletas_solicitadas} maleta(s)
                             </span>
                           ) : (
-                            <span className="text-tp-blue/40 font-medium">{o.kilos_reservados.toFixed(1)} kg</span>
+                            <span className="text-tp-blue/40 font-medium">{o.maletas_reservadas} maleta(s)</span>
                           )}
                         </td>
                         <td className="px-5 py-4 whitespace-nowrap">
@@ -1033,6 +1060,16 @@ export function KilosDisponibles() {
 
       {tab === 'tablero' ? (
         <>
+          {/* Texto explicativo */}
+          <div className="flex items-start gap-3 bg-tp-blue-light/30 rounded-2xl p-4">
+            <Luggage className="w-6 h-6 text-tp-red shrink-0 mt-0.5" />
+            <p className="text-xs text-tp-blue/70 font-medium leading-relaxed">
+              ¿Tienes un viaje planificado a Cuba? Vende el espacio de equipaje que no vas a usar.
+              Otros clientes pagan por enviar sus paquetes Express contigo. Tú decides cuántas maletas
+              ofreces y a qué precio.
+            </p>
+          </div>
+
           {/* Filtros */}
           <div className="bg-white rounded-2xl border border-tp-gray-soft p-4 flex flex-wrap items-end gap-3 shadow-sm">
             <div className="flex items-center gap-2 text-tp-blue/40 text-xs font-black uppercase tracking-wider">
@@ -1117,11 +1154,11 @@ export function KilosDisponibles() {
 
                   <div className="text-center">
                     <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Reservados / Total</div>
-                    <div className="font-black text-tp-blue">{o.kilos_reservados.toFixed(1)} / {o.kilos_disponibles.toFixed(1)} kg</div>
+                    <div className="font-black text-tp-blue">{o.maletas_reservadas} / {o.maletas_disponibles} maleta(s)</div>
                   </div>
                   <div className="text-center">
                     <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Precio</div>
-                    <div className="font-black text-tp-red">€{o.precio_kg.toFixed(2)}/kg</div>
+                    <div className="font-black text-tp-red">€{o.precio_maleta.toFixed(2)}/maleta</div>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -1186,8 +1223,8 @@ export function KilosDisponibles() {
                           )}
                         </div>
                         <div className="text-right">
-                          <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Kg solicitados</div>
-                          <div className="font-black text-tp-blue">{r.kilos_solicitados.toFixed(1)} kg</div>
+                          <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Maletas solicitadas</div>
+                          <div className="font-black text-tp-blue">{r.maletas_solicitadas} maleta(s)</div>
                         </div>
                       </div>
 
@@ -1239,10 +1276,19 @@ export function KilosDisponibles() {
         /* Mis reservas (vista cliente) */
         loadingMisReservas ? (
           <div className="text-center py-16 text-tp-blue/30 italic font-bold">Cargando tus reservas…</div>
-        ) : misReservas.length === 0 ? (
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 bg-tp-blue-light/30 rounded-2xl p-4">
+              <Luggage className="w-6 h-6 text-tp-red shrink-0 mt-0.5" />
+              <p className="text-xs text-tp-blue/70 font-medium leading-relaxed">
+                Aquí ves el estado de las maletas que has reservado en viajes de otras personas. Cuando el
+                viajero acepte tu reserva, podrás contactarlo directamente para coordinar la entrega de tu paquete.
+              </p>
+            </div>
+            {misReservas.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
             <Package className="w-12 h-12 text-tp-blue/15 mx-auto mb-3" />
-            <p className="text-tp-blue/40 font-bold">Aún no has reservado kilos en ningún viaje.</p>
+            <p className="text-tp-blue/40 font-bold">Aún no has reservado maletas en ningún viaje.</p>
             <button onClick={() => setTab('tablero')} className="mt-3 text-sm font-bold text-tp-red hover:underline">
               Ver tablero de viajes
             </button>
@@ -1268,8 +1314,8 @@ export function KilosDisponibles() {
                       )}
                     </div>
                     <div className="text-center">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Kg</div>
-                      <div className="font-black text-tp-blue">{r.kilos_solicitados.toFixed(1)} kg</div>
+                      <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Maletas</div>
+                      <div className="font-black text-tp-blue">{r.maletas_solicitadas} maleta(s)</div>
                     </div>
                     <div className="text-center">
                       <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Total</div>
@@ -1329,6 +1375,8 @@ export function KilosDisponibles() {
                 </div>
               );
             })}
+          </div>
+        )}
           </div>
         )
       ) : (

@@ -6,7 +6,7 @@ import {
 import { useAuth } from '../AuthContext';
 import {
   getTodasLasOfertasActivas, crearReservaAdmin, marcarReservaCompletada,
-  cancelarReservaAdmin, getReservasAdmin, getKilosRestantes,
+  cancelarReservaAdmin, getReservasAdmin, getMaletasRestantes,
   getTodasLasSolicitudesExpress,
   type OfertaViajeroConContacto, type ReservaViajero, type SolicitudExpress,
 } from '../services/viajeros';
@@ -37,15 +37,14 @@ function ReservarModal({
 }: {
   oferta: OfertaViajeroConContacto; adminUid: string; onClose: () => void; onReservado: () => void;
 }) {
-  const restantes = getKilosRestantes(oferta);
-  const [kilos, setKilos] = useState('');
+  const restantes = getMaletasRestantes(oferta);
+  const [maletas, setMaletas] = useState(1);
   const [notas, setNotas] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const kilosNum = parseFloat(kilos) || 0;
-  const total = kilosNum * oferta.precio_kg;
-  const puedeReservar = kilosNum > 0 && kilosNum <= restantes && !enviando;
+  const total = maletas * oferta.precio_maleta;
+  const puedeReservar = maletas > 0 && maletas <= restantes && !enviando;
 
   const confirmar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,11 +52,11 @@ function ReservarModal({
     setEnviando(true);
     setError(null);
     try {
-      await crearReservaAdmin(adminUid, oferta.id, kilosNum, notas);
+      await crearReservaAdmin(adminUid, oferta.id, maletas, notas);
       onReservado();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo reservar los kilos.');
+      setError(err instanceof Error ? err.message : 'No se pudo reservar las maletas.');
     } finally {
       setEnviando(false);
     }
@@ -68,7 +67,7 @@ function ReservarModal({
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8">
         <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
           <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
-            <Package className="w-5 h-5 text-tp-red" /> Reservar kilos
+            <Package className="w-5 h-5 text-tp-red" /> Reservar maletas
           </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
             <X className="w-5 h-5 text-tp-blue/50" />
@@ -83,7 +82,7 @@ function ReservarModal({
             </div>
             <div className="text-right">
               <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Disponible</div>
-              <div className="font-black text-tp-blue">{restantes.toFixed(1)} kg</div>
+              <div className="font-black text-tp-blue">{restantes} maleta(s)</div>
             </div>
           </div>
 
@@ -94,16 +93,15 @@ function ReservarModal({
           )}
 
           <div>
-            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Kilos a reservar</label>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Maletas a reservar (máx. {restantes})</label>
             <input
               type="number"
               required
-              min="0.5"
-              step="0.5"
+              min={1}
+              step={1}
               max={restantes}
-              value={kilos}
-              onChange={(e) => setKilos(e.target.value)}
-              placeholder={`Máx. ${restantes.toFixed(1)} kg`}
+              value={maletas}
+              onChange={(e) => setMaletas(Math.max(1, Math.min(restantes, parseInt(e.target.value) || 1)))}
               className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-medium focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
             />
           </div>
@@ -234,7 +232,7 @@ export function AdminViajeros() {
           Ofertas de Viajeros
         </h1>
         <p className="text-sm text-tp-blue/50 mt-0.5">
-          Revisa los viajes publicados por clientes y reserva kilos en nombre de ToPaquete.
+          Revisa los viajes publicados por clientes y reserva maletas en nombre de ToPaquete.
         </p>
       </div>
 
@@ -274,15 +272,15 @@ export function AdminViajeros() {
                   <th className="px-5 py-3">Teléfono</th>
                   <th className="px-5 py-3">Destino</th>
                   <th className="px-5 py-3">Fecha salida</th>
-                  <th className="px-5 py-3">Kg disponibles</th>
-                  <th className="px-5 py-3">Kg reservados</th>
-                  <th className="px-5 py-3">Precio/kg</th>
+                  <th className="px-5 py-3">Maletas disponibles</th>
+                  <th className="px-5 py-3">Maletas reservadas</th>
+                  <th className="px-5 py-3">Precio/maleta</th>
                   <th className="px-5 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {ofertas.map((o) => {
-                  const restantes = getKilosRestantes(o);
+                  const restantes = getMaletasRestantes(o);
                   return (
                     <tr key={o.id} className="border-t border-tp-gray-soft">
                       <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{o.viajero_nombre}</td>
@@ -299,9 +297,9 @@ export function AdminViajeros() {
                       <td className="px-5 py-4 text-tp-blue/60 font-medium whitespace-nowrap">
                         <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> {formatFecha(o.fecha_salida)}</span>
                       </td>
-                      <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{restantes.toFixed(1)} kg</td>
-                      <td className="px-5 py-4 text-tp-blue/50 font-medium whitespace-nowrap">{o.kilos_reservados.toFixed(1)} kg</td>
-                      <td className="px-5 py-4 font-black text-tp-red whitespace-nowrap">€{o.precio_kg.toFixed(2)}</td>
+                      <td className="px-5 py-4 font-black text-tp-blue whitespace-nowrap">{restantes} maleta(s)</td>
+                      <td className="px-5 py-4 text-tp-blue/50 font-medium whitespace-nowrap">{o.maletas_reservadas} maleta(s)</td>
+                      <td className="px-5 py-4 font-black text-tp-red whitespace-nowrap">€{o.precio_maleta.toFixed(2)}</td>
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         <button
                           onClick={() => setReservaOferta(o)}
@@ -313,7 +311,7 @@ export function AdminViajeros() {
                               : 'bg-tp-blue text-white hover:bg-[#004a78]',
                           )}
                         >
-                          Reservar kilos
+                          Reservar maletas
                         </button>
                       </td>
                     </tr>
@@ -329,7 +327,7 @@ export function AdminViajeros() {
         ) : reservas.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-tp-gray-soft">
             <Package className="w-12 h-12 text-tp-blue/15 mx-auto mb-3" />
-            <p className="text-tp-blue/40 font-bold">ToPaquete aún no ha reservado kilos de ningún viaje.</p>
+            <p className="text-tp-blue/40 font-bold">ToPaquete aún no ha reservado maletas de ningún viaje.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -352,8 +350,8 @@ export function AdminViajeros() {
                       )}
                     </div>
                     <div className="text-center">
-                      <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Kg</div>
-                      <div className="font-black text-tp-blue">{r.kilos_solicitados.toFixed(1)} kg</div>
+                      <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Maletas</div>
+                      <div className="font-black text-tp-blue">{r.maletas_solicitadas} maleta(s)</div>
                     </div>
                     <div className="text-center">
                       <div className="text-[10px] font-black uppercase tracking-wider text-tp-blue/40">Total</div>
