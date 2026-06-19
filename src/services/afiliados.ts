@@ -5,7 +5,6 @@
 
 import { supabase } from '../supabase';
 import { getProfile, updateProfileFields } from './profiles';
-import { buscarCupon } from './cupones';
 
 export interface NuevaSolicitudAfiliado {
   uid: string;
@@ -189,37 +188,6 @@ export async function subirDocumentoIdentidad(uid: string, file: File): Promise<
 }
 
 // --------------------------- REFERIDOS / INFLUENCERS -----------------------
-
-export interface BeneficioReferido {
-  tipo: string;
-  valor: number;
-}
-
-export interface InfluencerReferidor {
-  id: string;
-  tipo: 'influencer' | 'general';
-  activo: boolean;
-  beneficio: BeneficioReferido;
-}
-
-/**
- * Busca el cupón por código y lo adapta al formato InfluencerReferidor que
- * usa ProfileCompletion para mostrar el beneficio y registrar el referido.
- * Devuelve null si el código no existe, está inactivo, vencido o agotado.
- */
-export async function buscarInfluencerPorCodigo(code: string): Promise<InfluencerReferidor | null> {
-  const cupon = await buscarCupon(code);
-  if (!cupon) return null;
-  return {
-    id: cupon.influencer_id || '',
-    tipo: cupon.tipo,
-    activo: true,
-    beneficio: {
-      tipo: cupon.descuento_tipo === 'porcentaje' ? 'descuento' : 'fijo',
-      valor: cupon.descuento_valor,
-    },
-  };
-}
 
 /**
  * Registra un nuevo referido para el influencer: incrementa su contador

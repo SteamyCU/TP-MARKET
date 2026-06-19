@@ -2,17 +2,64 @@ import React, { useState, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ScrollToTop } from './components/ScrollToTop';
-import { buscarInfluencerPorCodigo, registrarReferido } from './services/afiliados';
+import { registrarReferido } from './services/afiliados';
+import { buscarCupon } from './services/cupones';
 import { abrirSoporte } from './components/SoporteWidget';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
 import { cn } from './lib/utils';
 import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
+const PREFIJOS_TELEFONO = [
+  { code: '+34', flag: '🇪🇸', label: 'España' },
+  { code: '+33', flag: '🇫🇷', label: 'Francia' },
+  { code: '+39', flag: '🇮🇹', label: 'Italia' },
+  { code: '+49', flag: '🇩🇪', label: 'Alemania' },
+  { code: '+351', flag: '🇵🇹', label: 'Portugal' },
+  { code: '+44', flag: '🇬🇧', label: 'Reino Unido' },
+  { code: '+41', flag: '🇨🇭', label: 'Suiza' },
+  { code: '+32', flag: '🇧🇪', label: 'Bélgica' },
+  { code: '+31', flag: '🇳🇱', label: 'Países Bajos' },
+  { code: '+1', flag: '🇺🇸', label: 'EE.UU. / Canadá' },
+];
+
+// Separa un teléfono ya guardado (con prefijo) en { prefijo, numero } para
+// poder editarlo con el selector de país. Si no reconoce ningún prefijo,
+// asume España y deja el valor completo en el número.
+function splitTelefono(value: string): { prefijo: string; numero: string } {
+  if (!value) return { prefijo: '+34', numero: '' };
+  const prefijo = [...PREFIJOS_TELEFONO]
+    .sort((a, b) => b.code.length - a.code.length)
+    .find((p) => value.startsWith(p.code));
+  if (!prefijo) return { prefijo: '+34', numero: value };
+  return { prefijo: prefijo.code, numero: value.slice(prefijo.code.length).trim() };
+}
+
+function isValidDniNieOPasaporte(value: string): boolean {
+  const v = value.trim().toUpperCase();
+  if (!v) return false;
+  const dni = /^\d{8}[A-Z]$/;
+  const nie = /^[XYZ]\d{7}[A-Z]$/;
+  const pasaporte = /^[A-Z0-9]{6,}$/;
+  return dni.test(v) || nie.test(v) || pasaporte.test(v);
+}
+
+function isValidDireccion(value: string): boolean {
+  const v = value.trim();
+  return /[A-Za-zÁÉÍÓÚÑáéíóúñ]{2,}/.test(v) && /\d/.test(v);
+}
+
 function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
   const { profile, updateProfile } = useAuth();
+  const esCliente = profile?.role === 'cliente';
+  // El selector de prefijo de país solo aplica al rol cliente; el resto de
+  // roles mantienen el campo de teléfono como texto libre, igual que antes.
+  const telefonoInicial = esCliente
+    ? splitTelefono(profile?.telefono || '')
+    : { prefijo: '', numero: profile?.telefono || '' };
   const [formData, setFormData] = useState<any>({
     name: profile?.name || '',
-    telefono: profile?.telefono || '',
+    telefono: telefonoInicial.numero,
+    telefonoPrefijo: telefonoInicial.prefijo,
     dni: profile?.dni || '',
     direccion: profile?.direccion || '',
     canalVenta: profile?.canalVenta || '',
@@ -33,6 +80,17 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
     type: null
   });
   const [isValidatingCode, setIsValidatingCode] = useState(false);
+  const [tocado, setTocado] = useState<{ dni: boolean; telefono: boolean; direccion: boolean }>({
+    dni: false,
+    telefono: false,
+    direccion: false,
+  });
+
+  const dniValido = isValidDniNieOPasaporte(formData.dni);
+  const telefonoValido = formData.telefono.replace(/\D/g, '').length >= 7;
+  const direccionValida = isValidDireccion(formData.direccion);
+  const nombreValido = formData.name.trim().length >= 3;
+  const formularioClienteValido = !esCliente || (nombreValido && dniValido && telefonoValido && direccionValida);
 
   const validateReferralCode = async (code: string) => {
     if (!code) return;
@@ -40,20 +98,18 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
     setReferralInfo({ valid: false, message: '', type: 'info' });
     
     try {
-      const influencer = await buscarInfluencerPorCodigo(code);
+      const cupon = await buscarCupon(code);
 
-      if (!influencer) {
+      if (!cupon) {
         setReferralInfo({ valid: false, message: '❌ Código no encontrado', type: 'error' });
-      } else if (!influencer.activo) {
-        setReferralInfo({ valid: false, message: 'Este código no está disponible', type: 'error' });
       } else {
-        const beneficio = influencer.beneficio;
+        const unidad = cupon.descuento_tipo === 'porcentaje' ? '%' : '€';
         setReferralInfo({
           valid: true,
-          message: `✅ Código ${code.toUpperCase()} aplicado — Obtienes ${beneficio.valor}${beneficio.tipo === 'descuento' ? '€' : '%'} de beneficio`,
+          message: `✅ Código ${code.toUpperCase()} aplicado — Obtienes ${cupon.descuento_valor}${unidad} de beneficio`,
           type: 'success'
         });
-        setFormData({ ...formData, referido_por: code.toUpperCase(), beneficio_aplicado: beneficio });
+        setFormData({ ...formData, referido_por: code.toUpperCase(), beneficio_aplicado: cupon });
       }
     } catch (err) {
       console.error("Error validating code:", err);
@@ -73,24 +129,30 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (esCliente && !formularioClienteValido) {
+      setTocado({ dni: true, telefono: true, direccion: true });
+      return;
+    }
     setIsSubmitting(true);
     setError(null);
     try {
-      const finalData = { 
+      const finalData = {
         ...formData,
+        telefono: esCliente
+          ? `${formData.telefonoPrefijo}${formData.telefono.replace(/\s+/g, '')}`
+          : formData.telefono,
         beneficio_usado: false
       };
-      
+      delete finalData.telefonoPrefijo;
+
       if (profile?.role === 'partner') {
         finalData.role = 'partner';
       }
 
       // Solo registrar referido si el código corresponde a un influencer (no a un cupón general)
-      if (referralInfo.valid && formData.referido_por) {
-        const influencer = await buscarInfluencerPorCodigo(formData.referido_por);
-        if (influencer && influencer.tipo === 'influencer' && influencer.id) {
-          await registrarReferido(influencer.id, profile.uid || auth.currentUser?.uid || null);
-        }
+      const cuponAplicado = formData.beneficio_aplicado;
+      if (referralInfo.valid && cuponAplicado?.tipo === 'influencer' && cuponAplicado.influencer_id) {
+        await registrarReferido(cuponAplicado.influencer_id, profile.uid || auth.currentUser?.uid || null);
       }
 
       await updateProfile(finalData);
@@ -198,29 +260,53 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
               </label>
               <div className="relative">
                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder={profile?.role === 'partner' ? 'B12345678' : '12345678X'}
                   value={formData.dni}
                   onChange={(e) => setFormData({...formData, dni: e.target.value})}
+                  onBlur={() => setTocado(t => ({ ...t, dni: true }))}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
                 />
               </div>
+              {esCliente && tocado.dni && formData.dni && !dniValido && (
+                <p className="text-xs text-tp-red font-bold mt-1 ml-1">Introduce un DNI, NIE o pasaporte válido</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">Teléfono de Contacto</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                <input 
-                  type="tel" 
-                  required
-                  placeholder="+34 600 000 000"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
-                />
+              <div className="relative flex gap-2">
+                {esCliente && (
+                  <select
+                    value={formData.telefonoPrefijo}
+                    onChange={(e) => setFormData({...formData, telefonoPrefijo: e.target.value})}
+                    className="px-2 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium text-sm"
+                  >
+                    {PREFIJOS_TELEFONO.map((p) => (
+                      <option key={p.code} value={p.code}>{p.flag} {p.code}</option>
+                    ))}
+                  </select>
+                )}
+                <div className="relative flex-1">
+                  {!esCliente && <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />}
+                  <input
+                    type="tel"
+                    required
+                    placeholder={esCliente ? '600 000 000' : '+34 600 000 000'}
+                    value={formData.telefono}
+                    onChange={(e) => setFormData({...formData, telefono: e.target.value})}
+                    onBlur={() => setTocado(t => ({ ...t, telefono: true }))}
+                    className={cn(
+                      "w-full py-2.5 pr-4 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium",
+                      esCliente ? "pl-4" : "pl-10"
+                    )}
+                  />
+                </div>
               </div>
+              {esCliente && tocado.telefono && formData.telefono && !telefonoValido && (
+                <p className="text-xs text-tp-red font-bold mt-1 ml-1">El teléfono debe tener al menos 7 dígitos</p>
+              )}
             </div>
           </div>
 
@@ -231,15 +317,19 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
               </label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   placeholder="Calle, Número, Ciudad..."
                   value={formData.direccion}
                   onChange={(e) => setFormData({...formData, direccion: e.target.value})}
+                  onBlur={() => setTocado(t => ({ ...t, direccion: true }))}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
                 />
               </div>
+              {esCliente && tocado.direccion && formData.direccion && !direccionValida && (
+                <p className="text-xs text-tp-red font-bold mt-1 ml-1">Incluye el nombre de la calle y el número</p>
+              )}
             </div>
           )}
 
@@ -381,9 +471,9 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
             </div>
           )}
 
-          <button 
+          <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (esCliente && !formularioClienteValido)}
             className="w-full bg-tp-blue text-white py-4 rounded-xl font-bold hover:bg-[#004a78] transition-all mt-6 disabled:opacity-50 shadow-lg shadow-tp-blue/20 flex items-center justify-center gap-2"
           >
             {isSubmitting ? (

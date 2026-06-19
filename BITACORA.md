@@ -525,3 +525,34 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   dividió en dos: "Revisa tu Correo" (confirmación de la decisión por email) y
   "Atento a WhatsApp" (explicación del programa de afiliados), manteniendo la
   card de "Validación" sin cambios. El grid pasa de 2 a 3 columnas en desktop.
+
+### Fase 27 · Bug del cupón (€ en vez de %) y validaciones en "Completa tu Perfil"
+
+- **Bug crítico de unidad del cupón:** al aplicar un código en "Completa tu
+  Perfil" (`src/App.tsx`), el beneficio se mostraba siempre en € aunque el
+  cupón fuera un porcentaje. Causa raíz: `buscarInfluencerPorCodigo` (en
+  `src/services/afiliados.ts`) envolvía `buscarCupon()` y traducía
+  `descuento_tipo: 'porcentaje'` a `beneficio.tipo: 'descuento'`, y `App.tsx`
+  interpretaba `tipo === 'descuento'` como "mostrar €" — exactamente al
+  revés. Se elimina ese envoltorio (`buscarInfluencerPorCodigo`,
+  `InfluencerReferidor`, `BeneficioReferido`, código muerto sin otros usos) y
+  `App.tsx` llama directamente a `buscarCupon()` de `src/services/cupones.ts`,
+  eligiendo €/% según `cupon.descuento_tipo`. El registro del referido para
+  comisión de influencer (`registrarReferido`) ahora usa `cupon.influencer_id`
+  directamente en vez de volver a buscar el código, y solo se dispara cuando
+  `cupon.tipo === 'influencer'` (los cupones `'general'` como TOPAQUETE nunca
+  generan comisión).
+- **Validaciones nuevas en "Completa tu Perfil" (solo rol cliente):**
+  - DNI/NIE/pasaporte: valida formato (`12345678Z`, `X1234567L`, o
+    pasaporte alfanumérico de 6+ caracteres) al perder el foco; error inline
+    "Introduce un DNI, NIE o pasaporte válido".
+  - Teléfono: se añade selector de prefijo de país (🇪🇸 +34, 🇫🇷 +33, 🇮🇹 +39,
+    🇩🇪 +49, 🇵🇹 +351, 🇬🇧 +44, 🇨🇭 +41, 🇧🇪 +32, 🇳🇱 +31, 🇺🇸/🇨🇦 +1) antes del
+    campo; valida mínimo 7 dígitos en el número y guarda el teléfono completo
+    (prefijo + número) en `profile.telefono`. El resto de roles mantienen el
+    campo de texto libre tal cual estaba.
+  - Dirección: exige al menos una palabra de texto y un número (p. ej. "Calle
+    Mayor 15"); error inline "Incluye el nombre de la calle y el número".
+  - El botón "Finalizar Registro y Entrar" queda deshabilitado (solo para
+    rol cliente) hasta que nombre (≥3 caracteres), DNI/NIE/pasaporte,
+    teléfono y dirección sean válidos.
