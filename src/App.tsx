@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useSearchParams, useNavig
 import { AuthProvider, useAuth } from './AuthContext';
 import { ScrollToTop } from './components/ScrollToTop';
 import { registrarReferido } from './services/afiliados';
+import { registrarReferido as registrarReferidoCliente } from './services/referidos';
 import { buscarCupon } from './services/cupones';
 import { updateCliente, getClienteByEmail } from './services/clientes';
 import { abrirSoporte } from './components/SoporteWidget';
@@ -157,6 +158,14 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
       const cuponAplicado = formData.beneficio_aplicado;
       if (referralInfo.valid && cuponAplicado?.tipo === 'influencer' && cuponAplicado.influencer_id) {
         await registrarReferido(cuponAplicado.influencer_id, profile.uid || auth.currentUser?.uid || null);
+      }
+      // Programa "Invita y Gana": referido entre clientes (Fase 31)
+      if (referralInfo.valid && cuponAplicado?.tipo === 'cliente_referido') {
+        try {
+          await registrarReferidoCliente(formData.referido_por, profile.uid || auth.currentUser?.uid || null);
+        } catch (refErr) {
+          console.error('Error registrando referido de cliente:', refErr);
+        }
       }
 
       await updateProfile(finalData);
@@ -1078,6 +1087,7 @@ const SolicitudesAfiliados = lazyPage(() => import('./pages/SolicitudesAfiliados
 const Incidencias = lazyPage(() => import('./pages/Incidencias'), 'Incidencias');
 const Cupones = lazyPage(() => import('./pages/Cupones'), 'Cupones');
 const KilosDisponibles = lazyPage(() => import('./pages/KilosDisponibles'), 'KilosDisponibles');
+const InvitaYGana = lazyPage(() => import('./pages/InvitaYGana'), 'InvitaYGana');
 const AdminViajeros = lazyPage(() => import('./pages/AdminViajeros'), 'AdminViajeros');
 const Layout = lazyPage(() => import('./components/Layout'), 'Layout');
 
@@ -1139,6 +1149,7 @@ export default function App() {
             <Route path="incidencias" element={<RoleRoute allowedRoles={['admin', 'agente', 'logistica']}><Incidencias /></RoleRoute>} />
             <Route path="cupones" element={<RoleRoute allowedRoles={['admin']}><Cupones /></RoleRoute>} />
             <Route path="kilos-disponibles" element={<RoleRoute allowedRoles={['cliente']}><KilosDisponibles /></RoleRoute>} />
+            <Route path="invita-y-gana" element={<RoleRoute allowedRoles={['cliente']}><InvitaYGana /></RoleRoute>} />
             <Route path="admin/viajeros" element={<RoleRoute allowedRoles={['admin']}><AdminViajeros /></RoleRoute>} />
             <Route path="seguimiento" element={<Seguimiento />} />
             <Route path="*" element={<div className="p-8 text-tp-blue font-medium">Módulo en desarrollo...</div>} />

@@ -22,6 +22,7 @@ import {
   UserPlus,
   Tag,
   Plane,
+  Gift,
   X
 } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -132,6 +133,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Mis Paquetes', path: '/dashboard', icon: LayoutDashboard, badge: null },
     { name: 'Solicitar Envío', path: '/dashboard/mis-solicitudes', icon: Send, badge: null },
     { name: 'Mis Destinatarios', path: '/dashboard/mis-destinatarios', icon: Users, badge: null },
+    { name: 'Invita y Gana', path: '/dashboard/invita-y-gana', icon: Gift, badge: null },
     { name: 'Calculadora', path: '/dashboard/calculadora', icon: LayoutDashboard, badge: null },
     { name: 'Seguimiento', path: '/dashboard/seguimiento', icon: SearchIcon, badge: null },
     { name: 'Ofertas y Salidas', path: '/dashboard/ofertas', icon: BarChart3, badge: null },

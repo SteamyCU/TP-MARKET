@@ -718,3 +718,49 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   modal de alta rápida de cliente (`ClienteFormModal.tsx`). Los labels
   "Provincia (España)" se renombraron a "Provincia / Estado" para no
   asumir un único país.
+
+### Fase 36 · Programa "Invita y Gana" (referidos entre clientes)
+
+Sistema de referidos exclusivo entre clientes (`role='cliente'`, con o sin
+agente). Los agentes nunca son beneficiarios directos.
+
+- **Modelo:** el **referente** gana **5 € por cada 10 kg** del **PRIMER**
+  envío de su referido (cálculo único, no recurrente; ej. 30 kg → 15 €) y
+  puede invitar a cuantas personas quiera. El **referido** recibe en su
+  primer envío **10 % de descuento + domicilio gratis**.
+- **Anti-fraude:** si el destinatario del envío del referido coincide
+  (nombre, dirección, teléfono o DNI) con algún destinatario ya usado por
+  el referente, el premio NO se otorga automáticamente: la fila pasa a
+  `sospechoso` y aparece en una cola de revisión manual del admin. El
+  descuento del referido se aplica con normalidad en cualquier caso.
+- **Confirmación del operador:** ningún beneficio se aplica en silencio.
+  En Recepción aparece un banner con checkboxes (desmarcados por defecto)
+  para aplicar el descuento de bienvenida y/o el crédito acumulado; solo
+  al confirmar se aplican y se marcan como consumidos.
+- **Migración** `supabase/migrations/0027_invita_y_gana.sql`: tablas
+  `referidos_clientes` y `creditos_cliente` (ambas referencian
+  `profiles(id)`), con RLS (el cliente ve lo suyo; admin/logística/agente
+  ven todo y escriben). Se añade el tipo `cliente_referido` al CHECK de
+  `cupones.tipo` y políticas para que cada cliente cree/edite su propio
+  código (10 %, `influencer_id` = su id).
+- **Servicio** `src/services/referidos.ts`: alta del código, registro del
+  referido, cálculo del premio al entregar el primer envío
+  (`procesarEntregaParaReferidos`, disparado fire-and-forget desde
+  `cambiarEstado` al pasar a 'Entregado'), gestión de crédito, y consultas
+  de panel (historial + sospechosos, aprobar/descartar).
+- **Wiring:** `App.tsx` reconoce los cupones `cliente_referido` al
+  registrarse; `src/services/estados.ts` dispara el cálculo del premio al
+  entregar; `src/pages/Recepcion.tsx` muestra el banner de beneficios y
+  aplica el descuento/crédito sobre el precio final.
+- **UI cliente:** nueva página `src/pages/InvitaYGana.tsx`
+  (`/dashboard/invita-y-gana`, rol cliente) con hero explicativo, código y
+  botones de compartir (WhatsApp / email / copiar enlace), estadísticas y
+  tabla de referidos. Enlace en `Sidebar.tsx`.
+- **UI admin:** `src/pages/Cupones.tsx` gana una sección "Invita y Gana"
+  con sub-pestañas "Historial" (premios otorgados) y "Sospechosos" (cola de
+  revisión, con contador y botones de aprobar/descartar).
+- **Nota sobre "domicilio gratis":** el sistema no modela un coste de
+  domicilio separado (el precio final es un único importe y `entrega.modo`
+  distingue domicilio de punto de recogida). Por eso el waiver se refleja
+  como etiqueta informativa en el desglose y el beneficio monetario
+  efectivo es el 10 %.

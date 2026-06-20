@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Tag, Plus, ToggleLeft, ToggleRight, AlertCircle, X } from 'lucide-react';
+import { Tag, Plus, ToggleLeft, ToggleRight, AlertCircle, X, Gift, Check, ShieldAlert, Trophy } from 'lucide-react';
 import {
   getCupones,
   crearCuponGeneral,
@@ -7,6 +7,14 @@ import {
   type Cupon,
   type NuevoCuponGeneral,
 } from '../services/cupones';
+import {
+  getHistorialPremios,
+  getReferidosSospechosos,
+  aprobarPremioManual,
+  descartarReferidoSospechoso,
+  type ReferidoAdmin,
+} from '../services/referidos';
+import { auth } from '../supabase';
 import { cn } from '../lib/utils';
 
 type Tab = 'todos' | 'general' | 'influencer';
@@ -198,12 +206,181 @@ function ModalCrearCupon({ onClose, onCreado }: { onClose: () => void; onCreado:
   );
 }
 
+function formatFechaCorta(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function PanelInvitaYGana({ onContadorSospechosos }: { onContadorSospechosos: (n: number) => void }) {
+  const [subtab, setSubtab] = useState<'historial' | 'sospechosos'>('historial');
+  const [historial, setHistorial] = useState<ReferidoAdmin[]>([]);
+  const [sospechosos, setSospechosos] = useState<ReferidoAdmin[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [procesandoId, setProcesandoId] = useState<string | null>(null);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const [h, s] = await Promise.all([getHistorialPremios(), getReferidosSospechosos()]);
+      setHistorial(h);
+      setSospechosos(s);
+      onContadorSospechosos(s.length);
+    } catch (err) {
+      console.error('Error cargando Invita y Gana (admin):', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { cargar(); }, []);
+
+  const aprobar = async (fila: ReferidoAdmin) => {
+    setProcesandoId(fila.id);
+    try {
+      await aprobarPremioManual(fila.id, auth.currentUser?.uid || '');
+      await cargar();
+    } catch (err) {
+      console.error('Error aprobando premio:', err);
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
+  const descartar = async (fila: ReferidoAdmin) => {
+    setProcesandoId(fila.id);
+    try {
+      await descartarReferidoSospechoso(fila.id);
+      await cargar();
+    } catch (err) {
+      console.error('Error descartando referido:', err);
+    } finally {
+      setProcesandoId(null);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-tp-gray-soft overflow-hidden shadow-sm">
+      <div className="p-6 border-b border-tp-gray-soft flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setSubtab('historial')}
+          className={cn(
+            'px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2',
+            subtab === 'historial' ? 'bg-tp-blue text-white' : 'text-tp-blue/60 hover:bg-tp-blue-light/50',
+          )}
+        >
+          <Trophy className="w-4 h-4" /> Historial
+        </button>
+        <button
+          onClick={() => setSubtab('sospechosos')}
+          className={cn(
+            'px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2',
+            subtab === 'sospechosos' ? 'bg-tp-blue text-white' : 'text-tp-blue/60 hover:bg-tp-blue-light/50',
+          )}
+        >
+          <ShieldAlert className="w-4 h-4" /> Sospechosos
+          {sospechosos.length > 0 && (
+            <span className="bg-tp-red text-white text-[10px] font-black px-2 py-0.5 rounded-full">{sospechosos.length}</span>
+          )}
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        {subtab === 'historial' ? (
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-tp-blue/70 font-medium border-b border-tp-gray-soft">
+              <tr>
+                <th className="px-6 py-4">Fecha</th>
+                <th className="px-6 py-4">Referente</th>
+                <th className="px-6 py-4">Referido</th>
+                <th className="px-6 py-4">Paquete</th>
+                <th className="px-6 py-4 text-right">Premio</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-tp-gray-soft">
+              {historial.map((r) => (
+                <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-6 py-4 text-tp-blue/60">{formatFechaCorta(r.created_at)}</td>
+                  <td className="px-6 py-4 font-bold text-tp-blue">{r.referente_nombre}</td>
+                  <td className="px-6 py-4 text-tp-blue/80">{r.referido_nombre}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-tp-blue/40">{r.paquete_primer_envio_id?.slice(0, 8) || '—'}</td>
+                  <td className="px-6 py-4 text-right font-black text-green-600">+{Number(r.monto_premio || 0).toFixed(2)} €</td>
+                </tr>
+              ))}
+              {!loading && historial.length === 0 && (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-tp-blue/30 italic">Todavía no se ha otorgado ningún premio.</td></tr>
+              )}
+              {loading && (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-tp-blue/30 italic">Cargando…</td></tr>
+              )}
+            </tbody>
+          </table>
+        ) : (
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-tp-blue/70 font-medium border-b border-tp-gray-soft">
+              <tr>
+                <th className="px-6 py-4">Fecha</th>
+                <th className="px-6 py-4">Referente</th>
+                <th className="px-6 py-4">Referido</th>
+                <th className="px-6 py-4">Destinatario que coincidió</th>
+                <th className="px-6 py-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-tp-gray-soft">
+              {sospechosos.map((r) => (
+                <tr key={r.id} className="hover:bg-gray-50/50 transition-colors">
+                  <td className="px-6 py-4 text-tp-blue/60">{formatFechaCorta(r.created_at)}</td>
+                  <td className="px-6 py-4 font-bold text-tp-blue">{r.referente_nombre}</td>
+                  <td className="px-6 py-4 text-tp-blue/80">{r.referido_nombre}</td>
+                  <td className="px-6 py-4 text-xs text-tp-blue/60">
+                    {r.destinatarioPaquete ? (
+                      <div className="space-y-0.5">
+                        <div><strong>{r.destinatarioPaquete.nombre || '—'}</strong></div>
+                        <div>{r.destinatarioPaquete.direccion || ''}</div>
+                        <div>{[r.destinatarioPaquete.telefono, r.destinatarioPaquete.documentoIdentidad].filter(Boolean).join(' · ')}</div>
+                      </div>
+                    ) : '—'}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => aprobar(r)}
+                        disabled={procesandoId === r.id}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-bold hover:bg-green-700 transition-colors disabled:opacity-50"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Aprobar premio
+                      </button>
+                      <button
+                        onClick={() => descartar(r)}
+                        disabled={procesandoId === r.id}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-tp-gray-soft text-tp-blue/60 text-xs font-bold hover:bg-gray-50 transition-colors disabled:opacity-50"
+                      >
+                        <X className="w-3.5 h-3.5" /> Descartar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!loading && sospechosos.length === 0 && (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-tp-blue/30 italic">No hay invitaciones en revisión. 🎉</td></tr>
+              )}
+              {loading && (
+                <tr><td colSpan={5} className="px-6 py-12 text-center text-tp-blue/30 italic">Cargando…</td></tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Cupones() {
   const [cupones, setCupones] = useState<Cupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('todos');
   const [mostrarModal, setMostrarModal] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [vista, setVista] = useState<'cupones' | 'invita'>('cupones');
+  const [sospechososCount, setSospechososCount] = useState(0);
 
   const cargar = async () => {
     setLoading(true);
@@ -257,17 +434,48 @@ export function Cupones() {
             <Tag className="w-6 h-6 text-tp-red" />
             Cupones y Códigos
           </h1>
-          <p className="text-sm text-tp-blue/40 mt-0.5">Gestiona descuentos y códigos de referido de influencers</p>
+          <p className="text-sm text-tp-blue/40 mt-0.5">Gestiona descuentos, códigos de referido y el programa Invita y Gana</p>
         </div>
+        {vista === 'cupones' && (
+          <button
+            onClick={() => setMostrarModal(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-tp-blue text-white rounded-2xl font-bold hover:bg-[#004a78] transition-colors shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo cupón
+          </button>
+        )}
+      </div>
+
+      {/* Selector de sección de nivel superior */}
+      <div className="flex gap-2 flex-wrap">
         <button
-          onClick={() => setMostrarModal(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-tp-blue text-white rounded-2xl font-bold hover:bg-[#004a78] transition-colors shadow-sm"
+          onClick={() => setVista('cupones')}
+          className={cn(
+            'px-4 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2',
+            vista === 'cupones' ? 'bg-tp-blue text-white' : 'bg-white border border-tp-gray-soft text-tp-blue/60 hover:bg-tp-blue-light/50',
+          )}
         >
-          <Plus className="w-4 h-4" />
-          Nuevo cupón
+          <Tag className="w-4 h-4" /> Cupones y Códigos
+        </button>
+        <button
+          onClick={() => setVista('invita')}
+          className={cn(
+            'px-4 py-2.5 rounded-xl text-sm font-bold transition-colors flex items-center gap-2',
+            vista === 'invita' ? 'bg-tp-blue text-white' : 'bg-white border border-tp-gray-soft text-tp-blue/60 hover:bg-tp-blue-light/50',
+          )}
+        >
+          <Gift className="w-4 h-4" /> Invita y Gana
+          {sospechososCount > 0 && (
+            <span className="bg-tp-red text-white text-[10px] font-black px-2 py-0.5 rounded-full">{sospechososCount}</span>
+          )}
         </button>
       </div>
 
+      {vista === 'invita' ? (
+        <PanelInvitaYGana onContadorSospechosos={setSospechososCount} />
+      ) : (
+      <>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-tp-gray-soft p-5 shadow-sm">
@@ -388,6 +596,8 @@ export function Cupones() {
           </table>
         </div>
       </div>
+      </>
+      )}
 
       {mostrarModal && (
         <ModalCrearCupon onClose={() => setMostrarModal(false)} onCreado={cargar} />

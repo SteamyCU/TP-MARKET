@@ -8,6 +8,7 @@ import { ESTADOS_FINALES } from '../constants/estados';
 import { registrarAuditoria } from './auditoria';
 import { updatePaquete } from './paquetes';
 import { addEvento } from './eventos';
+import { procesarEntregaParaReferidos } from './referidos';
 
 export type TipoCambioEstado = 'individual' | 'masivo' | 'lote';
 
@@ -66,6 +67,15 @@ export async function cambiarEstado(
         tipoCambio: opciones.tipoCambio,
         operadorId,
       });
+
+      // Programa "Invita y Gana" (Fase 31): al entregar el primer envío de un
+      // referido se calcula el premio del referente. Fire-and-forget: nunca debe
+      // bloquear ni romper el cambio de estado.
+      if (nuevoEstado === 'Entregado') {
+        procesarEntregaParaReferidos(paquete.id).catch((err) =>
+          console.error('Error procesando referido al entregar:', err),
+        );
+      }
     }));
 
     actualizados += chunk.length;

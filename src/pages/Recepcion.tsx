@@ -19,6 +19,9 @@ import { subscribeDestinatarios } from '../services/destinatarios';
 import { calcularVolumenCm3, calcularPesoVolumetrico, calcularPesoTasable, calcularPrecioSugerido, CONFIG_NEGOCIO_DEFAULT, type ConfigNegocio } from '../lib/calculos';
 import { generarTracking, cargarConfigNegocio, crearPaquete, subscribePaquetes } from '../services/paquetes';
 import { marcarSolicitudConvertida } from '../services/solicitudes';
+import {
+  esPrimerEnvioComoReferido, getCreditoDisponible, aplicarCreditoAPago, marcarPrimerEnvioUsado,
+} from '../services/referidos';
 import { exportarExcel } from '../lib/excel';
 import { ESTADOS_INICIALES, ESTADOS_PAGO, METODOS_PAGO, TIPOS_ENVIO, PROVINCIAS_CUBA, type EstadoPago } from '../constants/estados';
 import type { Cliente, Destinatario } from '../types/models';
@@ -81,6 +84,12 @@ export function Recepcion() {
   const [isNewDestinatarioModalOpen, setIsNewDestinatarioModalOpen] = useState(false);
   // Solicitud del portal cliente que se está convirtiendo en paquete (Fase 5)
   const [solicitudOrigen, setSolicitudOrigen] = useState<any>(null);
+
+  // Programa "Invita y Gana" (Fase 31): beneficios del cliente seleccionado.
+  const [esReferidoPrimerEnvio, setEsReferidoPrimerEnvio] = useState(false);
+  const [creditoDisponible, setCreditoDisponible] = useState(0);
+  const [aplicarBienvenida, setAplicarBienvenida] = useState(false);
+  const [aplicarCredito, setAplicarCredito] = useState(false);
 
   // Etiqueta y recibo imprimibles del último paquete registrado
   const [etiquetaData, setEtiquetaData] = useState<any>(null);
@@ -176,6 +185,29 @@ export function Recepcion() {
     }
   }, [selectedClienteId]);
 
+  // "Invita y Gana": carga los beneficios del cliente seleccionado. Los referidos
+  // se identifican por su profile id (clientes.user_id), no por clientes.id.
+  useEffect(() => {
+    const cliente = clientes.find(c => c.id === selectedClienteId);
+    const profileId = (cliente as unknown as { userId?: string | null })?.userId || null;
+    setAplicarBienvenida(false);
+    setAplicarCredito(false);
+    if (!profileId) {
+      setEsReferidoPrimerEnvio(false);
+      setCreditoDisponible(0);
+      return;
+    }
+    let activo = true;
+    Promise.all([esPrimerEnvioComoReferido(profileId), getCreditoDisponible(profileId)])
+      .then(([esReferido, credito]) => {
+        if (!activo) return;
+        setEsReferidoPrimerEnvio(esReferido);
+        setCreditoDisponible(credito);
+      })
+      .catch((err) => console.error('Error cargando beneficios Invita y Gana:', err));
+    return () => { activo = false; };
+  }, [selectedClienteId, clientes]);
+
   // Imprimir etiqueta justo después de registrar (acción "Registrar e Imprimir")
   useEffect(() => {
     if (pendingPrint && etiquetaData) {
@@ -227,11 +259,33 @@ export function Recepcion() {
   const precioFinalNum = formData.precioFinal !== ''
     ? parseFloat(formData.precioFinal) || 0
     : sugerido?.precio ?? null;
+
+  // ── Beneficios "Invita y Gana" (Fase 31) ─────────────────────────────
+  // El descuento de bienvenida (10%) solo aplica al primer envío del referido;
+  // el crédito acumulado se resta del total ya descontado. "Domicilio gratis" se
+  // refleja como etiqueta informativa: el sistema no modela un coste de domicilio
+  // separado (el precio final es un único importe), así que el beneficio
+  // monetario es el 10%.
+  const bienvenidaActiva = aplicarBienvenida && esReferidoPrimerEnvio;
+  const precioBaseBeneficios = precioFinalNum ?? 0;
+  const descuentoBienvenida = bienvenidaActiva
+    ? Math.round(precioBaseBeneficios * 0.10 * 100) / 100
+    : 0;
+  const baseTrasDescuento = Math.max(precioBaseBeneficios - descuentoBienvenida, 0);
+  const creditoAplicado = aplicarCredito
+    ? Math.min(creditoDisponible, baseTrasDescuento)
+    : 0;
+  const domicilioGratis = bienvenidaActiva && formData.entregaModo === 'destinatario';
+  const precioEfectivo = precioFinalNum === null
+    ? null
+    : Math.max(Math.round((baseTrasDescuento - creditoAplicado) * 100) / 100, 0);
+  const hayBeneficiosDisponibles = esReferidoPrimerEnvio || creditoDisponible > 0;
+
   const importePagadoNum = formData.estadoPago === 'Pagado'
-    ? (precioFinalNum ?? 0)
+    ? (precioEfectivo ?? 0)
     : formData.estadoPago === 'Parcial' ? (parseFloat(formData.importePagado) || 0) : 0;
-  const importePendiente = precioFinalNum !== null
-    ? Math.max(Math.round((precioFinalNum - importePagadoNum) * 100) / 100, 0)
+  const importePendiente = precioEfectivo !== null
+    ? Math.max(Math.round((precioEfectivo - importePagadoNum) * 100) / 100, 0)
     : 0;
 
   const puedeEditarPrecio = role === 'admin' || role === 'agente';
@@ -259,7 +313,7 @@ export function Recepcion() {
     }
     if (formData.estadoPago === 'Parcial') {
       if (importePagadoNum <= 0) newErrors.importePagado = 'Indica el importe pagado';
-      else if (precioFinalNum !== null && importePagadoNum >= precioFinalNum) {
+      else if (precioEfectivo !== null && importePagadoNum >= precioEfectivo) {
         newErrors.importePagado = 'En pago parcial el importe debe ser menor que el precio final';
       }
     }
@@ -274,13 +328,15 @@ export function Recepcion() {
     setBusquedaCliente('');
     setErrors({});
     setTracking(generarTracking());
+    setAplicarBienvenida(false);
+    setAplicarCredito(false);
   };
 
   const handleSubmit = async (accion: AccionRegistro) => {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      await crearPaquete({
+      const nuevoPaqueteId = await crearPaquete({
         tracking,
         clienteId: selectedClienteId,
         clienteNombre: selectedCliente?.nombre || '',
@@ -311,7 +367,7 @@ export function Recepcion() {
         pesoTasable,
         valorDeclarado: formData.valorDeclarado ? parseFloat(formData.valorDeclarado) : null,
         precioSugerido: sugerido?.precio ?? null,
-        precioFinal: precioFinalNum,
+        precioFinal: precioEfectivo,
         estadoPago: formData.estadoPago,
         importePagado: importePagadoNum,
         metodoPago: formData.metodoPago,
@@ -323,6 +379,25 @@ export function Recepcion() {
           confirmada: formData.direccionConfirmada,
         },
       });
+
+      // Programa "Invita y Gana" (Fase 31): consumir los beneficios confirmados
+      // por el operador. Nunca debe romper el registro del paquete.
+      const clienteProfileId = (selectedCliente as unknown as { userId?: string | null })?.userId || null;
+      const operadorId = auth.currentUser?.uid || '';
+      if (clienteProfileId && bienvenidaActiva) {
+        try {
+          await marcarPrimerEnvioUsado(clienteProfileId, nuevoPaqueteId, operadorId);
+        } catch (err) {
+          console.error('Error marcando primer envío de referido:', err);
+        }
+      }
+      if (clienteProfileId && aplicarCredito && creditoAplicado > 0) {
+        try {
+          await aplicarCreditoAPago(clienteProfileId, creditoAplicado, nuevoPaqueteId, operadorId);
+        } catch (err) {
+          console.error('Error aplicando crédito de referido:', err);
+        }
+      }
 
       setReciboData({
         tracking,
@@ -339,7 +414,7 @@ export function Recepcion() {
         tipoEnvio: formData.tipoEnvio,
         peso: pesoReal!,
         pesoTasable,
-        precioFinal: precioFinalNum,
+        precioFinal: precioEfectivo,
         importePagado: importePagadoNum,
         importePendiente,
         metodoPago: formData.metodoPago,
@@ -575,6 +650,46 @@ export function Recepcion() {
                     </>
                   )}
                   {errors.cliente && <p className="text-xs text-red-500 mt-1">{errors.cliente}</p>}
+
+                  {/* Beneficios "Invita y Gana" (Fase 31) */}
+                  {selectedCliente && hayBeneficiosDisponibles && (
+                    <div className="mt-3 p-4 bg-gradient-to-br from-tp-red/5 to-amber-50 border border-tp-red/20 rounded-xl">
+                      <p className="text-sm font-black text-tp-blue flex items-center gap-2">
+                        🎁 Este cliente tiene beneficios de Invita y Gana disponibles
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {esReferidoPrimerEnvio && (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={aplicarBienvenida}
+                              onChange={(e) => setAplicarBienvenida(e.target.checked)}
+                              className="w-4 h-4 mt-0.5 accent-tp-red"
+                            />
+                            <span className="text-sm text-tp-blue/80 font-medium">
+                              Aplicar descuento de bienvenida: <strong>10% + domicilio gratis</strong> (primer envío de referido)
+                            </span>
+                          </label>
+                        )}
+                        {creditoDisponible > 0 && (
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={aplicarCredito}
+                              onChange={(e) => setAplicarCredito(e.target.checked)}
+                              className="w-4 h-4 mt-0.5 accent-tp-red"
+                            />
+                            <span className="text-sm text-tp-blue/80 font-medium">
+                              Aplicar crédito acumulado: <strong>{creditoDisponible.toFixed(2)}€ disponibles</strong>
+                            </span>
+                          </label>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-tp-blue/40 mt-2 italic">
+                        Los beneficios solo se aplican y consumen si los confirmas aquí.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Destinatario */}
@@ -885,6 +1000,38 @@ export function Recepcion() {
                 )}
               </div>
 
+              {/* Desglose de beneficios "Invita y Gana" */}
+              {(descuentoBienvenida > 0 || creditoAplicado > 0 || domicilioGratis) && precioFinalNum !== null && (
+                <div className="p-4 bg-white rounded-xl border border-tp-red/20 mb-6 text-sm">
+                  <div className="flex justify-between text-tp-blue/70">
+                    <span>Precio base</span>
+                    <span className="font-bold">{precioBaseBeneficios.toFixed(2)} €</span>
+                  </div>
+                  {descuentoBienvenida > 0 && (
+                    <div className="flex justify-between text-tp-red mt-1">
+                      <span>🎁 Descuento bienvenida (10%)</span>
+                      <span className="font-bold">−{descuentoBienvenida.toFixed(2)} €</span>
+                    </div>
+                  )}
+                  {domicilioGratis && (
+                    <div className="flex justify-between text-tp-red mt-1">
+                      <span>🎁 Domicilio gratis — bienvenida de referido</span>
+                      <span className="font-bold">incluido</span>
+                    </div>
+                  )}
+                  {creditoAplicado > 0 && (
+                    <div className="flex justify-between text-tp-red mt-1">
+                      <span>💳 Crédito acumulado aplicado</span>
+                      <span className="font-bold">−{creditoAplicado.toFixed(2)} €</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-tp-blue font-black mt-2 pt-2 border-t border-tp-gray-soft">
+                    <span>Total a cobrar</span>
+                    <span>{(precioEfectivo ?? 0).toFixed(2)} €</span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-tp-blue/70 mb-1.5">Precio Final (€)</label>
@@ -988,7 +1135,7 @@ export function Recepcion() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Precio Final</p>
-                  <p className="font-black text-tp-red">{precioFinalNum !== null && precioFinalNum > 0 ? `${precioFinalNum.toFixed(2)} €` : '—'}</p>
+                  <p className="font-black text-tp-red">{precioEfectivo !== null && precioEfectivo >= 0 && precioFinalNum !== null ? `${precioEfectivo.toFixed(2)} €` : '—'}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Pagado</p>
