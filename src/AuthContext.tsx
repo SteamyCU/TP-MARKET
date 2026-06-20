@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, toAuthUser, type AuthUser } from './supabase';
 import { enviarBienvenidaCliente } from './services/profiles';
+import { obtenerOCrearClienteDoc } from './services/solicitudes';
 
 type RolUsuario = 'admin' | 'agente' | 'influencer' | 'partner' | 'cliente' | 'contabilidad' | 'logistica';
 
@@ -103,6 +104,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setRole(currentRole);
         setProfile(buildProfile(row));
+        if (currentRole === 'cliente') {
+          obtenerOCrearClienteDoc().catch((err) =>
+            console.error('Error creando ficha de cliente:', err)
+          );
+        }
       }
     } else {
       // Primer login: crear el perfil
@@ -162,6 +168,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Email de bienvenida solo en el alta del perfil (no en logins posteriores).
         if (newRole === 'cliente' && currentUser.email) {
           enviarBienvenidaCliente(currentUser.email, (extra.name as string) || currentUser.email);
+          obtenerOCrearClienteDoc().catch((err) =>
+            console.error('Error creando ficha de cliente:', err)
+          );
         }
       }
     }

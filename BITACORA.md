@@ -584,3 +584,24 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   al hacer scroll por el formulario largo en pantallas con poca altura
   visible. Tanto el "✕" como "Cancelar" cierran el modal sin recargar la
   página ni perder el estado de la pestaña activa.
+
+### Fase 29 · Bug: clientes nuevos no aparecían en "Gestión de Clientes" hasta visitar "Mis Solicitudes"
+
+- **Causa:** al registrarse con `role='cliente'` solo se creaba la fila en
+  `profiles`; la fila correspondiente en `clientes` (la tabla que lee
+  `Clientes.tsx`, el panel admin) se creaba de forma diferida y únicamente
+  la primera vez que el usuario visitaba "Mis Solicitudes"
+  (`obtenerOCrearClienteDoc` en `src/services/solicitudes.ts`). Hasta
+  entonces, el admin no veía al cliente en "Gestión de Clientes" y cualquier
+  flujo que dependiera de su fila en `clientes` fallaba en silencio.
+- **Fix:** `src/AuthContext.tsx` ahora llama a `obtenerOCrearClienteDoc()`
+  (de forma asíncrona, sin bloquear el render) en los dos puntos donde se
+  confirma `role === 'cliente'`: al cargar un perfil ya existente y al
+  crear el perfil por primera vez (alta nueva). Así la fila en `clientes`
+  se crea de inmediato al primer login/registro, sin depender de que el
+  usuario visite ninguna página en concreto.
+- **Backfill:** `supabase/migrations/0023_backfill_clientes.sql` inserta en
+  `clientes` una fila (con `user_id`, `nombre` y `email`) para cada profile
+  con `role='cliente'` que todavía no tenga fila en `clientes` (matching por
+  email, igual que `getClienteByEmail`), cubriendo a los clientes
+  registrados antes de este fix que nunca visitaron "Mis Solicitudes".
