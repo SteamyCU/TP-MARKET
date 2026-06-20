@@ -423,7 +423,10 @@ export function Clientes() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-tp-blue">Gestión de Clientes</h1>
-          <p className="text-tp-blue/60 mt-1">Administra clientes y sus destinatarios en Cuba</p>
+          <p className="text-tp-blue/60 mt-1">
+            Administra clientes y sus destinatarios en Cuba ·{' '}
+            <span className="font-bold text-tp-blue">{clientes.length} clientes registrados</span>
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {role === 'admin' && (

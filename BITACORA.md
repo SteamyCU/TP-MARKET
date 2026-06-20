@@ -676,3 +676,21 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   tiene `agenteId` asignado, y reserva "Desconocido" solo para el caso real
   de un `agenteId` que ya no corresponde a ningún perfil. Se aplicó tanto
   en la tabla como en la exportación a Excel.
+- **Verificado:** la auto-creación de la fila en `clientes` para un
+  registro web directo (`obtenerOCrearClienteDoc()` en
+  `src/services/solicitudes.ts`, usada desde `AuthContext.tsx` y
+  `MisSolicitudes.tsx`) ya fija `agenteId: null` siempre — un cliente que
+  se registra sin enlace de agente nunca queda asignado a otro agente por
+  error; su punto de atención es y seguirá siendo ToPaquete.
+
+### Fase 34 · Mejora: visibilidad del total de clientes registrados
+
+- **Causa:** no había ningún lugar de la app donde ver de un vistazo
+  cuántos clientes tiene la plataforma en total (para medir crecimiento).
+  El Dashboard de admin (`src/pages/Dashboard.tsx`) ya calculaba
+  `adminStats.totalClientes` (contando profiles con `role==='cliente'`)
+  pero nunca lo mostraba en ninguna tarjeta.
+- **Fix:** se añadió la tarjeta "Total Clientes" a las KPIs del Dashboard
+  de admin (enlaza a Gestión de Clientes), y en
+  `src/pages/Clientes.tsx` el subtítulo de la página ahora muestra
+  "{N} clientes registrados" junto a la descripción.

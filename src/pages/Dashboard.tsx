@@ -227,8 +227,9 @@ export function Dashboard() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
           {[
+            { label: 'Total Clientes', value: adminStats.totalClientes.toString(), icon: TrendingUp, color: 'text-tp-red', path: '/dashboard/clientes' },
             { label: 'Ingresos Totales', value: `€${adminStats.totalRevenue.toLocaleString()}`, icon: Wallet, color: 'text-green-500', path: '/dashboard/contabilidad' },
             { label: 'Agentes Activos', value: adminStats.totalAgentes.toString(), icon: Users, color: 'text-blue-500', path: '/dashboard/negocios' },
             { label: 'Paquetes en Tránsito', value: paquetes.length.toString(), icon: Package, color: 'text-tp-red' },
