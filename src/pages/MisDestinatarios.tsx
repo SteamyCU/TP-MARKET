@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, X, MapPin, Phone, Mail, CreditCard } from 'lucide-react';
+import { Users, Plus, Trash2, Pencil, X, MapPin, Phone, Mail, CreditCard } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { getClienteByEmail, createCliente } from '../services/clientes';
-import { subscribeDestinatarios, createDestinatario, deleteDestinatario } from '../services/destinatarios';
+import { subscribeDestinatarios, createDestinatario, updateDestinatario, deleteDestinatario } from '../services/destinatarios';
+import { PROVINCIAS_CUBA } from '../constants/estados';
 
 interface Destinatario {
   id: string;
@@ -10,6 +11,7 @@ interface Destinatario {
   nombre: string;
   carnetPasaporte: string;
   telefonoCuba: string;
+  telefonoSecundario: string;
   email: string;
   direccion: string;
   provincia: string;
@@ -17,23 +19,27 @@ interface Destinatario {
   codigoPostal: string;
 }
 
+const FORM_INICIAL = {
+  nombre: '',
+  carnetPasaporte: '',
+  telefonoCuba: '',
+  telefonoSecundario: '',
+  email: '',
+  direccion: '',
+  provincia: '',
+  municipio: '',
+  codigoPostal: '',
+};
+
 export function MisDestinatarios() {
   const { user, profile } = useAuth();
   const [destinatarios, setDestinatarios] = useState<Destinatario[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    nombre: '',
-    carnetPasaporte: '',
-    telefonoCuba: '',
-    email: '',
-    direccion: '',
-    provincia: '',
-    municipio: '',
-    codigoPostal: ''
-  });
+  const [formData, setFormData] = useState(FORM_INICIAL);
 
   useEffect(() => {
     const fetchClienteId = async () => {
@@ -71,20 +77,42 @@ export function MisDestinatarios() {
     if (!clienteId) return;
     setIsSubmitting(true);
     try {
-      await createDestinatario({
-        ...formData,
-        clienteId,
-      });
-      setIsModalOpen(false);
-      setFormData({
-        nombre: '', carnetPasaporte: '', telefonoCuba: '', email: '',
-        direccion: '', provincia: '', municipio: '', codigoPostal: ''
-      });
+      if (editingId) {
+        await updateDestinatario(editingId, formData);
+      } else {
+        await createDestinatario({
+          ...formData,
+          clienteId,
+        });
+      }
+      closeModal();
     } catch (error) {
       console.error("Error saving destinatario:", error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
+    setFormData(FORM_INICIAL);
+  };
+
+  const handleEdit = (dest: Destinatario) => {
+    setEditingId(dest.id);
+    setFormData({
+      nombre: dest.nombre,
+      carnetPasaporte: dest.carnetPasaporte,
+      telefonoCuba: dest.telefonoCuba,
+      telefonoSecundario: dest.telefonoSecundario || '',
+      email: dest.email || '',
+      direccion: dest.direccion,
+      provincia: dest.provincia,
+      municipio: dest.municipio,
+      codigoPostal: dest.codigoPostal || '',
+    });
+    setIsModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -133,7 +161,14 @@ export function MisDestinatarios() {
                   <td className="px-5 py-4 text-tp-blue/70">{dest.telefonoCuba}</td>
                   <td className="px-5 py-4 text-tp-blue/70">{dest.provincia}</td>
                   <td className="px-5 py-4 text-right">
-                    <button 
+                    <button
+                      onClick={() => handleEdit(dest)}
+                      className="text-tp-blue hover:text-[#004a78] p-2 transition-colors"
+                      title="Editar Destinatario"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(dest.id)}
                       className="text-tp-red hover:text-red-700 p-2 transition-colors"
                       title="Eliminar Destinatario"
@@ -159,8 +194,8 @@ export function MisDestinatarios() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-tp-blue/40 backdrop-blur-sm overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden my-8">
             <div className="p-4 border-b border-tp-gray-soft flex justify-between items-center bg-tp-blue text-white">
-              <h3 className="font-bold">Nuevo Destinatario</h3>
-              <button onClick={() => setIsModalOpen(false)} className="hover:bg-white/10 p-1 rounded-full transition-colors">
+              <h3 className="font-bold">{editingId ? 'Editar Destinatario' : 'Nuevo Destinatario'}</h3>
+              <button onClick={closeModal} className="hover:bg-white/10 p-1 rounded-full transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -179,9 +214,13 @@ export function MisDestinatarios() {
                   <input type="tel" required value={formData.telefonoCuba} onChange={e => setFormData({...formData, telefonoCuba: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Correo Electrónico</label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Teléfono Secundario</label>
+                  <input type="tel" value={formData.telefonoSecundario} onChange={e => setFormData({...formData, telefonoSecundario: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Correo Electrónico</label>
+                <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Calle, número, piso, etc. *</label>
@@ -192,10 +231,9 @@ export function MisDestinatarios() {
                   <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia *</label>
                   <select required value={formData.provincia} onChange={e => setFormData({...formData, provincia: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none bg-white">
                     <option value="">Seleccionar...</option>
-                    <option value="La Habana">La Habana</option>
-                    <option value="Santiago de Cuba">Santiago de Cuba</option>
-                    <option value="Camagüey">Camagüey</option>
-                    <option value="Holguín">Holguín</option>
+                    {PROVINCIAS_CUBA.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -208,8 +246,10 @@ export function MisDestinatarios() {
                 </div>
               </div>
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-tp-blue font-bold hover:bg-tp-blue/5 rounded-lg transition-colors">Cancelar</button>
-                <button type="submit" disabled={isSubmitting} className="bg-tp-blue text-white px-6 py-2 rounded-lg font-bold hover:bg-[#004a78] transition-colors disabled:opacity-50">Guardar</button>
+                <button type="button" onClick={closeModal} className="px-4 py-2 text-tp-blue font-bold hover:bg-tp-blue/5 rounded-lg transition-colors">Cancelar</button>
+                <button type="submit" disabled={isSubmitting} className="bg-tp-blue text-white px-6 py-2 rounded-lg font-bold hover:bg-[#004a78] transition-colors disabled:opacity-50">
+                  {isSubmitting ? 'Guardando...' : editingId ? 'Guardar Cambios' : 'Guardar'}
+                </button>
               </div>
             </form>
           </div>

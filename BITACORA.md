@@ -644,3 +644,35 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   `DestinatarioRow`, `FlatDestinatario`, `rowToDestinatario()` y el mapa de
   `flatFieldsToColumns()`, así que viajan correctamente desde el formulario
   hasta la base de datos.
+
+### Fase 32 · Mejora: editar destinatarios desde "Mis Destinatarios"
+
+- **Causa:** `src/pages/MisDestinatarios.tsx` solo permitía crear y
+  eliminar destinatarios; si el beneficiario en Cuba cambiaba algún dato
+  (teléfono, dirección, etc.) no había forma de actualizarlo sin borrar y
+  volver a crear el registro (perdiendo su historial de paquetes
+  asociados). La función `updateDestinatario()` en
+  `src/services/destinatarios.ts` ya existía pero no se usaba en ningún
+  sitio de la app.
+- **Fix:** se añadió un botón "Editar" (icono lápiz) en la columna
+  Acciones de la tabla, junto al de eliminar. Al pulsarlo se precarga el
+  formulario con los datos actuales del destinatario y el modal pasa a
+  modo edición (título "Editar Destinatario", botón "Guardar Cambios"),
+  guardando con `updateDestinatario()` en vez de `createDestinatario()`.
+  De paso se corrigieron dos inconsistencias de este formulario respecto
+  al de "Nuevo Destinatario" usado en Mis Solicitudes/Recepción: le
+  faltaba el campo "Teléfono Secundario" y usaba una lista de 4 provincias
+  hardcodeada en vez del catálogo completo `PROVINCIAS_CUBA`.
+
+### Fase 33 · Mejora: clientes sin agente asignado se muestran como "Agente GAOS"
+
+- **Causa:** en "Gestión de Clientes" (panel admin), la columna "Agente"
+  mostraba "Desconocido" para los clientes que se registran directo desde
+  el portal sin pasar por un agente/partner intermediario. Esos clientes
+  son clientes de la casa (gestionados directamente por ToPaquete/GAOS),
+  no clientes "sin dueño" — la etiqueta "Desconocido" era confusa.
+- **Fix:** en `src/pages/Clientes.tsx`, la nueva función
+  `agenteLabelCliente()` muestra "Agente GAOS" cuando el cliente no tiene
+  `agenteId` asignado, y reserva "Desconocido" solo para el caso real de
+  un `agenteId` que ya no corresponde a ningún perfil. Se aplicó tanto en
+  la tabla como en la exportación a Excel.

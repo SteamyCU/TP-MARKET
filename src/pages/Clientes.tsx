@@ -166,6 +166,12 @@ export function Clientes() {
   const nombreAgente = (id: string) =>
     agentesPartners.find((a) => a.id === id)?.nombre || agentes[id] || 'agente';
 
+  // Clientes que se registran directo desde el portal, sin un agente/partner
+  // intermediario, son clientes "de la casa" — se muestran bajo "Agente GAOS"
+  // en vez de "Desconocido".
+  const agenteLabelCliente = (agenteId: string | null | undefined) =>
+    agenteId ? agentes[agenteId] || 'Desconocido' : 'Agente GAOS';
+
   const abrirMigrarModal = () => {
     setMigrarDesde('');
     setMigrarHacia('');
@@ -376,7 +382,7 @@ export function Clientes() {
       Localidad: c.localidad,
       'Provincia': c.provincia || '',
       'Código Postal': c.codigoPostal,
-      Agente: agentes[c.agenteId] || c.agenteId || '',
+      Agente: agenteLabelCliente(c.agenteId),
     })));
   };
 
@@ -492,7 +498,7 @@ export function Clientes() {
                   <td className="px-5 py-4 text-tp-blue/70">{cliente.telefonoEspana}</td>
                   {role === 'admin' && (
                     <td className="px-5 py-4 text-tp-blue/70">
-                      {agentes[cliente.agenteId] || 'Desconocido'}
+                      {agenteLabelCliente(cliente.agenteId)}
                     </td>
                   )}
                   <td className="px-5 py-4 text-right flex justify-end gap-2">
