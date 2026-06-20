@@ -4,6 +4,7 @@ import { User as UserIcon, Phone, MapPin, Building2, CreditCard, CheckCircle2, A
 import { cn } from '../lib/utils';
 import { subirDocumentoIdentidad } from '../services/afiliados';
 import { updateCliente, getClienteByEmail } from '../services/clientes';
+import { PAISES_RESIDENCIA } from '../constants/estados';
 
 export function Perfil() {
   const { user, profile, updateProfile } = useAuth();
@@ -37,6 +38,7 @@ export function Perfil() {
     telefono: profile?.telefono || '',
     dni: profile?.dni || '',
     direccion: profile?.direccion || '',
+    pais: profile?.pais || '',
     canalVenta: profile?.canalVenta || '',
     precioPorKilo: profile?.precioPorKilo || 0,
     tipoInfluencer: profile?.tipoInfluencer || '',
@@ -67,6 +69,7 @@ export function Perfil() {
               documentoIdentidad: formData.dni,
               telefonoEspana: formData.telefono,
               direccion: formData.direccion,
+              pais: formData.pais,
             });
           }
         } catch (err) {
@@ -177,6 +180,23 @@ export function Perfil() {
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
                   />
                 </div>
+              </div>
+            )}
+
+            {profile?.role === 'cliente' && (
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-2 ml-1">País de Residencia</label>
+                <select
+                  required
+                  value={formData.pais}
+                  onChange={(e) => setFormData({...formData, pais: e.target.value})}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
+                >
+                  <option value="">Selecciona tu país...</option>
+                  {PAISES_RESIDENCIA.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
               </div>
             )}
 

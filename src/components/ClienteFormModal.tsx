@@ -3,6 +3,7 @@ import { X, AlertTriangle } from 'lucide-react';
 import { auth } from '../supabase';
 import { createCliente } from '../services/clientes';
 import type { Cliente } from '../types/models';
+import { PAISES_RESIDENCIA } from '../constants/estados';
 
 interface ClienteFormModalProps {
   open: boolean;
@@ -21,6 +22,7 @@ const FORM_INICIAL = {
   codigoPostal: '',
   localidad: '',
   provincia: '',
+  pais: '',
   direccion: '',
   observaciones: '',
 };
@@ -124,12 +126,23 @@ export function ClienteFormModal({ open, onClose, onCreated, clientesExistentes 
               <input type="text" value={form.localidad} onChange={e => setForm({ ...form, localidad: e.target.value })} className={inputClass} />
             </div>
             <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia (España)</label>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia / Estado</label>
               <input type="text" placeholder="Madrid, Barcelona, Valencia..." value={form.provincia} onChange={e => setForm({ ...form, provincia: e.target.value })} className={inputClass} />
             </div>
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Código Postal</label>
               <input type="text" value={form.codigoPostal} onChange={e => setForm({ ...form, codigoPostal: e.target.value })} className={inputClass} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">País de Residencia</label>
+              <select value={form.pais} onChange={e => setForm({ ...form, pais: e.target.value })} className={`${inputClass} bg-white`}>
+                <option value="">Selecciona un país...</option>
+                {PAISES_RESIDENCIA.map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
             </div>
           </div>
           <div>

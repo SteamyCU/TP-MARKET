@@ -14,6 +14,7 @@ export interface Cliente {
   codigoPostal?: string;
   localidad?: string;
   provincia?: string;
+  pais?: string;
   direccion?: string;
   observaciones?: string;
   agenteId?: string;

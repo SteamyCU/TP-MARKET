@@ -8,6 +8,7 @@ import { updateCliente, getClienteByEmail } from './services/clientes';
 import { abrirSoporte } from './components/SoporteWidget';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
 import { cn } from './lib/utils';
+import { PAISES_RESIDENCIA } from './constants/estados';
 import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
 const PREFIJOS_TELEFONO = [
@@ -63,6 +64,7 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
     telefonoPrefijo: telefonoInicial.prefijo,
     dni: profile?.dni || '',
     direccion: profile?.direccion || '',
+    pais: profile?.pais || '',
     canalVenta: profile?.canalVenta || '',
     socialHandle: profile?.socialHandle || '',
     businessName: profile?.businessName || '',
@@ -91,7 +93,8 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
   const telefonoValido = formData.telefono.replace(/\D/g, '').length >= 7;
   const direccionValida = isValidDireccion(formData.direccion);
   const nombreValido = formData.name.trim().length >= 3;
-  const formularioClienteValido = !esCliente || (nombreValido && dniValido && telefonoValido && direccionValida);
+  const paisValido = Boolean(formData.pais);
+  const formularioClienteValido = !esCliente || (nombreValido && dniValido && telefonoValido && direccionValida && paisValido);
 
   const validateReferralCode = async (code: string) => {
     if (!code) return;
@@ -169,6 +172,7 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
               documentoIdentidad: finalData.dni,
               telefonoEspana: finalData.telefono,
               direccion: finalData.direccion,
+              pais: finalData.pais,
             });
           }
         } catch (err) {
@@ -353,6 +357,23 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
             </div>
           )}
 
+          {esCliente && (
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">País de Residencia</label>
+              <select
+                required
+                value={formData.pais}
+                onChange={(e) => setFormData({...formData, pais: e.target.value})}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
+              >
+                <option value="">Selecciona tu país...</option>
+                {PAISES_RESIDENCIA.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {profile?.role === 'agente' && (
             <div>
               <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">¿Por dónde sueles vender? (opcional)</label>
@@ -514,7 +535,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (!loading && profile) {
       const isComplete = profile.dni && profile.telefono &&
-                        (profile.role !== 'cliente' || profile.direccion) &&
+                        (profile.role !== 'cliente' || (profile.direccion && profile.pais)) &&
                         (profile.role !== 'influencer' || (profile.redesSociales && profile.metodoCobro && profile.datosCobro && profile.tipoInfluencer)) &&
                         (profile.role !== 'partner' || profile.businessName);
       if (!isComplete) {

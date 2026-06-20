@@ -17,6 +17,7 @@ import { ImportModal } from '../components/ImportModal';
 import { exportarExcel } from '../lib/excel';
 import { registrarAuditoria } from '../services/auditoria';
 import parsedClients from '../parsed_clients.json';
+import { PAISES_RESIDENCIA } from '../constants/estados';
 
 interface Cliente {
   id: string;
@@ -27,6 +28,7 @@ interface Cliente {
   codigoPostal: string;
   localidad: string;
   provincia?: string;
+  pais?: string;
   direccion: string;
   agenteId: string;
   referido_por?: string;
@@ -68,6 +70,7 @@ export function Clientes() {
     codigoPostal: '',
     localidad: '',
     provincia: '',
+    pais: '',
     direccion: '',
     agenteId: '',
     referido_por: ''
@@ -309,6 +312,7 @@ export function Clientes() {
       codigoPostal: cliente.codigoPostal,
       localidad: cliente.localidad,
       provincia: cliente.provincia || '',
+      pais: cliente.pais || '',
       direccion: cliente.direccion,
       agenteId: cliente.agenteId || '',
       referido_por: cliente.referido_por || ''
@@ -347,6 +351,7 @@ export function Clientes() {
       codigoPostal: '',
       localidad: '',
       provincia: '',
+      pais: '',
       direccion: '',
       agenteId: '',
       referido_por: ''
@@ -381,6 +386,7 @@ export function Clientes() {
       'Dirección': c.direccion,
       Localidad: c.localidad,
       'Provincia': c.provincia || '',
+      'País': c.pais || '',
       'Código Postal': c.codigoPostal,
       Agente: agenteLabelCliente(c.agenteId),
     })));
@@ -405,6 +411,7 @@ export function Clientes() {
         direccion: fila.direccion || '',
         localidad: fila.localidad || '',
         provincia: fila.provincia || '',
+        pais: fila.pais || '',
         codigoPostal: fila.codigoPostal || '',
         agenteId: auth.currentUser?.uid || null,
       });
@@ -561,17 +568,28 @@ export function Clientes() {
                     <input type="tel" value={clienteForm.telefonoEspana} onChange={e => setClienteForm({...clienteForm, telefonoEspana: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Correo Electrónico *</label>
                     <input type="email" required value={clienteForm.email} onChange={e => setClienteForm({...clienteForm, email: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                   </div>
                   <div>
+                    <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">País de Residencia</label>
+                    <select value={clienteForm.pais} onChange={e => setClienteForm({...clienteForm, pais: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none bg-white">
+                      <option value="">Selecciona un país...</option>
+                      {PAISES_RESIDENCIA.map(p => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
                     <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Código Postal</label>
                     <input type="text" value={clienteForm.codigoPostal} onChange={e => setClienteForm({...clienteForm, codigoPostal: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia (España)</label>
+                    <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Provincia / Estado</label>
                     <input type="text" placeholder="Madrid, Barcelona, Valencia..." value={clienteForm.provincia} onChange={e => setClienteForm({...clienteForm, provincia: e.target.value})} className="w-full px-3 py-2 border border-tp-gray-soft rounded-lg focus:ring-2 focus:ring-tp-blue/20 outline-none" />
                   </div>
                   <div>
@@ -847,7 +865,8 @@ export function Clientes() {
           { key: 'telefonoEspana', label: 'Teléfono', ejemplo: '+34 600 000 000' },
           { key: 'direccion', label: 'Dirección', requerido: true, ejemplo: 'Calle Mayor 1, Madrid' },
           { key: 'localidad', label: 'Localidad', ejemplo: 'Madrid' },
-          { key: 'provincia', label: 'Provincia (España)', ejemplo: 'Madrid, Barcelona, Valencia...' },
+          { key: 'provincia', label: 'Provincia / Estado', ejemplo: 'Madrid, Barcelona, Valencia...' },
+          { key: 'pais', label: 'País de Residencia', ejemplo: 'España' },
           { key: 'codigoPostal', label: 'Código Postal', ejemplo: '28001' },
         ]}
         validarFila={(fila) => {

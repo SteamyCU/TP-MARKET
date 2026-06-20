@@ -694,3 +694,27 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   de admin (enlaza a Gestión de Clientes), y en
   `src/pages/Clientes.tsx` el subtítulo de la página ahora muestra
   "{N} clientes registrados" junto a la descripción.
+
+### Fase 35 · Bug: el registro de clientes no pedía el país de residencia
+
+- **Causa:** ni el formulario "Completa tu Perfil" (registro inicial,
+  `src/App.tsx`) ni "Mi Perfil" (`src/pages/Perfil.tsx`) ni los formularios
+  de cliente del panel admin (`src/pages/Clientes.tsx`,
+  `src/components/ClienteFormModal.tsx`) pedían el país de residencia del
+  cliente — los labels ("Provincia (España)", etc.) asumían implícitamente
+  que todos los clientes viven en España, pero en la práctica los clientes
+  de ToPaquete residen en varios países.
+- **Fix:** `supabase/migrations/0026_clientes_pais.sql` añade la columna
+  `pais` a la tabla `clientes`. Se añadió el catálogo `PAISES_RESIDENCIA`
+  en `src/constants/estados.ts`, se sincronizó `pais` en
+  `src/services/clientes.ts` (`ClienteRow`, `FlatCliente`,
+  `rowToCliente()`, `flatFieldsToColumns()`) y en
+  `src/types/models.ts` (`Cliente.pais`). Se añadió el selector "País de
+  Residencia" en: el registro inicial (`App.tsx`, ahora obligatorio para
+  clientes y parte de la validación + del gate `isComplete` que vuelve a
+  mostrar el modal de registro a clientes existentes sin país guardado),
+  "Mi Perfil" (`Perfil.tsx`), el formulario de cliente del admin
+  (`Clientes.tsx`, incluida la importación masiva por Excel/CSV) y el
+  modal de alta rápida de cliente (`ClienteFormModal.tsx`). Los labels
+  "Provincia (España)" se renombraron a "Provincia / Estado" para no
+  asumir un único país.

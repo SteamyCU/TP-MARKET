@@ -158,3 +158,11 @@ export const PROVINCIAS_CUBA = [
   'Camagüey', 'Las Tunas', 'Holguín', 'Granma', 'Santiago de Cuba',
   'Guantánamo', 'Isla de la Juventud',
 ];
+
+/** Países de residencia de los clientes de ToPaquete (no todos viven en España). */
+export const PAISES_RESIDENCIA = [
+  'España', 'Francia', 'Italia', 'Alemania', 'Portugal', 'Reino Unido',
+  'Suiza', 'Bélgica', 'Países Bajos', 'Estados Unidos', 'Canadá', 'México',
+  'Otro',
+];
+
