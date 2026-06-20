@@ -627,3 +627,20 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   las filas con `documento_identidad` o `telefono_espana` vacíos (matching
   por email), cubriendo a los clientes que completaron su perfil antes de
   este fix.
+
+### Fase 31 · Bug: el destinatario (beneficiario en Cuba) perdía Teléfono Secundario, Correo y Código Postal
+
+- **Causa:** el modal "Nuevo Destinatario" (`DestinatarioFormModal.tsx`)
+  captura `telefonoSecundario`, `email` y `codigoPostal`, y el tipo
+  `Destinatario` (`src/types/models.ts`) ya los declaraba, pero la tabla
+  `destinatarios` nunca tuvo esas columnas. `flatFieldsToColumns()` en
+  `src/services/destinatarios.ts` las descartaba en silencio antes del
+  insert (no estaban en su mapa camelCase→snake_case), así que esos tres
+  campos parecían guardarse (sin ningún error visible) pero se perdían
+  siempre.
+- **Fix:** `supabase/migrations/0025_destinatarios_email_telefono2_cp.sql`
+  añade las columnas `telefono_secundario`, `email` y `codigo_postal` a
+  `destinatarios`. `src/services/destinatarios.ts` ahora las incluye en
+  `DestinatarioRow`, `FlatDestinatario`, `rowToDestinatario()` y el mapa de
+  `flatFieldsToColumns()`, así que viajan correctamente desde el formulario
+  hasta la base de datos.

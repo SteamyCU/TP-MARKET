@@ -11,9 +11,12 @@ export interface DestinatarioRow {
   nombre: string;
   carnet_pasaporte: string | null;
   telefono_cuba: string | null;
+  telefono_secundario: string | null;
+  email: string | null;
   direccion: string | null;
   provincia: string | null;
   municipio: string | null;
+  codigo_postal: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -24,9 +27,12 @@ export type FlatDestinatario = {
   nombre: string;
   carnetPasaporte: string | null;
   telefonoCuba: string | null;
+  telefonoSecundario: string | null;
+  email: string | null;
   direccion: string | null;
   provincia: string | null;
   municipio: string | null;
+  codigoPostal: string | null;
   // createdAt se expone como un objeto tipo Timestamp de Firestore ({ toDate() })
   // para que el código existente que llamaba a createdAt.toDate() siga funcionando.
   createdAt?: { toDate: () => Date };
@@ -41,9 +47,12 @@ export function rowToDestinatario(row: DestinatarioRow): FlatDestinatario {
     nombre: row.nombre,
     carnetPasaporte: row.carnet_pasaporte,
     telefonoCuba: row.telefono_cuba,
+    telefonoSecundario: row.telefono_secundario,
+    email: row.email,
     direccion: row.direccion,
     provincia: row.provincia,
     municipio: row.municipio,
+    codigoPostal: row.codigo_postal,
     createdAt,
   };
 }
@@ -57,9 +66,12 @@ function flatFieldsToColumns(fields: Record<string, unknown>): Record<string, un
     nombre: 'nombre',
     carnetPasaporte: 'carnet_pasaporte',
     telefonoCuba: 'telefono_cuba',
+    telefonoSecundario: 'telefono_secundario',
+    email: 'email',
     direccion: 'direccion',
     provincia: 'provincia',
     municipio: 'municipio',
+    codigoPostal: 'codigo_postal',
   };
   for (const [key, column] of Object.entries(map)) {
     if (fields[key] !== undefined) {
