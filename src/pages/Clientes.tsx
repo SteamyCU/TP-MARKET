@@ -167,10 +167,10 @@ export function Clientes() {
     agentesPartners.find((a) => a.id === id)?.nombre || agentes[id] || 'agente';
 
   // Clientes que se registran directo desde el portal, sin un agente/partner
-  // intermediario, son clientes "de la casa" — se muestran bajo "Agente GAOS"
-  // en vez de "Desconocido".
+  // intermediario, son clientes "de la casa" — se muestran bajo "Agente
+  // ToPaquete" en vez de "Desconocido".
   const agenteLabelCliente = (agenteId: string | null | undefined) =>
-    agenteId ? agentes[agenteId] || 'Desconocido' : 'Agente GAOS';
+    agenteId ? agentes[agenteId] || 'Desconocido' : 'Agente ToPaquete';
 
   const abrirMigrarModal = () => {
     setMigrarDesde('');

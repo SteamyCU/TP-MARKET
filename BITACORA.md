@@ -664,15 +664,15 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   faltaba el campo "Teléfono Secundario" y usaba una lista de 4 provincias
   hardcodeada en vez del catálogo completo `PROVINCIAS_CUBA`.
 
-### Fase 33 · Mejora: clientes sin agente asignado se muestran como "Agente GAOS"
+### Fase 33 · Mejora: clientes sin agente asignado se muestran como "Agente ToPaquete"
 
 - **Causa:** en "Gestión de Clientes" (panel admin), la columna "Agente"
   mostraba "Desconocido" para los clientes que se registran directo desde
   el portal sin pasar por un agente/partner intermediario. Esos clientes
-  son clientes de la casa (gestionados directamente por ToPaquete/GAOS),
-  no clientes "sin dueño" — la etiqueta "Desconocido" era confusa.
+  son clientes de la casa (gestionados directamente por ToPaquete), no
+  clientes "sin dueño" — la etiqueta "Desconocido" era confusa.
 - **Fix:** en `src/pages/Clientes.tsx`, la nueva función
-  `agenteLabelCliente()` muestra "Agente GAOS" cuando el cliente no tiene
-  `agenteId` asignado, y reserva "Desconocido" solo para el caso real de
-  un `agenteId` que ya no corresponde a ningún perfil. Se aplicó tanto en
-  la tabla como en la exportación a Excel.
+  `agenteLabelCliente()` muestra "Agente ToPaquete" cuando el cliente no
+  tiene `agenteId` asignado, y reserva "Desconocido" solo para el caso real
+  de un `agenteId` que ya no corresponde a ningún perfil. Se aplicó tanto
+  en la tabla como en la exportación a Excel.
