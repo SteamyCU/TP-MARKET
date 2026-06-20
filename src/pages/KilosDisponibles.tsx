@@ -18,8 +18,12 @@ import {
 } from '../services/viajeros';
 import { cn } from '../lib/utils';
 
-const TERMINOS_VIAJERO = `Acepto que: (1) llevaré el equipaje bajo mi entera responsabilidad como pasajero; (2) revisaré el contenido de cualquier paquete antes de aceptarlo, pudiendo rechazarlo si no coincide con lo declarado o contiene algo ilegal; (3) ToPaquete actúa como plataforma de conexión y no asume responsabilidad por pérdida, daño, retraso o problemas aduanales; (4) acepto los Términos y Condiciones del Programa de Viajeros.`;
+const TERMINOS_VIAJERO = `Acepto que: (1) ToPaquete compra el espacio de equipaje que ofrezco y es responsable del contenido de los paquetes que se transporten en él; (2) me comprometo a realizar el viaje en la fecha acordada y a entregar el equipaje completo en el punto de recepción indicado por ToPaquete en Cuba; (3) si la aerolínea extravía, retrasa o daña el equipaje, debo iniciar de inmediato los trámites de reclamación de equipaje perdido ante la aerolínea o el aeropuerto correspondiente, o en su defecto, otorgar una autorización/poder para que un representante del equipo de ToPaquete en Cuba pueda gestionar la recuperación del equipaje en el aeropuerto en mi nombre; (4) entiendo que el pago acordado está condicionado a la entrega efectiva del equipaje; (5) acepto los Términos y Condiciones del Programa de Viajeros.`;
 
+// Fase 2 (mercado entre clientes, todavía detrás del flag
+// 'viajeros_marketplace_publico'): aquí el viajero sí recibe e inspecciona
+// paquetes de otros clientes directamente, a diferencia de la Fase 1 actual
+// donde ToPaquete compra el espacio y es responsable del contenido.
 const TERMINOS_RESERVA = `Declaro que el contenido del paquete es legal, verídico y no contiene artículos prohibidos. Entiendo que el viajero podrá inspeccionar el contenido antes de aceptarlo. ToPaquete actúa únicamente como plataforma de conexión y no se hace responsable por pérdida, daño, retraso o problemas derivados de este envío.`;
 
 const ESTADO_RESERVA_BADGE: Record<EstadoReservaViajero, { label: string; clase: string }> = {
@@ -221,7 +225,7 @@ function PublicarViajeModal({ onClose, onPublicado }: { onClose: () => void; onP
   return (
     <div className="fixed inset-0 bg-tp-blue/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg my-8">
-        <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+        <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-tp-gray-soft bg-white rounded-t-3xl">
           <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
             <Plane className="w-5 h-5 text-tp-red" /> Publicar mi viaje
           </h2>
@@ -938,10 +942,10 @@ export function KilosDisponibles() {
           <div>
             <h1 className="text-2xl font-black text-tp-blue flex items-center gap-2">
               <Luggage className="w-6 h-6 text-tp-red" />
-              Vender mis Kilos
+              Maletas & Express
             </h1>
             <p className="text-sm text-tp-blue/50 mt-0.5">
-              Publica tu viaje y ToPaquete reservará las maletas que necesite para enviar paquetes Express.
+              Vende el espacio de tu maleta o solicita un envío Express urgente.
             </p>
           </div>
           {fase1Tab === 'vender' && (
@@ -1072,10 +1076,10 @@ export function KilosDisponibles() {
         <div>
           <h1 className="text-2xl font-black text-tp-blue flex items-center gap-2">
             <Luggage className="w-6 h-6 text-tp-red" />
-            Kilos Disponibles
+            Maletas & Express
           </h1>
           <p className="text-sm text-tp-blue/50 mt-0.5">
-            Viajeros que llevan equipaje a Cuba. Reserva kilos para enviar tus paquetes Express.
+            Vende el espacio de tu maleta o solicita un envío Express urgente.
           </p>
         </div>
         <button

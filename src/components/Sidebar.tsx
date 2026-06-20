@@ -187,7 +187,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   // viajeros que venden kilos de equipaje son siempre clientes, nunca
   // influencers ni otros roles internos/colaboradores.
   // Se inserta antes de "Mi Perfil" para mantenerlo agrupado al final.
-  const viajerosItem = { name: 'Vender mis Kilos', path: '/dashboard/kilos-disponibles', icon: Plane, badge: null };
+  const viajerosItem = { name: 'Maletas & Express', path: '/dashboard/kilos-disponibles', icon: Plane, badge: null };
   const perfilIdx = baseNavItems.findIndex((item) => item.path === '/dashboard/perfil');
   const navItems = role !== 'cliente'
     ? baseNavItems

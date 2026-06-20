@@ -556,3 +556,31 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   - El botón "Finalizar Registro y Entrar" queda deshabilitado (solo para
     rol cliente) hasta que nombre (≥3 caracteres), DNI/NIE/pasaporte,
     teléfono y dirección sean válidos.
+
+### Fase 28 · Cambio de modelo de negocio del Programa de Viajeros: ToPaquete compra, no conecta
+
+- **Modelo de negocio:** ToPaquete deja de actuar como "plataforma de
+  conexión" entre viajeros y clientes. Ahora ToPaquete compra directamente
+  el espacio de equipaje al viajero y es responsable del contenido de los
+  paquetes que transporta; el viajero ya no inspecciona contenido de
+  terceros, pero sigue siendo responsable de completar el viaje, entregar
+  el equipaje y gestionar cualquier incidencia de pérdida en el aeropuerto
+  (o ceder un poder a ToPaquete para hacerlo en su nombre).
+  `TERMINOS_VIAJERO` (`src/pages/KilosDisponibles.tsx`) se reescribió por
+  completo para reflejar esta nueva responsabilidad. `TERMINOS_RESERVA`
+  (texto de "plataforma de conexión") sigue existiendo sin cambios porque
+  pertenece al flujo de reserva cliente-a-cliente de la Fase 2 (mercado
+  entre clientes), todavía detrás del flag `viajeros_marketplace_publico` y
+  por tanto no alcanzable en el estado actual; se añadió un comentario en el
+  código aclarando que corresponde a esa fase futura y no a la Fase 1
+  actual (ToPaquete compra).
+- **Renombrado de sección:** "Vender mis Kilos" pasa a llamarse
+  "Maletas & Express" en el menú lateral (`Sidebar.tsx`) y en los títulos de
+  página de `KilosDisponibles.tsx`, porque el nombre del contenedor no podía
+  coincidir con el de una de sus dos pestañas internas ("Vender mis Kilos" /
+  "Solicitar Express"), que se mantienen sin cambios.
+- **UX del modal "Publicar mi viaje":** el header del modal ahora es
+  `sticky top-0`, por lo que permanece visible (con su botón "✕" de cierre)
+  al hacer scroll por el formulario largo en pantallas con poca altura
+  visible. Tanto el "✕" como "Cancelar" cierran el modal sin recargar la
+  página ni perder el estado de la pestaña activa.
