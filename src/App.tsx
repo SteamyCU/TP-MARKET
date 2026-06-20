@@ -22,6 +22,12 @@ const PREFIJOS_TELEFONO = [
   { code: '+41', flag: '🇨🇭', label: 'Suiza' },
   { code: '+32', flag: '🇧🇪', label: 'Bélgica' },
   { code: '+31', flag: '🇳🇱', label: 'Países Bajos' },
+  { code: '+45', flag: '🇩🇰', label: 'Dinamarca' },
+  { code: '+46', flag: '🇸🇪', label: 'Suecia' },
+  { code: '+47', flag: '🇳🇴', label: 'Noruega' },
+  { code: '+358', flag: '🇫🇮', label: 'Finlandia' },
+  { code: '+353', flag: '🇮🇪', label: 'Irlanda' },
+  { code: '+43', flag: '🇦🇹', label: 'Austria' },
   { code: '+1', flag: '🇺🇸', label: 'EE.UU. / Canadá' },
 ];
 

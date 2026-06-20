@@ -764,3 +764,11 @@ agente). Los agentes nunca son beneficiarios directos.
   distingue domicilio de punto de recogida). Por eso el waiver se refleja
   como etiqueta informativa en el desglose y el beneficio monetario
   efectivo es el 10 %.
+
+### Fase 37 · Mejora: cobertura de prefijos telefónicos europeos en el registro
+
+El selector de prefijo de teléfono del registro de clientes (`PREFIJOS_TELEFONO`
+en `src/App.tsx`) no incluía varios países europeos con presencia activa de la
+diáspora cubana, en particular Dinamarca. Se añaden: Dinamarca (+45), Suecia
+(+46), Noruega (+47), Finlandia (+358), Irlanda (+353) y Austria (+43),
+manteniendo España (+34) como primera opción por ser el mercado principal.
