@@ -605,3 +605,25 @@ VITE_BOOTSTRAP_ADMIN=gaosvbc@gmail.com
   con `role='cliente'` que todavía no tenga fila en `clientes` (matching por
   email, igual que `getClienteByEmail`), cubriendo a los clientes
   registrados antes de este fix que nunca visitaron "Mis Solicitudes".
+
+### Fase 30 · Bug: DNI/teléfono/dirección no se sincronizaban entre `profiles` y `clientes`
+
+- **Causa:** "Completa tu Perfil" (`src/App.tsx`) y "Mi Perfil"
+  (`src/pages/Perfil.tsx`) solo llamaban a `updateProfile()`, que guarda en
+  `profiles.extra` (keys `dni`, `telefono`, `direccion`). Esos datos nunca
+  llegaban a la tabla `clientes` (`documento_identidad`, `telefono_espana`,
+  `direccion`), que es la que lee "Gestión de Clientes" en el panel admin —
+  por eso el admin veía DNI y teléfono vacíos aunque el cliente ya hubiera
+  completado su perfil.
+- **Fix:** ambos formularios, tras un `updateProfile()` exitoso y solo
+  cuando `profile.role === 'cliente'`, buscan la fila del cliente por email
+  (`getClienteByEmail`) y la sincronizan con `updateCliente()` mapeando
+  `dni → documentoIdentidad`, `telefono → telefonoEspana` y
+  `direccion → direccion`. Si todavía no existe la fila (carrera con la
+  creación automática de la Fase 29), se omite en silencio sin bloquear el
+  guardado del perfil.
+- **Backfill:** `supabase/migrations/0024_backfill_dni_telefono.sql` copia
+  `dni`/`telefono`/`direccion` desde `profiles.extra` hacia `clientes` para
+  las filas con `documento_identidad` o `telefono_espana` vacíos (matching
+  por email), cubriendo a los clientes que completaron su perfil antes de
+  este fix.

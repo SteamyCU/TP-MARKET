@@ -3,6 +3,7 @@ import { useAuth } from '../AuthContext';
 import { User as UserIcon, Phone, MapPin, Building2, CreditCard, CheckCircle2, AlertCircle, Banknote, ShieldCheck, Upload, FileCheck2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { subirDocumentoIdentidad } from '../services/afiliados';
+import { updateCliente, getClienteByEmail } from '../services/clientes';
 
 export function Perfil() {
   const { user, profile, updateProfile } = useAuth();
@@ -54,6 +55,25 @@ export function Perfil() {
     setSuccess(false);
     try {
       await updateProfile(formData);
+
+      // 'profiles' es la fuente de verdad del portal, pero "Gestión de
+      // Clientes" (admin) lee de la tabla 'clientes' — hay que mantenerla
+      // sincronizada con los mismos datos.
+      if (profile?.role === 'cliente' && profile?.email) {
+        try {
+          const clienteExistente = await getClienteByEmail(profile.email);
+          if (clienteExistente) {
+            await updateCliente(clienteExistente.id, {
+              documentoIdentidad: formData.dni,
+              telefonoEspana: formData.telefono,
+              direccion: formData.direccion,
+            });
+          }
+        } catch (err) {
+          console.error('Error sincronizando datos con clientes:', err);
+        }
+      }
+
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {

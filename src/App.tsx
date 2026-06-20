@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './AuthContext';
 import { ScrollToTop } from './components/ScrollToTop';
 import { registrarReferido } from './services/afiliados';
 import { buscarCupon } from './services/cupones';
+import { updateCliente, getClienteByEmail } from './services/clientes';
 import { abrirSoporte } from './components/SoporteWidget';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
 import { cn } from './lib/utils';
@@ -156,6 +157,25 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
       }
 
       await updateProfile(finalData);
+
+      // 'profiles' es la fuente de verdad del portal, pero "Gestión de
+      // Clientes" (admin) lee de la tabla 'clientes' — hay que mantenerla
+      // sincronizada con los mismos datos.
+      if (esCliente && profile?.email) {
+        try {
+          const clienteExistente = await getClienteByEmail(profile.email);
+          if (clienteExistente) {
+            await updateCliente(clienteExistente.id, {
+              documentoIdentidad: finalData.dni,
+              telefonoEspana: finalData.telefono,
+              direccion: finalData.direccion,
+            });
+          }
+        } catch (err) {
+          console.error('Error sincronizando datos con clientes:', err);
+        }
+      }
+
       localStorage.removeItem('pending_ref');
       onComplete();
     } catch (err: any) {
