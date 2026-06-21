@@ -793,3 +793,25 @@ general; faltaban editar y eliminar.
   - 🗑️ **Eliminar**: confirmación, llama a `eliminarCupon`. El botón se
     deshabilita (con tooltip explicativo) si el cupón ya tiene usos
     registrados.
+
+### Fase 39 · Ficha completa del cliente en "Ver Paquetes y Seguimiento"
+
+El modal "Paquetes y Seguimiento" de Gestión de Clientes (`src/pages/Clientes.tsx`)
+ahora incluye, solo para admin/logística, una ficha con estadísticas de
+frecuencia y los beneficios de Invita y Gana del cliente, sin tener que
+cambiar de pantalla.
+
+- **Estadísticas y Frecuencia:** total de kg enviados (suma de los paquetes
+  ya `Entregado`), número total de envíos, frecuencia (promedio de días
+  entre envíos consecutivos — "Envía cada X días aprox." o "Sin suficiente
+  historial" con menos de 2 envíos) y fecha del último envío. Todo calculado
+  en memoria a partir del array de paquetes que el modal ya cargaba
+  (`clientePaquetes`), sin consultas nuevas.
+- **Beneficios disponibles:** usa `getCreditoDisponible` y
+  `esPrimerEnvioComoReferido` de `src/services/referidos.ts` (resolviendo el
+  `userId`/profile id del cliente) para mostrar tarjetas de crédito Invita y
+  Gana disponible y/o beneficio de bienvenida pendiente (10 % + domicilio
+  gratis), o un aviso discreto si no hay ninguno. Cada tarjeta incluye un
+  selector informativo "¿Cuándo se usará este beneficio?" (próxima visita /
+  más adelante) — es solo de planificación para el admin; no aplica ni
+  consume nada, eso sigue ocurriendo exclusivamente en Recepción (Fase 31).

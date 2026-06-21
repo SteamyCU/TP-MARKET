@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Users, Search, Plus, Edit2, Trash2, X, MapPin, Phone, Mail, CreditCard, Package, Clock, CheckCircle2, AlertCircle, Download, Upload } from 'lucide-react';
 import { auth } from '../supabase';
 import { subscribePaquetes } from '../services/paquetes';
@@ -10,6 +10,7 @@ import {
 import {
   subscribeDestinatarios, createDestinatario, deleteDestinatario,
 } from '../services/destinatarios';
+import { getCreditoDisponible, esPrimerEnvioComoReferido } from '../services/referidos';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
@@ -47,6 +48,35 @@ interface Destinatario {
   codigoPostal: string;
 }
 
+type MomentoBeneficio = 'proxima' | 'despues';
+
+function FichaStatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-white border border-tp-gray-soft rounded-xl p-4">
+      <div className="text-[10px] font-black text-tp-blue/40 uppercase tracking-wider">{label}</div>
+      <div className="text-lg font-black text-tp-blue mt-1">{value}</div>
+    </div>
+  );
+}
+
+function SelectorMomentoBeneficio({
+  name, value, onChange,
+}: { name: string; value: MomentoBeneficio; onChange: (v: MomentoBeneficio) => void }) {
+  return (
+    <div className="mt-3 space-y-1.5">
+      <p className="text-[10px] font-bold text-tp-blue/50 uppercase tracking-wider">¿Cuándo se usará este beneficio?</p>
+      <label className="flex items-center gap-2 cursor-pointer text-sm text-tp-blue/80">
+        <input type="radio" name={name} checked={value === 'proxima'} onChange={() => onChange('proxima')} className="accent-tp-red" />
+        En su próxima visita (lo aplicaré ahora)
+      </label>
+      <label className="flex items-center gap-2 cursor-pointer text-sm text-tp-blue/80">
+        <input type="radio" name={name} checked={value === 'despues'} onChange={() => onChange('despues')} className="accent-tp-red" />
+        Más adelante (lo guardará para otra ocasión)
+      </label>
+    </div>
+  );
+}
+
 export function Clientes() {
   const { role } = useAuth();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -61,6 +91,14 @@ export function Clientes() {
   const [clientePaquetes, setClientePaquetes] = useState<any[]>([]);
   const [paqueteEventos, setPaqueteEventos] = useState<Record<string, any[]>>({});
   const [expandedPaqueteId, setExpandedPaqueteId] = useState<string | null>(null);
+
+  // Ficha del cliente (modal Paquetes y Seguimiento): beneficios "Invita y Gana"
+  // disponibles. Solo se cargan y muestran para admin/logística.
+  const [cargandoBeneficios, setCargandoBeneficios] = useState(false);
+  const [creditoDisponible, setCreditoDisponible] = useState(0);
+  const [bienvenidaPendiente, setBienvenidaPendiente] = useState(false);
+  const [momentoCredito, setMomentoCredito] = useState<MomentoBeneficio>('proxima');
+  const [momentoBienvenida, setMomentoBienvenida] = useState<MomentoBeneficio>('proxima');
   
   const [clienteForm, setClienteForm] = useState({
     nombre: '',
@@ -323,11 +361,63 @@ export function Clientes() {
   const openPaquetesModal = (cliente: Cliente) => {
     setSelectedCliente(cliente);
     setIsPaquetesModalOpen(true);
-    
+
     subscribePaquetes({ clienteId: cliente.id }, (pData) => {
       setClientePaquetes(pData);
     });
   };
+
+  // Beneficios "Invita y Gana" del cliente de la ficha (solo admin/logística).
+  useEffect(() => {
+    if (!isPaquetesModalOpen || !selectedCliente) return;
+    if (role !== 'admin' && role !== 'logistica') return;
+
+    const profileId = (selectedCliente as unknown as { userId?: string | null }).userId || null;
+    setMomentoCredito('proxima');
+    setMomentoBienvenida('proxima');
+    setCargandoBeneficios(true);
+    Promise.all([getCreditoDisponible(profileId), esPrimerEnvioComoReferido(profileId)])
+      .then(([credito, bienvenida]) => {
+        setCreditoDisponible(credito);
+        setBienvenidaPendiente(bienvenida);
+      })
+      .catch((err) => console.error('Error cargando beneficios Invita y Gana:', err))
+      .finally(() => setCargandoBeneficios(false));
+  }, [isPaquetesModalOpen, selectedCliente, role]);
+
+  // Estadísticas y frecuencia de envío, calculadas a partir de los paquetes ya
+  // cargados en memoria para la ficha (sin disparar una consulta nueva).
+  const estadisticasEnvio = useMemo(() => {
+    const fechas = clientePaquetes
+      .map((p) => (p.createdAt && typeof p.createdAt.toDate === 'function' ? p.createdAt.toDate() as Date : null))
+      .filter((d): d is Date => d !== null)
+      .sort((a, b) => a.getTime() - b.getTime());
+
+    const totalKg = clientePaquetes
+      .filter((p) => p.estado === 'Entregado')
+      .reduce((acc, p) => acc + (Number(p.peso) || 0), 0);
+
+    let frecuenciaTexto = 'Sin suficiente historial';
+    if (fechas.length >= 2) {
+      const diffsDias: number[] = [];
+      for (let i = 1; i < fechas.length; i++) {
+        diffsDias.push((fechas[i].getTime() - fechas[i - 1].getTime()) / 86400000);
+      }
+      const promedio = diffsDias.reduce((a, b) => a + b, 0) / diffsDias.length;
+      frecuenciaTexto = `Envía cada ${Math.round(promedio)} días aprox.`;
+    }
+
+    const ultimaFecha = fechas.length > 0 ? fechas[fechas.length - 1] : null;
+
+    return {
+      totalKgTexto: `${totalKg.toFixed(1)} kg`,
+      totalEnvios: clientePaquetes.length,
+      frecuenciaTexto,
+      ultimoEnvioTexto: ultimaFecha
+        ? ultimaFecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'Sin envíos',
+    };
+  }, [clientePaquetes]);
 
   const togglePaqueteExpanded = async (tracking: string) => {
     if (expandedPaqueteId === tracking) {
@@ -777,6 +867,44 @@ export function Clientes() {
             </div>
             
             <div className="p-6 bg-gray-50 min-h-[400px]">
+              {(role === 'admin' || role === 'logistica') && (
+                <>
+                  <div className="mb-6">
+                    <h4 className="text-xs font-black text-tp-blue/50 uppercase tracking-wider mb-3">Estadísticas y Frecuencia</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <FichaStatCard label="Total kg enviados" value={estadisticasEnvio.totalKgTexto} />
+                      <FichaStatCard label="Total de envíos" value={String(estadisticasEnvio.totalEnvios)} />
+                      <FichaStatCard label="Frecuencia" value={estadisticasEnvio.frecuenciaTexto} />
+                      <FichaStatCard label="Último envío" value={estadisticasEnvio.ultimoEnvioTexto} />
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <h4 className="text-xs font-black text-tp-blue/50 uppercase tracking-wider mb-3">Beneficios disponibles</h4>
+                    {cargandoBeneficios ? (
+                      <p className="text-sm text-tp-blue/40 italic">Cargando beneficios…</p>
+                    ) : !creditoDisponible && !bienvenidaPendiente ? (
+                      <p className="text-sm text-tp-blue/40 italic">Sin beneficios pendientes actualmente.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {creditoDisponible > 0 && (
+                          <div className="p-4 bg-gradient-to-br from-tp-red/5 to-amber-50 border border-tp-red/20 rounded-xl">
+                            <p className="font-black text-tp-blue text-sm">💳 Crédito disponible: {creditoDisponible.toFixed(2)} €</p>
+                            <SelectorMomentoBeneficio name="momento-credito" value={momentoCredito} onChange={setMomentoCredito} />
+                          </div>
+                        )}
+                        {bienvenidaPendiente && (
+                          <div className="p-4 bg-gradient-to-br from-tp-red/5 to-amber-50 border border-tp-red/20 rounded-xl">
+                            <p className="font-black text-tp-blue text-sm">🎁 Beneficio de bienvenida pendiente: 10% descuento + domicilio gratis</p>
+                            <SelectorMomentoBeneficio name="momento-bienvenida" value={momentoBienvenida} onChange={setMomentoBienvenida} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {clientePaquetes.length === 0 ? (
                 <div className="text-center py-12 text-tp-blue/50">
                   <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
