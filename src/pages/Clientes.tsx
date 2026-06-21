@@ -10,7 +10,7 @@ import {
 import {
   subscribeDestinatarios, createDestinatario, deleteDestinatario,
 } from '../services/destinatarios';
-import { getCreditoDisponible, esPrimerEnvioComoReferido } from '../services/referidos';
+import { getCreditoDisponible, esPrimerEnvioComoReferido, getMiCodigoYEstadisticas, type MiCodigoYEstadisticas, type EstadoReferido } from '../services/referidos';
 import { useAuth } from '../AuthContext';
 import { cn } from '../lib/utils';
 import { ChipEstado } from '../components/ChipEstado';
@@ -49,6 +49,13 @@ interface Destinatario {
 }
 
 type MomentoBeneficio = 'proxima' | 'despues';
+
+const ESTADO_REFERIDO_LABEL: Record<EstadoReferido, { label: string; clase: string }> = {
+  pendiente: { label: 'Pendiente', clase: 'bg-gray-100 text-gray-600' },
+  premiado: { label: 'Premiado', clase: 'bg-green-100 text-green-700' },
+  sin_premio: { label: 'Sin premio', clase: 'bg-gray-50 text-gray-400' },
+  sospechoso: { label: 'En revisión', clase: 'bg-amber-100 text-amber-700' },
+};
 
 function FichaStatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -99,6 +106,7 @@ export function Clientes() {
   const [bienvenidaPendiente, setBienvenidaPendiente] = useState(false);
   const [momentoCredito, setMomentoCredito] = useState<MomentoBeneficio>('proxima');
   const [momentoBienvenida, setMomentoBienvenida] = useState<MomentoBeneficio>('proxima');
+  const [estadisticasReferente, setEstadisticasReferente] = useState<MiCodigoYEstadisticas | null>(null);
   
   const [clienteForm, setClienteForm] = useState({
     nombre: '',
@@ -375,11 +383,17 @@ export function Clientes() {
     const profileId = (selectedCliente as unknown as { userId?: string | null }).userId || null;
     setMomentoCredito('proxima');
     setMomentoBienvenida('proxima');
+    setEstadisticasReferente(null);
     setCargandoBeneficios(true);
-    Promise.all([getCreditoDisponible(profileId), esPrimerEnvioComoReferido(profileId)])
-      .then(([credito, bienvenida]) => {
+    Promise.all([
+      getCreditoDisponible(profileId),
+      esPrimerEnvioComoReferido(profileId),
+      profileId ? getMiCodigoYEstadisticas(profileId, selectedCliente.nombre) : Promise.resolve(null),
+    ])
+      .then(([credito, bienvenida, referente]) => {
         setCreditoDisponible(credito);
         setBienvenidaPendiente(bienvenida);
+        setEstadisticasReferente(referente);
       })
       .catch((err) => console.error('Error cargando beneficios Invita y Gana:', err))
       .finally(() => setCargandoBeneficios(false));
@@ -899,6 +913,48 @@ export function Clientes() {
                             <SelectorMomentoBeneficio name="momento-bienvenida" value={momentoBienvenida} onChange={setMomentoBienvenida} />
                           </div>
                         )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-6">
+                    <h4 className="text-xs font-black text-tp-blue/50 uppercase tracking-wider mb-1">Personas invitadas por este cliente</h4>
+                    {estadisticasReferente?.codigo && (
+                      <p className="text-xs text-tp-blue/40 mb-3">Código: <span className="font-mono font-bold">{estadisticasReferente.codigo}</span></p>
+                    )}
+                    {cargandoBeneficios ? (
+                      <p className="text-sm text-tp-blue/40 italic">Cargando…</p>
+                    ) : !estadisticasReferente || estadisticasReferente.referidos.length === 0 ? (
+                      <p className="text-sm text-tp-blue/40 italic">Aún no ha invitado a ningún cliente.</p>
+                    ) : (
+                      <div className="bg-white border border-tp-gray-soft rounded-xl overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-left text-[10px] font-black text-tp-blue/40 uppercase tracking-wider">
+                              <th className="px-4 py-2">Nombre del referido</th>
+                              <th className="px-4 py-2">Fecha</th>
+                              <th className="px-4 py-2">Estado</th>
+                              <th className="px-4 py-2">Premio ganado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {estadisticasReferente.referidos.map((r) => (
+                              <tr key={r.id} className="border-t border-tp-gray-soft">
+                                <td className="px-4 py-2 font-bold text-tp-blue">{r.referido_nombre}</td>
+                                <td className="px-4 py-2 text-tp-blue/60">{new Date(r.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                                <td className="px-4 py-2">
+                                  <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', ESTADO_REFERIDO_LABEL[r.estado].clase)}>
+                                    {r.estado === 'premiado' ? `Premiado +${Number(r.monto_premio || 0).toFixed(0)}€` : ESTADO_REFERIDO_LABEL[r.estado].label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-tp-blue/70">{r.estado === 'premiado' ? `${Number(r.monto_premio || 0).toFixed(2)} €` : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        <div className="px-4 py-3 bg-gray-50 border-t border-tp-gray-soft text-sm font-black text-tp-blue">
+                          💰 Total ganado como referente: {estadisticasReferente.referidos.reduce((acc, r) => acc + Number(r.monto_premio || 0), 0).toFixed(2)} €
+                        </div>
                       </div>
                     )}
                   </div>

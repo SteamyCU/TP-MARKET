@@ -846,3 +846,25 @@ cliente al solicitar un envío.
   modalidad elegida no se traslada automáticamente al paquete. Extender la
   modalidad a todo el flujo de Recepción/paquetes sería un cambio mayor, no
   solicitado aquí, y queda fuera de esta fase.
+
+### Fase 41 · Rol de referente en la ficha de cliente ("Personas Invitadas")
+
+El modal "Ver Paquetes y Seguimiento" en Gestión de Clientes (`src/pages/Clientes.tsx`)
+solo mostraba lo que el cliente puede USAR como referido (crédito disponible,
+beneficio de bienvenida pendiente). Faltaba su rol como referente: a quién ha
+invitado y cuánto ha ganado por ello.
+
+- Se reutiliza `getMiCodigoYEstadisticas` de `src/services/referidos.ts` (la
+  misma función que usa el cliente en su propia página "Invita y Gana"), en
+  el mismo `Promise.all` donde ya se cargaban `getCreditoDisponible` y
+  `esPrimerEnvioComoReferido`.
+- Nueva sección "Personas invitadas por este cliente": código propio del
+  cliente, tabla con nombre del referido / fecha / estado / premio ganado, y
+  el total acumulado ("💰 Total ganado como referente: X €"). Badges de
+  estado: Pendiente (gris), Premiado +X€ (verde), Sin premio (gris claro),
+  En revisión (ámbar, para los marcados como sospechosos).
+- Nota: como `getMiCodigoYEstadisticas` crea el código del cliente si aún no
+  existe (mismo comportamiento que al visitar "Invita y Gana"), abrir esta
+  ficha desde Gestión de Clientes también puede generar el código del
+  cliente si nunca lo había tenido — no es un efecto nuevo del programa, solo
+  se extiende a este punto de entrada adicional.
