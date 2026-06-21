@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Tag, Plus, ToggleLeft, ToggleRight, AlertCircle, X, Gift, Check, ShieldAlert, Trophy } from 'lucide-react';
+import { Tag, Plus, ToggleLeft, ToggleRight, AlertCircle, X, Gift, Check, ShieldAlert, Trophy, Pencil, Trash2 } from 'lucide-react';
 import {
   getCupones,
   crearCuponGeneral,
+  actualizarCupon,
+  eliminarCupon,
   toggleActivoCupon,
   type Cupon,
   type NuevoCuponGeneral,
+  type ActualizarCuponInput,
 } from '../services/cupones';
 import {
   getHistorialPremios,
@@ -206,6 +209,159 @@ function ModalCrearCupon({ onClose, onCreado }: { onClose: () => void; onCreado:
   );
 }
 
+function ModalEditarCupon({ cupon, onClose, onGuardado }: { cupon: Cupon; onClose: () => void; onGuardado: () => void }) {
+  const [form, setForm] = useState<ActualizarCuponInput>({
+    descuento_tipo: cupon.descuento_tipo,
+    descuento_valor: cupon.descuento_valor,
+    descripcion: cupon.descripcion || '',
+    fecha_inicio: cupon.fecha_inicio,
+    fecha_fin: cupon.fecha_fin,
+    usos_maximos: cupon.usos_maximos,
+  });
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const guardar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGuardando(true);
+    setError(null);
+    try {
+      await actualizarCupon(cupon.id, form);
+      onGuardado();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar el cupón');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between p-6 border-b border-tp-gray-soft">
+          <h2 className="text-lg font-bold text-tp-blue flex items-center gap-2">
+            <Pencil className="w-5 h-5 text-tp-red" />
+            Editar cupón
+          </h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <X className="w-5 h-5 text-tp-blue/50" />
+          </button>
+        </div>
+        <form onSubmit={guardar} className="p-6 space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-tp-red font-bold">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Código</label>
+            <input
+              type="text"
+              disabled
+              value={cupon.codigo}
+              title="El código no se puede modificar una vez creado"
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl font-mono font-black text-tp-blue/50 tracking-widest bg-gray-50 cursor-not-allowed"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Tipo de descuento</label>
+              <select
+                value={form.descuento_tipo}
+                onChange={(e) => setForm({ ...form, descuento_tipo: e.target.value as 'porcentaje' | 'fijo' })}
+                className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-bold focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+              >
+                <option value="porcentaje">Porcentaje (%)</option>
+                <option value="fijo">Fijo (€)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">
+                Valor {form.descuento_tipo === 'porcentaje' ? '(%)' : '(€)'}
+              </label>
+              <input
+                type="number"
+                required
+                min={0}
+                step={form.descuento_tipo === 'porcentaje' ? 1 : 0.01}
+                max={form.descuento_tipo === 'porcentaje' ? 100 : undefined}
+                value={form.descuento_valor}
+                onChange={(e) => setForm({ ...form, descuento_valor: parseFloat(e.target.value) || 0 })}
+                className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue font-bold focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Descripción (opcional)</label>
+            <input
+              type="text"
+              value={form.descripcion || ''}
+              onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+              placeholder="Ej: Campaña verano 2025"
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Válido desde</label>
+              <input
+                type="date"
+                value={form.fecha_inicio ? form.fecha_inicio.split('T')[0] : ''}
+                onChange={(e) => setForm({ ...form, fecha_inicio: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Válido hasta</label>
+              <input
+                type="date"
+                value={form.fecha_fin ? form.fecha_fin.split('T')[0] : ''}
+                onChange={(e) => setForm({ ...form, fecha_fin: e.target.value ? new Date(`${e.target.value}T23:59:59`).toISOString() : null })}
+                className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5">Usos máximos (vacío = ilimitado)</label>
+            <input
+              type="number"
+              min={1}
+              value={form.usos_maximos ?? ''}
+              onChange={(e) => setForm({ ...form, usos_maximos: e.target.value ? parseInt(e.target.value) : null })}
+              placeholder="Sin límite"
+              className="w-full px-4 py-3 border border-tp-gray-soft rounded-xl text-tp-blue focus:outline-none focus:ring-2 focus:ring-tp-blue/20"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 rounded-xl border border-tp-gray-soft text-tp-blue/60 font-bold hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={guardando}
+              className="flex-1 py-3 rounded-xl bg-tp-blue text-white font-bold hover:bg-[#004a78] transition-colors disabled:opacity-50"
+            >
+              {guardando ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function formatFechaCorta(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 }
@@ -381,6 +537,8 @@ export function Cupones() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [vista, setVista] = useState<'cupones' | 'invita'>('cupones');
   const [sospechososCount, setSospechososCount] = useState(0);
+  const [editando, setEditando] = useState<Cupon | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
 
   const cargar = async () => {
     setLoading(true);
@@ -410,6 +568,20 @@ export function Cupones() {
       console.error('Error cambiando estado del cupón:', err);
     } finally {
       setTogglingId(null);
+    }
+  };
+
+  const handleEliminar = async (cupon: Cupon) => {
+    if (!window.confirm(`¿Eliminar el cupón ${cupon.codigo}? Esta acción no se puede deshacer.`)) return;
+    setEliminandoId(cupon.id);
+    try {
+      await eliminarCupon(cupon.id);
+      setCupones((prev) => prev.filter((c) => c.id !== cupon.id));
+    } catch (err) {
+      console.error('Error eliminando cupón:', err);
+      alert(err instanceof Error ? err.message : 'Error al eliminar el cupón');
+    } finally {
+      setEliminandoId(null);
     }
   };
 
@@ -561,19 +733,40 @@ export function Cupones() {
                       <EstadoBadge estado={estado} />
                     </td>
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleToggle(c)}
-                        disabled={togglingId === c.id || estado === 'vencido' || estado === 'agotado'}
-                        title={c.activo ? 'Desactivar' : 'Activar'}
-                        className={cn(
-                          'p-2 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
-                          c.activo ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-50',
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleToggle(c)}
+                          disabled={togglingId === c.id || estado === 'vencido' || estado === 'agotado'}
+                          title={c.activo ? 'Desactivar' : 'Activar'}
+                          className={cn(
+                            'p-2 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+                            c.activo ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-50',
+                          )}
+                        >
+                          {c.activo
+                            ? <ToggleRight className="w-6 h-6" />
+                            : <ToggleLeft className="w-6 h-6" />}
+                        </button>
+                        {c.tipo === 'general' && (
+                          <>
+                            <button
+                              onClick={() => setEditando(c)}
+                              title="Editar"
+                              className="p-2 rounded-xl text-tp-blue/60 hover:bg-tp-blue-light/50 hover:text-tp-blue transition-colors"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEliminar(c)}
+                              disabled={c.usos_actuales > 0 || eliminandoId === c.id}
+                              title={c.usos_actuales > 0 ? 'No se puede eliminar un cupón ya utilizado' : 'Eliminar'}
+                              className="p-2 rounded-xl text-tp-red hover:bg-red-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
-                      >
-                        {c.activo
-                          ? <ToggleRight className="w-6 h-6" />
-                          : <ToggleLeft className="w-6 h-6" />}
-                      </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -601,6 +794,10 @@ export function Cupones() {
 
       {mostrarModal && (
         <ModalCrearCupon onClose={() => setMostrarModal(false)} onCreado={cargar} />
+      )}
+
+      {editando && (
+        <ModalEditarCupon cupon={editando} onClose={() => setEditando(null)} onGuardado={cargar} />
       )}
     </div>
   );

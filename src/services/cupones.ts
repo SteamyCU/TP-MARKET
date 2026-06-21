@@ -120,6 +120,26 @@ export async function toggleActivoCupon(id: string, activo: boolean): Promise<vo
 }
 
 /**
+ * Borra físicamente un cupón. No existe ninguna FK hacia cupones.id en el
+ * esquema (referidos_clientes.codigo_usado guarda el código como texto, no
+ * una referencia), así que un delete físico no rompe históricos por sí solo.
+ * Por eso aquí se protege a nivel de aplicación: solo se borra si
+ * usos_actuales sigue en 0 (condición atómica en el propio delete), para no
+ * perder el rastro de un cupón que ya fue usado.
+ */
+export async function eliminarCupon(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('cupones')
+    .delete()
+    .eq('id', id)
+    .eq('usos_actuales', 0)
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('No se puede eliminar un cupón ya utilizado');
+}
+
+/**
  * Busca un cupón activo y válido por código. Solo valida, no incrementa usos.
  * Devuelve null si no existe, está inactivo, vencido o agotado.
  */

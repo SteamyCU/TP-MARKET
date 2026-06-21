@@ -772,3 +772,24 @@ en `src/App.tsx`) no incluía varios países europeos con presencia activa de la
 diáspora cubana, en particular Dinamarca. Se añaden: Dinamarca (+45), Suecia
 (+46), Noruega (+47), Finlandia (+358), Irlanda (+353) y Austria (+43),
 manteniendo España (+34) como primera opción por ser el mercado principal.
+
+### Fase 38 · Mejora: editar y eliminar cupones generales
+
+El panel "Cupones y Códigos" solo permitía activar/desactivar un cupón
+general; faltaban editar y eliminar.
+
+- **Servicio** `src/services/cupones.ts`: nueva función `eliminarCupon(id)`.
+  No hay ninguna FK hacia `cupones.id` en el esquema (los referidos guardan
+  el código como texto, no una referencia), así que el borrado es físico,
+  pero protegido a nivel de aplicación con una condición atómica
+  (`usos_actuales = 0` en el propio delete) para no poder borrar un cupón
+  que ya fue usado y así proteger el histórico.
+- **UI** `src/pages/Cupones.tsx`: en la columna "Acciones" de la tabla, junto
+  al toggle existente, se añaden (solo para cupones `tipo='general'`, los de
+  influencer/cliente referido son autogenerados):
+  - ✏️ **Editar**: modal con los mismos campos que "Nuevo cupón" (código en
+    solo lectura, descuento, descripción, vigencia, usos máximos), llama a
+    `actualizarCupon`.
+  - 🗑️ **Eliminar**: confirmación, llama a `eliminarCupon`. El botón se
+    deshabilita (con tooltip explicativo) si el cupón ya tiene usos
+    registrados.
