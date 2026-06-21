@@ -13,6 +13,7 @@ const FORM_INICIAL = {
   destinatarioId: '',
   contenido: '',
   tipoEnvio: 'Miscelánea',
+  modalidad: 'regular' as 'regular' | 'express',
   pesoEstimado: '',
   observaciones: '',
 };
@@ -86,6 +87,7 @@ export function MisSolicitudes() {
         destinatarioProvincia: destinatario.provincia || '',
         contenido: form.contenido.trim(),
         tipoEnvio: form.tipoEnvio,
+        modalidad: form.modalidad,
         pesoEstimado: form.pesoEstimado ? parseFloat(form.pesoEstimado) : null,
         observaciones: form.observaciones.trim(),
       });
@@ -157,6 +159,7 @@ export function MisSolicitudes() {
                   <p className="font-bold text-tp-blue">{s.contenido}</p>
                   <p className="text-xs text-tp-blue/50 mt-0.5">
                     {s.createdAt?.toDate ? s.createdAt.toDate().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : ''} · {s.tipoEnvio}
+                    {' · '}{s.modalidad === 'express' ? 'Express (Aéreo)' : 'Regular (Marítimo)'}
                     {s.pesoEstimado ? ` · ~${s.pesoEstimado} kg` : ''}
                   </p>
                 </div>
@@ -257,17 +260,28 @@ export function MisSolicitudes() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Peso Estimado (kg)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    value={form.pesoEstimado}
-                    onChange={e => setForm({ ...form, pesoEstimado: e.target.value })}
-                    placeholder="Aproximado, lo confirmaremos en oficina"
-                    className={inputClass}
-                  />
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Modalidad de Envío</label>
+                  <select
+                    value={form.modalidad}
+                    onChange={e => setForm({ ...form, modalidad: e.target.value as 'regular' | 'express' })}
+                    className={cn(inputClass, "bg-white")}
+                  >
+                    <option value="regular">Regular (Marítimo)</option>
+                    <option value="express">Express (Aéreo)</option>
+                  </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Peso Estimado (kg)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={form.pesoEstimado}
+                  onChange={e => setForm({ ...form, pesoEstimado: e.target.value })}
+                  placeholder="Aproximado, lo confirmaremos en oficina"
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-tp-blue/50 uppercase mb-1.5">Observaciones</label>

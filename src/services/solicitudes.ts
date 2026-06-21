@@ -38,6 +38,7 @@ export interface NuevaSolicitudInput {
   destinatarioProvincia: string;
   contenido: string;
   tipoEnvio: string;
+  modalidad: 'regular' | 'express';
   pesoEstimado: number | null;
   observaciones: string;
 }
@@ -54,6 +55,7 @@ interface SolicitudRow {
   destinatario_provincia: string | null;
   contenido: string | null;
   tipo_envio: string | null;
+  modalidad: string;
   peso_estimado: number | null;
   observaciones: string | null;
   estado: string;
@@ -76,6 +78,7 @@ export type FlatSolicitud = {
   destinatarioProvincia?: string;
   contenido: string;
   tipoEnvio: string;
+  modalidad: 'regular' | 'express';
   pesoEstimado?: number | null;
   observaciones?: string;
   estado: string;
@@ -108,6 +111,7 @@ function rowToSolicitud(row: SolicitudRow): FlatSolicitud {
     destinatarioProvincia: row.destinatario_provincia || '',
     contenido: row.contenido || '',
     tipoEnvio: row.tipo_envio || '',
+    modalidad: row.modalidad === 'express' ? 'express' : 'regular',
     pesoEstimado: row.peso_estimado,
     observaciones: row.observaciones || '',
     estado: row.estado,
@@ -164,6 +168,7 @@ export async function crearSolicitud(input: NuevaSolicitudInput): Promise<string
     destinatario_provincia: input.destinatarioProvincia,
     contenido: input.contenido,
     tipo_envio: input.tipoEnvio,
+    modalidad: input.modalidad,
     peso_estimado: input.pesoEstimado,
     observaciones: input.observaciones,
     estado: 'Nueva',

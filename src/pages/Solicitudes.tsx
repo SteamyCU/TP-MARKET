@@ -83,6 +83,7 @@ export function Solicitudes() {
     )},
     { key: 'destinatarioNombre', label: 'Destinatario', sortable: true, valor: (s) => s.destinatarioNombre || '' },
     { key: 'contenido', label: 'Contenido', valor: (s) => s.contenido || '' },
+    { key: 'modalidad', label: 'Modalidad', sortable: true, valor: (s) => s.modalidad || 'regular', render: (s) => <span>{s.modalidad === 'express' ? 'Express' : 'Regular'}</span> },
     { key: 'pesoEstimado', label: 'Peso Est.', sortable: true, valor: (s) => s.pesoEstimado || 0, render: (s) => <span>{s.pesoEstimado ? `${s.pesoEstimado} kg` : '—'}</span> },
     { key: 'estado', label: 'Estado', sortable: true, render: (s) => <ChipEstado estado={s.estado} /> },
   ];
@@ -139,6 +140,7 @@ export function Solicitudes() {
           Provincia: s.destinatarioProvincia || '',
           Contenido: s.contenido || '',
           'Tipo de Envío': s.tipoEnvio || '',
+          Modalidad: s.modalidad === 'express' ? 'Express (Aéreo)' : 'Regular (Marítimo)',
           'Peso Estimado': s.pesoEstimado || '',
           Estado: s.estado,
           Tracking: s.tracking || '',
@@ -175,6 +177,7 @@ export function Solicitudes() {
                 <div>
                   <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Envío</p>
                   <p className="font-bold text-tp-blue">{seleccionada.tipoEnvio}</p>
+                  <p className="text-xs text-tp-blue/60">{seleccionada.modalidad === 'express' ? 'Express (Aéreo)' : 'Regular (Marítimo)'}</p>
                   <p className="text-xs text-tp-blue/60">{seleccionada.pesoEstimado ? `~${seleccionada.pesoEstimado} kg` : 'Peso sin estimar'}</p>
                 </div>
                 <div className="col-span-2">

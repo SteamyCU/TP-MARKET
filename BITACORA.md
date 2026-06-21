@@ -815,3 +815,34 @@ cambiar de pantalla.
   selector informativo "¿Cuándo se usará este beneficio?" (próxima visita /
   más adelante) — es solo de planificación para el admin; no aplica ni
   consume nada, eso sigue ocurriendo exclusivamente en Recepción (Fase 31).
+
+### Fase 40 · Modalidad de envío (Regular/Express) en "Nueva Solicitud"
+
+La tarjeta "Nueva Solicitud de Envío" del portal cliente
+(`src/pages/MisSolicitudes.tsx`) solo dejaba elegir la categoría del
+contenido ("Tipo de Envío": Ropa, Medicinas...), pero no la modalidad de
+envío en sí — Regular (Marítimo) vs Express (Aéreo) — un concepto que ya
+existe en tarifas (`tarifas_envio.modalidad`), en la calculadora pública
+(Landing/Calculadora) y en Ofertas y Salidas, pero que nunca se pedía al
+cliente al solicitar un envío.
+
+- **Migración** `0028_solicitudes_modalidad.sql`: añade `modalidad text not
+  null default 'regular' check (modalidad in ('regular', 'express'))` a
+  `solicitudes`, con `'regular'` como valor por defecto para no afectar
+  filas existentes.
+- **`src/services/solicitudes.ts`**: `NuevaSolicitudInput`, `SolicitudRow` y
+  `FlatSolicitud` incluyen `modalidad`; `crearSolicitud` lo persiste y
+  `rowToSolicitud` lo mapea.
+- **`src/pages/MisSolicitudes.tsx`**: nuevo selector "Modalidad de Envío"
+  (Regular (Marítimo) / Express (Aéreo)) en el formulario de nueva
+  solicitud, junto al de "Tipo de Envío"; se muestra también en las
+  tarjetas de la lista de solicitudes del cliente.
+- **`src/pages/Solicitudes.tsx`** (panel interno): se añade la columna
+  "Modalidad" a la tabla, se muestra en la tarjeta "Envío" del modal de
+  revisión y se incluye en la exportación.
+- **Alcance:** este cambio cubre `solicitudes` (la solicitud del cliente),
+  no `paquetes` — ni `Recepcion.tsx` ni la tabla `paquetes` modelan hoy la
+  modalidad de envío, así que al convertir una solicitud en paquete la
+  modalidad elegida no se traslada automáticamente al paquete. Extender la
+  modalidad a todo el flujo de Recepción/paquetes sería un cambio mayor, no
+  solicitado aquí, y queda fuera de esta fase.

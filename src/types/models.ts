@@ -147,6 +147,7 @@ export interface Solicitud {
   destinatarioProvincia?: string;
   contenido: string;
   tipoEnvio: string;
+  modalidad?: 'regular' | 'express';
   pesoEstimado?: number | null;
   observaciones?: string;
   estado: string;
