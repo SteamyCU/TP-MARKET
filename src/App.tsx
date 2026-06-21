@@ -1129,6 +1129,7 @@ function ResetPassword() {
 }
 
 import { PublicLayout } from './components/PublicLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const lazyPage = <T extends Record<string, React.ComponentType<any>>>(
   importFn: () => Promise<T>,
@@ -1193,6 +1194,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
+        <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<PublicLayout><Landing /></PublicLayout>} />
@@ -1248,6 +1250,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
         </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

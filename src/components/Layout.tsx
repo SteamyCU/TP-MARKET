@@ -1,14 +1,16 @@
 import React, { useState, useEffect, Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { cargarConfigNegocio } from '../services/paquetes';
 import { SoporteWidget } from './SoporteWidget';
+import { ErrorBoundary } from './ErrorBoundary';
 
 const Chatbot = React.lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const location = useLocation();
 
   // Carga la configuración del negocio una vez (datos de empresa para
   // documentos, tarifas, catálogos logísticos...)
@@ -31,7 +33,9 @@ export function Layout() {
       <div className="flex-1 flex flex-col min-h-screen w-full lg:pl-[280px]">
         <Topbar onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
         <main className="flex-1 p-4 md:p-8 relative">
-          <Outlet />
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
       <Suspense fallback={null}>

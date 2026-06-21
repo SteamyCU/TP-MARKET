@@ -1,9 +1,10 @@
 import React, { Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Facebook, Instagram, Mail, Phone, MapPin, Globe, ChevronDown, Headphones
 } from 'lucide-react';
 import { SoporteWidget, abrirSoporte } from './SoporteWidget';
+import { ErrorBoundary } from './ErrorBoundary';
 
 const Chatbot = React.lazy(() => import('./Chatbot').then((m) => ({ default: m.Chatbot })));
 
@@ -27,6 +28,7 @@ interface PublicLayoutProps {
 
 export function PublicLayout({ children }: PublicLayoutProps) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans selection:bg-tp-red/20 selection:text-tp-red">
@@ -99,7 +101,9 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       </nav>
 
       <main>
-        {children}
+        <ErrorBoundary key={location.pathname}>
+          {children}
+        </ErrorBoundary>
       </main>
 
       <Suspense fallback={null}>

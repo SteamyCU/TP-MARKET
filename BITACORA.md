@@ -953,3 +953,58 @@ fallaba en silencio (`if (!clienteId) return;`, sin aviso alguno).
 - En `src/pages/MisDestinatarios.tsx` el botón "Nuevo Destinatario" se
   deshabilita (con el texto "Cargando...") mientras `clienteId` sigue
   siendo `null`, para evitar que el modal se abra antes de tiempo.
+
+### Fase 44 · ErrorBoundary global y por ruta + optimización de bundle
+
+El proyecto no tenía ningún Error Boundary: un error de render en
+cualquier página desmontaba todo el árbol de React y dejaba la pantalla
+en blanco, sin mensaje ni forma de recuperarse. Coincidía con reportes de
+clientes de páginas que "se quedan en blanco" al navegar.
+
+- **`src/components/ErrorBoundary.tsx`** (nuevo): class component con
+  `getDerivedStateFromError` + `componentDidCatch` (loguea el error
+  completo en consola para diagnóstico vía DevTools). En lugar de pantalla
+  en blanco muestra una tarjeta con icono de advertencia, "Algo salió
+  mal", un botón "🔄 Recargar página" (`window.location.reload()`) y un
+  enlace "Volver al inicio" (`<a href="/">`, navegación completa del
+  navegador en vez de `react-router`, para no depender de que el propio
+  Router siga utilizable tras el error).
+- Implementado en tres niveles para que un error en una página no tumbe
+  toda la app y la navegación siga visible:
+  - Uno global en `src/App.tsx`, envolviendo todo el árbol de
+    `<Suspense><Routes>`.
+  - Uno anidado en `src/components/Layout.tsx` alrededor del `<Outlet/>`
+    del dashboard, con `key={location.pathname}` para que el boundary se
+    reinicie solo al cambiar de ruta (Sidebar/Topbar siguen montados).
+  - Uno anidado en `src/components/PublicLayout.tsx` alrededor de
+    `{children}`, mismo mecanismo de `key`, manteniendo navbar/footer del
+    sitio público visibles.
+
+**Optimización de bundle:** el build avisaba de chunks >500 kB. La
+investigación (build + grep sobre `dist/assets/*.js`) descartó la
+hipótesis inicial de que páginas como `Recepcion.tsx` u
+`OfertasSalidas.tsx` fueran las culpables — ya estaban correctamente
+code-spliteadas (40-60 kB cada una). Los chunks pesados reales eran:
+`index.js` (582 kB, vendor + código no-lazy de `App.tsx`), `excel.js`
+(xlsx, 425 kB) y `gastos.js` (recharts, 378 kB) — estos dos últimos ya
+cargaban solo cuando se visita la página que los usa. El único
+desperdicio real era el chatbot: `<Chatbot />` se renderiza sin
+condición en `Layout.tsx` y `PublicLayout.tsx`, y `React.lazy()`
+dispara su `import()` en cuanto el componente se renderiza (aunque esté
+dentro de `<Suspense fallback={null}>`), no cuando el usuario interactúa
+— así que sus ~405 kB (`@google/genai` + `react-markdown`) se descargaban
+en cada visita de página, la abriera el usuario o no.
+
+- Se separó `Chatbot.tsx` en dos piezas: el wrapper ligero
+  `Chatbot.tsx` (botón flotante + estado `hasOpened`/`isOpen`, ~1 kB) y el
+  nuevo `src/components/ChatbotPanel.tsx` con toda la lógica pesada
+  (mensajes, Markdown, llamada a Gemini). `ChatbotPanel` solo se importa
+  con `React.lazy()` la primera vez que el usuario pulsa el botón
+  (`hasOpened`), así su chunk de ~405 kB deja de descargarse en cada
+  carga de página.
+- Se añadió `build.rollupOptions.output.manualChunks` en
+  `vite.config.ts` para separar vendor code (`react`/`react-dom`,
+  `react-router-dom`, `@supabase/supabase-js`, `lucide-react`) en chunks
+  propios, mejorando el cacheo del navegador entre despliegues.
+- Resultado: el chunk `index.js` bajó de 582 kB a ~126 kB; ya no aparece
+  ningún chunk por encima de 500 kB y el aviso de build desaparece.
