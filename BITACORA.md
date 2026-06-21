@@ -900,3 +900,56 @@ Se rediseña **solo la variante de cliente** (los roles partner / influencer
 - Se mantienen sin cambios la lógica de `splitTelefono`, el guardado del
   teléfono como `prefijo+numero`, y todas las validaciones (DNI, teléfono,
   dirección, país) con sus mensajes.
+
+### Fase 43 · Bug móvil: botón "Crear" inalcanzable en modales largos + condición de carrera de clienteId
+
+Una clienta reportó que el botón del formulario "Nuevo Destinatario" "no
+funciona" en móvil, mientras en escritorio funciona bien. No era un bug de
+lógica: era de alcance/visibilidad. La estructura de esos modales (overlay
+`overflow-y-auto` + tarjeta interna `overflow-hidden` sin altura máxima ni
+`flex-col`) deja el botón de acción al final de un formulario largo, lo que
+en móvil con el teclado táctil abierto (que reduce drásticamente el
+viewport visible) puede dejarlo fuera de alcance.
+
+- **Patrón sticky header/footer:** se aplica de forma consistente a todos
+  los modales de formulario largo encontrados con esta misma estructura:
+  el overlay exterior pierde su scroll propio, la tarjeta interna pasa a
+  `max-h-[90vh] flex flex-col overflow-hidden`, el header se marca
+  `shrink-0`, el `<form>` (con un `id` único) pasa a `overflow-y-auto
+  flex-1` y los botones de acción se mueven a un footer `shrink-0` fuera
+  del `<form>`, conectado con el atributo `form="<id>"` del botón de
+  envío. Así el header y los botones Cancelar/Guardar quedan siempre
+  visibles y alcanzables, sin importar cuántos campos tenga el formulario
+  ni el tamaño de pantalla — solo el contenido central hace scroll.
+- Archivos corregidos con este patrón:
+  - `src/components/DestinatarioFormModal.tsx` (el reportado por la
+    clienta).
+  - `src/pages/MisDestinatarios.tsx`, que tiene su **propio** modal
+    duplicado de creación/edición de destinatario (no reutiliza
+    `DestinatarioFormModal`) con el mismo problema estructural.
+  - `src/components/ClienteFormModal.tsx`, usado por `Recepcion.tsx` para
+    crear cliente/remitente durante la recepción de un paquete.
+  - `src/pages/Clientes.tsx`: su modal "Nuevo Cliente / Modificar Cliente"
+    (que tiene su propio formulario duplicado, no reutiliza
+    `ClienteFormModal`) y su modal "Nuevo Destinatario" (idem, duplicado
+    de `DestinatarioFormModal`).
+- Revisado también el modal "Validación de Documentos" de
+  `Recepcion.tsx`: no tiene este problema porque es corto y ya gestiona su
+  propio scroll interno acotado para la lista de archivos. El modal "Ver
+  Paquetes y Seguimiento" de `Clientes.tsx` es informativo (sin botón de
+  guardado bloqueado por el teclado) y se deja fuera de esta fase.
+
+**Condición de carrera de `clienteId`:** en el portal del cliente,
+`clienteId` se obtiene de forma asíncrona (`getClienteByEmail` /
+`createCliente`) y empieza en `null`. Si el cliente abría el modal o
+enviaba el formulario antes de que esa consulta terminara, el envío
+fallaba en silencio (`if (!clienteId) return;`, sin aviso alguno).
+
+- En `DestinatarioFormModal.tsx` y en el modal propio de
+  `MisDestinatarios.tsx`, ese fallo silencioso ahora muestra un error
+  explícito: "No se pudo identificar tu cuenta. Cierra esta ventana,
+  recarga la página e inténtalo de nuevo. Si el problema persiste,
+  contacta con soporte."
+- En `src/pages/MisDestinatarios.tsx` el botón "Nuevo Destinatario" se
+  deshabilita (con el texto "Cargando...") mientras `clienteId` sigue
+  siendo `null`, para evitar que el modal se abra antes de tiempo.
