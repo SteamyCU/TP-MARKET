@@ -876,3 +876,27 @@ invitado y cuánto ha ganado por ello.
   ficha desde Gestión de Clientes también puede generar el código del
   cliente si nunca lo había tenido — no es un efecto nuevo del programa, solo
   se extiende a este punto de entrada adicional.
+
+### Fase 42 · Rediseño del formulario de registro del cliente (país y teléfono)
+
+La tarjeta "Completa tu Perfil" (`ProfileCompletion` en `src/App.tsx`)
+metía el DNI y el teléfono en una rejilla de 2 columnas, lo que dejaba al
+cliente con un selector de prefijo telefónico muy estrecho (`px-2`,
+`text-sm`) y el país suelto más abajo, sin relación visual con el teléfono.
+Se rediseña **solo la variante de cliente** (los roles partner / influencer
+/ agente conservan su layout anterior intacto):
+
+- DNI pasa a fila completa, con más aire (`py-3`, icono mejor alineado).
+- Nuevo bloque agrupado "Ubicación y Contacto" (fondo `tp-blue-light/20`,
+  borde suave) que reúne país y teléfono, que es justo lo que el cliente
+  rellena junto.
+- **País de Residencia:** selector a ancho completo, con la bandera del país
+  seleccionado como icono a la izquierda (mapa `PAIS_FLAG`), banderas en cada
+  opción y chevron propio (`appearance-none`).
+- **Teléfono:** el selector de prefijo ahora tiene ancho cómodo
+  (`w-[6.5rem]`) con bandera + código y chevron, y el campo de número ocupa
+  todo el resto con su icono. Se añade un texto de ayuda ("Elige el prefijo
+  de tu país y escribe tu número sin el prefijo").
+- Se mantienen sin cambios la lógica de `splitTelefono`, el guardado del
+  teléfono como `prefijo+numero`, y todas las validaciones (DNI, teléfono,
+  dirección, país) con sus mensajes.

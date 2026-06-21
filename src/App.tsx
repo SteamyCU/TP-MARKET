@@ -10,7 +10,7 @@ import { abrirSoporte } from './components/SoporteWidget';
 import { auth, loginWithGoogle, logout, registerWithEmail, loginWithEmail, resetPasswordForEmail, updatePassword } from './supabase';
 import { cn } from './lib/utils';
 import { PAISES_RESIDENCIA } from './constants/estados';
-import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, CheckCircle2, User as UserIcon, Phone, MapPin, Building2, CreditCard, LogOut, ArrowLeft, ChevronRight, ChevronDown, Globe, Eye, EyeOff } from 'lucide-react';
 
 const PREFIJOS_TELEFONO = [
   { code: '+34', flag: '🇪🇸', label: 'España' },
@@ -30,6 +30,24 @@ const PREFIJOS_TELEFONO = [
   { code: '+43', flag: '🇦🇹', label: 'Austria' },
   { code: '+1', flag: '🇺🇸', label: 'EE.UU. / Canadá' },
 ];
+
+// Banderas por país de residencia (para el selector de país del registro).
+// Si un país no está en el mapa se usa un icono genérico.
+const PAIS_FLAG: Record<string, string> = {
+  'España': '🇪🇸',
+  'Francia': '🇫🇷',
+  'Italia': '🇮🇹',
+  'Alemania': '🇩🇪',
+  'Portugal': '🇵🇹',
+  'Reino Unido': '🇬🇧',
+  'Suiza': '🇨🇭',
+  'Bélgica': '🇧🇪',
+  'Países Bajos': '🇳🇱',
+  'Estados Unidos': '🇺🇸',
+  'Canadá': '🇨🇦',
+  'México': '🇲🇽',
+  'Otro': '🌍',
+};
 
 // Separa un teléfono ya guardado (con prefijo) en { prefijo, numero } para
 // poder editarlo con el selector de país. Si no reconoce ningún prefijo,
@@ -292,101 +310,168 @@ function ProfileCompletion({ onComplete }: { onComplete: () => void }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">
-                {profile?.role === 'partner' ? 'CIF / NIF' : 'DNI / NIE / Pasaporte'}
-              </label>
-              <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                <input
-                  type="text"
-                  required
-                  placeholder={profile?.role === 'partner' ? 'B12345678' : '12345678X'}
-                  value={formData.dni}
-                  onChange={(e) => setFormData({...formData, dni: e.target.value})}
-                  onBlur={() => setTocado(t => ({ ...t, dni: true }))}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
-                />
-              </div>
-              {esCliente && tocado.dni && formData.dni && !dniValido && (
-                <p className="text-xs text-tp-red font-bold mt-1 ml-1">Introduce un DNI, NIE o pasaporte válido</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">Teléfono de Contacto</label>
-              <div className="relative flex gap-2">
-                {esCliente && (
-                  <select
-                    value={formData.telefonoPrefijo}
-                    onChange={(e) => setFormData({...formData, telefonoPrefijo: e.target.value})}
-                    className="px-2 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium text-sm"
-                  >
-                    {PREFIJOS_TELEFONO.map((p) => (
-                      <option key={p.code} value={p.code}>{p.flag} {p.code}</option>
-                    ))}
-                  </select>
-                )}
-                <div className="relative flex-1">
-                  {!esCliente && <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />}
+          {esCliente ? (
+            <>
+              {/* Documento de identidad */}
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">DNI / NIE / Pasaporte</label>
+                <div className="relative">
+                  <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
                   <input
-                    type="tel"
+                    type="text"
                     required
-                    placeholder={esCliente ? '600 000 000' : '+34 600 000 000'}
-                    value={formData.telefono}
-                    onChange={(e) => setFormData({...formData, telefono: e.target.value})}
-                    onBlur={() => setTocado(t => ({ ...t, telefono: true }))}
-                    className={cn(
-                      "w-full py-2.5 pr-4 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium",
-                      esCliente ? "pl-4" : "pl-10"
-                    )}
+                    placeholder="12345678X"
+                    value={formData.dni}
+                    onChange={(e) => setFormData({...formData, dni: e.target.value})}
+                    onBlur={() => setTocado(t => ({ ...t, dni: true }))}
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 focus:border-tp-blue/30 text-tp-blue font-medium transition-all"
                   />
                 </div>
+                {tocado.dni && formData.dni && !dniValido && (
+                  <p className="text-xs text-tp-red font-bold mt-1.5 ml-1">Introduce un DNI, NIE o pasaporte válido</p>
+                )}
               </div>
-              {esCliente && tocado.telefono && formData.telefono && !telefonoValido && (
-                <p className="text-xs text-tp-red font-bold mt-1 ml-1">El teléfono debe tener al menos 7 dígitos</p>
-              )}
-            </div>
-          </div>
 
-          {(profile?.role === 'cliente' || profile?.role === 'partner') && (
-            <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">
-                {formData.tipoColaborador === 'punto_pack' ? 'Dirección del Local' : 'Dirección Fiscal / Recogida'}
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Calle, Número, Ciudad..."
-                  value={formData.direccion}
-                  onChange={(e) => setFormData({...formData, direccion: e.target.value})}
-                  onBlur={() => setTocado(t => ({ ...t, direccion: true }))}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
-                />
+              {/* Ubicación y contacto: país + teléfono, agrupados con espacio */}
+              <div className="space-y-4 p-4 sm:p-5 bg-tp-blue-light/20 rounded-2xl border border-tp-blue/10">
+                <p className="text-[11px] font-black text-tp-blue/40 uppercase tracking-widest flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" /> Ubicación y Contacto
+                </p>
+
+                {/* País de Residencia */}
+                <div>
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">País de Residencia</label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-base leading-none pointer-events-none">
+                      {formData.pais ? (PAIS_FLAG[formData.pais] || '🌍') : <Globe className="w-4 h-4 text-tp-blue/30" />}
+                    </span>
+                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/40 pointer-events-none" />
+                    <select
+                      required
+                      value={formData.pais}
+                      onChange={(e) => setFormData({...formData, pais: e.target.value})}
+                      className="w-full appearance-none pl-11 pr-10 py-3 bg-white border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 focus:border-tp-blue/30 text-tp-blue font-semibold transition-all cursor-pointer"
+                    >
+                      <option value="">Selecciona tu país...</option>
+                      {PAISES_RESIDENCIA.map((p) => (
+                        <option key={p} value={p}>{PAIS_FLAG[p] || '🌍'} {p}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Teléfono de Contacto */}
+                <div>
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">Teléfono de Contacto</label>
+                  <div className="flex gap-2.5">
+                    <div className="relative shrink-0">
+                      <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/40 pointer-events-none" />
+                      <select
+                        value={formData.telefonoPrefijo}
+                        onChange={(e) => setFormData({...formData, telefonoPrefijo: e.target.value})}
+                        title={PREFIJOS_TELEFONO.find(p => p.code === formData.telefonoPrefijo)?.label}
+                        className="appearance-none w-[6.5rem] pl-3.5 pr-8 py-3 bg-white border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 focus:border-tp-blue/30 text-tp-blue font-bold transition-all cursor-pointer"
+                      >
+                        {PREFIJOS_TELEFONO.map((p) => (
+                          <option key={p.code} value={p.code}>{p.flag} {p.code}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
+                      <input
+                        type="tel"
+                        required
+                        placeholder="600 000 000"
+                        value={formData.telefono}
+                        onChange={(e) => setFormData({...formData, telefono: e.target.value})}
+                        onBlur={() => setTocado(t => ({ ...t, telefono: true }))}
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 focus:border-tp-blue/30 text-tp-blue font-medium transition-all"
+                      />
+                    </div>
+                  </div>
+                  {tocado.telefono && formData.telefono && !telefonoValido ? (
+                    <p className="text-xs text-tp-red font-bold mt-1.5 ml-1">El teléfono debe tener al menos 7 dígitos</p>
+                  ) : (
+                    <p className="text-[10px] text-tp-blue/40 mt-1.5 ml-1">Elige el prefijo de tu país y escribe tu número sin el prefijo.</p>
+                  )}
+                </div>
               </div>
-              {esCliente && tocado.direccion && formData.direccion && !direccionValida && (
-                <p className="text-xs text-tp-red font-bold mt-1 ml-1">Incluye el nombre de la calle y el número</p>
-              )}
-            </div>
-          )}
 
-          {esCliente && (
-            <div>
-              <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">País de Residencia</label>
-              <select
-                required
-                value={formData.pais}
-                onChange={(e) => setFormData({...formData, pais: e.target.value})}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
-              >
-                <option value="">Selecciona tu país...</option>
-                {PAISES_RESIDENCIA.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
+              {/* Dirección */}
+              <div>
+                <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">Dirección Fiscal / Recogida</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Calle, Número, Ciudad..."
+                    value={formData.direccion}
+                    onChange={(e) => setFormData({...formData, direccion: e.target.value})}
+                    onBlur={() => setTocado(t => ({ ...t, direccion: true }))}
+                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 focus:border-tp-blue/30 text-tp-blue font-medium transition-all"
+                  />
+                </div>
+                {tocado.direccion && formData.direccion && !direccionValida && (
+                  <p className="text-xs text-tp-red font-bold mt-1.5 ml-1">Incluye el nombre de la calle y el número</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">
+                    {profile?.role === 'partner' ? 'CIF / NIF' : 'DNI / NIE / Pasaporte'}
+                  </label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
+                    <input
+                      type="text"
+                      required
+                      placeholder={profile?.role === 'partner' ? 'B12345678' : '12345678X'}
+                      value={formData.dni}
+                      onChange={(e) => setFormData({...formData, dni: e.target.value})}
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">Teléfono de Contacto</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+34 600 000 000"
+                      value={formData.telefono}
+                      onChange={(e) => setFormData({...formData, telefono: e.target.value})}
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {profile?.role === 'partner' && (
+                <div>
+                  <label className="block text-xs font-bold text-tp-blue/50 uppercase tracking-wider mb-1.5 ml-1">
+                    {formData.tipoColaborador === 'punto_pack' ? 'Dirección del Local' : 'Dirección Fiscal / Recogida'}
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-tp-blue/30" />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Calle, Número, Ciudad..."
+                      value={formData.direccion}
+                      onChange={(e) => setFormData({...formData, direccion: e.target.value})}
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-tp-gray-soft rounded-xl focus:outline-none focus:ring-2 focus:ring-tp-blue/20 text-tp-blue font-medium"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {profile?.role === 'agente' && (
