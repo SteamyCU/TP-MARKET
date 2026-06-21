@@ -106,8 +106,8 @@ export function TarifaEnvioFormModal({ open, tarifa, onClose, onSaved }: TarifaE
               onChange={e => setForm({ ...form, modalidad: e.target.value as Modalidad })}
               className={cn(inputClass, "bg-white")}
             >
-              <option value="regular">Regular (Marítimo)</option>
-              <option value="express">Express (Aéreo)</option>
+              <option value="regular">Regular</option>
+              <option value="express">Express</option>
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">

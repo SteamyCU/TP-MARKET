@@ -159,7 +159,7 @@ export function MisSolicitudes() {
                   <p className="font-bold text-tp-blue">{s.contenido}</p>
                   <p className="text-xs text-tp-blue/50 mt-0.5">
                     {s.createdAt?.toDate ? s.createdAt.toDate().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : ''} · {s.tipoEnvio}
-                    {' · '}{s.modalidad === 'express' ? 'Express (Aéreo)' : 'Regular (Marítimo)'}
+                    {' · '}{s.modalidad === 'express' ? 'Express' : 'Regular'}
                     {s.pesoEstimado ? ` · ~${s.pesoEstimado} kg` : ''}
                   </p>
                 </div>
@@ -266,8 +266,8 @@ export function MisSolicitudes() {
                     onChange={e => setForm({ ...form, modalidad: e.target.value as 'regular' | 'express' })}
                     className={cn(inputClass, "bg-white")}
                   >
-                    <option value="regular">Regular (Marítimo)</option>
-                    <option value="express">Express (Aéreo)</option>
+                    <option value="regular">Regular</option>
+                    <option value="express">Express</option>
                   </select>
                 </div>
               </div>

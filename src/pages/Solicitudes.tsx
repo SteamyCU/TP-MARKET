@@ -140,7 +140,7 @@ export function Solicitudes() {
           Provincia: s.destinatarioProvincia || '',
           Contenido: s.contenido || '',
           'Tipo de Envío': s.tipoEnvio || '',
-          Modalidad: s.modalidad === 'express' ? 'Express (Aéreo)' : 'Regular (Marítimo)',
+          Modalidad: s.modalidad === 'express' ? 'Express' : 'Regular',
           'Peso Estimado': s.pesoEstimado || '',
           Estado: s.estado,
           Tracking: s.tracking || '',
@@ -177,7 +177,7 @@ export function Solicitudes() {
                 <div>
                   <p className="text-[10px] font-bold text-tp-blue/40 uppercase">Envío</p>
                   <p className="font-bold text-tp-blue">{seleccionada.tipoEnvio}</p>
-                  <p className="text-xs text-tp-blue/60">{seleccionada.modalidad === 'express' ? 'Express (Aéreo)' : 'Regular (Marítimo)'}</p>
+                  <p className="text-xs text-tp-blue/60">{seleccionada.modalidad === 'express' ? 'Express' : 'Regular'}</p>
                   <p className="text-xs text-tp-blue/60">{seleccionada.pesoEstimado ? `~${seleccionada.pesoEstimado} kg` : 'Peso sin estimar'}</p>
                 </div>
                 <div className="col-span-2">

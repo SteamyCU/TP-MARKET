@@ -821,10 +821,10 @@ cambiar de pantalla.
 La tarjeta "Nueva Solicitud de Envío" del portal cliente
 (`src/pages/MisSolicitudes.tsx`) solo dejaba elegir la categoría del
 contenido ("Tipo de Envío": Ropa, Medicinas...), pero no la modalidad de
-envío en sí — Regular (Marítimo) vs Express (Aéreo) — un concepto que ya
-existe en tarifas (`tarifas_envio.modalidad`), en la calculadora pública
-(Landing/Calculadora) y en Ofertas y Salidas, pero que nunca se pedía al
-cliente al solicitar un envío.
+envío en sí — Regular vs Express — un concepto que ya existe en tarifas
+(`tarifas_envio.modalidad`), en la calculadora pública (Landing/Calculadora)
+y en Ofertas y Salidas, pero que nunca se pedía al cliente al solicitar un
+envío.
 
 - **Migración** `0028_solicitudes_modalidad.sql`: añade `modalidad text not
   null default 'regular' check (modalidad in ('regular', 'express'))` a
@@ -834,9 +834,9 @@ cliente al solicitar un envío.
   `FlatSolicitud` incluyen `modalidad`; `crearSolicitud` lo persiste y
   `rowToSolicitud` lo mapea.
 - **`src/pages/MisSolicitudes.tsx`**: nuevo selector "Modalidad de Envío"
-  (Regular (Marítimo) / Express (Aéreo)) en el formulario de nueva
-  solicitud, junto al de "Tipo de Envío"; se muestra también en las
-  tarjetas de la lista de solicitudes del cliente.
+  (Regular / Express) en el formulario de nueva solicitud, junto al de
+  "Tipo de Envío"; se muestra también en las tarjetas de la lista de
+  solicitudes del cliente.
 - **`src/pages/Solicitudes.tsx`** (panel interno): se añade la columna
   "Modalidad" a la tabla, se muestra en la tarjeta "Envío" del modal de
   revisión y se incluye en la exportación.
@@ -846,6 +846,14 @@ cliente al solicitar un envío.
   modalidad elegida no se traslada automáticamente al paquete. Extender la
   modalidad a todo el flujo de Recepción/paquetes sería un cambio mayor, no
   solicitado aquí, y queda fuera de esta fase.
+- **Corrección posterior:** las etiquetas se mostraban inicialmente como
+  "Regular (Marítimo)" / "Express (Aéreo)", copiando la terminología de
+  `TarifaEnvioFormModal.tsx`. El negocio no ofrece envío marítimo por
+  ahora — ambas modalidades son aéreas y solo varía el tiempo de entrega —
+  así que se simplificó a simplemente "Regular" / "Express" en
+  `MisSolicitudes.tsx`, `Solicitudes.tsx` y también en
+  `TarifaEnvioFormModal.tsx` (que tenía la misma etiqueta incorrecta desde
+  antes de esta fase).
 
 ### Fase 41 · Rol de referente en la ficha de cliente ("Personas Invitadas")
 
