@@ -1008,3 +1008,30 @@ en cada visita de página, la abriera el usuario o no.
   propios, mejorando el cacheo del navegador entre despliegues.
 - Resultado: el chunk `index.js` bajó de 582 kB a ~126 kB; ya no aparece
   ningún chunk por encima de 500 kB y el aviso de build desaparece.
+
+### Fase 45 · Bug crítico: el buscador de Clientes rompía con DNI null
+
+En `src/pages/Clientes.tsx`, `filteredClientes` llamaba a
+`.toLowerCase()` directamente sobre `c.nombre`, `c.documentoIdentidad` y
+`c.email` sin protección. Hay clientes reales con DNI vacío (`null`) en
+producción, así que escribir cualquier carácter en el buscador lanzaba
+"Cannot read properties of null" y rompía el filtro — explicando tanto
+"el buscador no funciona" como, probablemente, parte de las pantallas en
+blanco reportadas antes de que esta página tuviera un ErrorBoundary
+(Fase 44).
+
+- Corregido con el patrón null-safe ya usado en `Recepcion.tsx`:
+  `(c.campo || '').toLowerCase()...` en los tres campos.
+- **Auditoría del mismo patrón en todo `src/`:** se revisaron todas las
+  llamadas a `.toLowerCase()`, `.toUpperCase()`, `.trim()` e `.includes()`
+  sobre campos de datos (no sobre estado local de formularios, que
+  siempre son `string`). El resto de buscadores ya estaban protegidos
+  correctamente (`Recepcion.tsx`, `Usuarios.tsx`, `AdminB2B.tsx`,
+  `RedAfiliados.tsx`, `Logistica.tsx`, `NuevoCobroModal.tsx`,
+  `PanelLotes.tsx`, `Incidencias.tsx`, y los `buscarEn` de `DataTable`
+  usados en `Solicitudes.tsx`, `Auditoria.tsx`, `MarketingClientes.tsx`,
+  donde la interpolación en template string no lanza error aunque el
+  campo sea `null`). `Solicitudes.tsx`, `SolicitudesAfiliados.tsx`,
+  `Cupones.tsx` y `AdminViajeros.tsx` no tienen buscador por texto sobre
+  campos potencialmente nulos, así que no aplicaba el bug. Único archivo
+  corregido: `src/pages/Clientes.tsx`.

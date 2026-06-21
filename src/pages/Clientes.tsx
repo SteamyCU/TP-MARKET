@@ -476,9 +476,9 @@ export function Clientes() {
   };
 
   const filteredClientes = clientes.filter(c =>
-    c.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.documentoIdentidad.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (c.nombre || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.documentoIdentidad || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleExportarClientes = () => {
