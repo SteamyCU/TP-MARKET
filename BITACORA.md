@@ -1035,3 +1035,21 @@ blanco reportadas antes de que esta página tuviera un ErrorBoundary
   `Cupones.tsx` y `AdminViajeros.tsx` no tienen buscador por texto sobre
   campos potencialmente nulos, así que no aplicaba el bug. Único archivo
   corregido: `src/pages/Clientes.tsx`.
+
+### Fase 46 · Favicon del proyecto
+
+Añadido favicon (logo TP en pestaña del navegador), Apple touch icon
+para iOS y web manifest para Android/PWA.
+
+- `index.html`: añadidas las etiquetas `<link rel="icon">` (.ico +
+  32x32/16x16 png), `<link rel="apple-touch-icon">` y
+  `<link rel="manifest">`, junto con `<meta name="theme-color"
+  content="#00314F">`.
+- `public/site.webmanifest` (nuevo): manifest con nombre "ToPaquete",
+  iconos 192x192/512x512, `theme_color` #00314F y `background_color`
+  blanco.
+- Los archivos de imagen (`favicon.ico`, `favicon-32x32.png`,
+  `favicon-16x16.png`, `apple-touch-icon.png`,
+  `android-chrome-192x192.png`, `android-chrome-512x512.png`) con el
+  logo TP (T azul #00314F / P roja #EE293B) se añaden manualmente a
+  `public/` fuera de este cambio de código.
