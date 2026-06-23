@@ -1053,3 +1053,40 @@ para iOS y web manifest para Android/PWA.
   `android-chrome-192x192.png`, `android-chrome-512x512.png`) con el
   logo TP (T azul #00314F / P roja #EE293B) se añaden manualmente a
   `public/` fuera de este cambio de código.
+
+### Fase 47 · Security Headers en Vercel + auditoría RLS
+
+- **`vercel.json`:** añadidos los Security Headers estándar para todas
+  las rutas (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`,
+  `Strict-Transport-Security`, `Content-Security-Policy`).
+  El `Content-Security-Policy` propuesto inicialmente se corrigió tras
+  auditar el código en busca de dominios externos reales: el chatbot
+  (`ChatbotPanel.tsx`) usa `@google/genai` desde el navegador y llama
+  directamente a `generativelanguage.googleapis.com` — sin añadirlo al
+  `connect-src` el chat se habría roto en producción. Se quitó
+  `https://api.resend.com` de `connect-src` porque Resend solo se llama
+  desde las Edge Functions (lado servidor), nunca desde el navegador, y
+  no es necesario en el CSP del cliente. Las imágenes de Unsplash y el
+  icono de Google (botón "Continuar con Google") ya quedan cubiertas por
+  `img-src ... https:`.
+- **Auditoría RLS:** sin acceso al proyecto Supabase de producción desde
+  esta sesión (el MCP de Supabase configurado apunta a otros proyectos),
+  se hizo una auditoría estática de las 28 migraciones en
+  `supabase/migrations/`: se extrajeron las 29 tablas creadas
+  (`create table`) y se confirmó que las 29 tienen su correspondiente
+  `alter table ... enable row level security`, todas con políticas
+  explícitas (no solo "activado sin políticas"). Se revisaron también
+  las políticas `using (true)` encontradas: todas corresponden a datos
+  intencionalmente públicos (tarifas, noticias, validación de cupón) o a
+  un `insert` público acotado con `select`/`update` restringido a admin
+  (`contactos_partners`). No se encontraron tablas sin RLS ni políticas
+  excesivamente permisivas — no fue necesaria la migración
+  `0029_rls_audit.sql`. Se recomienda re-ejecutar la consulta `SELECT *
+  FROM pg_tables WHERE schemaname='public' AND rowsecurity=false;`
+  directamente en el SQL Editor del proyecto real para una confirmación
+  en vivo, ya que el análisis estático no detecta cambios hechos a mano
+  en el Dashboard que no estén reflejados en las migraciones.
+- **`docs/SECURITY.md`** (nuevo): guía de seguridad reutilizable para
+  futuros proyectos Supabase + Vercel — RLS, CORS, Security Headers,
+  variables de entorno, Edge Functions y checklist pre-lanzamiento.
